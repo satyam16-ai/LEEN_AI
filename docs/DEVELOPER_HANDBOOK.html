@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Handbook — AI Personal Teacher System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #f8fafc;
+      --bg-card: #ffffff;
+      --border-color: #e2e8f0;
+      --text-main: #334155;
+      --text-muted: #64748b;
+      --primary: #4f46e5;
+      --primary-dark: #3730a3;
+      --primary-glow: rgba(79, 70, 229, 0.06);
+      --secondary: #059669;
+      --secondary-glow: rgba(5, 150, 105, 0.06);
+      --warning: #d97706;
+      --warning-glow: rgba(217, 119, 6, 0.06);
+      --danger: #dc2626;
+      --danger-glow: rgba(220, 38, 38, 0.06);
+      --code-bg: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.7;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Navigation */
+    aside {
+      width: 320px;
+      background: #ffffff;
+      border-right: 1px solid var(--border-color);
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      padding: 2.5rem 1.75rem;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .logo-icon {
+      font-size: 1.75rem;
+    }
+
+    .logo-text {
+      font-size: 1.25rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #0f172a 0%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-group {
+      margin-bottom: 2.25rem;
+    }
+
+    .nav-title {
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--primary);
+      margin-bottom: 0.85rem;
+      padding-left: 0.5rem;
+    }
+
+    .nav-list {
+      list-style: none;
+    }
+
+    .nav-item {
+      margin-bottom: 0.25rem;
+    }
+
+    .nav-item a {
+      display: block;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.6rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .nav-item a:hover {
+      color: var(--primary);
+      background: rgba(79, 70, 229, 0.04);
+      padding-left: 1rem;
+    }
+
+    .nav-item.active a {
+      color: var(--primary);
+      background: var(--primary-glow);
+      border-left: 3px solid var(--primary);
+      padding-left: 1rem;
+    }
+
+    /* Main Content */
+    main {
+      margin-left: 320px;
+      padding: 5rem 6rem;
+      width: calc(100% - 320px);
+      max-width: 1300px;
+    }
+
+    header {
+      margin-bottom: 5rem;
+      position: relative;
+    }
+
+    header::after {
+      content: '';
+      position: absolute;
+      width: 250px;
+      height: 250px;
+      background: var(--primary);
+      filter: blur(150px);
+      top: -100px;
+      left: -100px;
+      opacity: 0.05;
+      pointer-events: none;
+    }
+
+    h1 {
+      font-size: 3.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.25rem;
+      background: linear-gradient(to right, #0f172a, #334155);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 1.35rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    /* Sections */
+    section {
+      margin-bottom: 6rem;
+      scroll-margin-top: 5rem;
+    }
+
+    h2 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-top: 2.5rem;
+      margin-bottom: 1.25rem;
+      color: #1e293b;
+      letter-spacing: -0.01em;
+    }
+
+    h4 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+      color: #1e293b;
+    }
+
+    p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      font-size: 1.05rem;
+    }
+
+    strong {
+      color: #0f172a;
+    }
+
+    /* Alert Boxes */
+    .alert {
+      padding: 1.5rem 1.75rem;
+      border-radius: 8px;
+      margin: 2rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .alert-info {
+      background: rgba(79, 70, 229, 0.04);
+      border: 1px solid rgba(79, 70, 229, 0.15);
+      color: #334155;
+    }
+
+    .alert-info strong {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .alert-success {
+      background: rgba(16, 185, 129, 0.04);
+      border: 1px solid rgba(16, 185, 129, 0.15);
+      color: #334155;
+    }
+
+    .alert-success strong {
+      color: var(--secondary);
+    }
+
+    .alert-warning {
+      background: rgba(245, 158, 11, 0.04);
+      border: 1px solid rgba(245, 158, 11, 0.15);
+      color: #334155;
+    }
+
+    .alert-warning strong {
+      color: var(--warning);
+    }
+
+    .alert-danger {
+      background: rgba(239, 68, 68, 0.04);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      color: #334155;
+    }
+
+    .alert-danger strong {
+      color: var(--danger);
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 2rem 0;
+      background: var(--bg-card);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    th, td {
+      padding: 1.25rem 1.5rem;
+      text-align: left;
+      font-size: 0.98rem;
+    }
+
+    th {
+      background: rgba(0, 0, 0, 0.02);
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-muted);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Code Blocks */
+    pre {
+      background: #f1f5f9;
+      padding: 1.75rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      margin: 1.5rem 0;
+    }
+
+    code {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.9rem;
+      color: #0f766e;
+    }
+
+    pre code {
+      color: #0f172a;
+    }
+
+    p code, li code {
+      background: rgba(0, 0, 0, 0.04);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      color: #b91c1c;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.88rem;
+    }
+
+    /* Lists */
+    ul, ol {
+      margin-bottom: 2rem;
+      padding-left: 2rem;
+      color: var(--text-muted);
+    }
+
+    li {
+      margin-bottom: 0.75rem;
+      font-size: 1.05rem;
+    }
+
+    /* Tabs / Steps */
+    .steps {
+      list-style: none;
+      padding-left: 0;
+      position: relative;
+      margin: 2.5rem 0;
+    }
+
+    .step-item {
+      position: relative;
+      padding-left: 3.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .step-number {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .step-item::after {
+      content: '';
+      position: absolute;
+      left: 1.125rem;
+      top: 2.25rem;
+      bottom: -2.5rem;
+      width: 2px;
+      background: var(--border-color);
+    }
+
+    .step-item:last-child::after {
+      display: none;
+    }
+
+    /* Grid Layouts */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin: 2rem 0;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.75rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .card h4 {
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+      font-size: 1.2rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.5rem;
+    }
+
+    .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--secondary); border: 1px solid rgba(16, 185, 129, 0.2); }
+    .badge-error { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
+    .badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.2); }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 5px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Sidebar -->
+  <aside>
+    <div class="logo-container">
+      <span class="logo-icon">🎓</span>
+      <span class="logo-text">LEEN AI Handbook</span>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-title">Getting Started</div>
+      <ul class="nav-list">
+        <li class="nav-item"><a href="#quickstart">Quick Start</a></li>
+        <li class="nav-item"><a href="#structure">Project Structure</a></li>
+        <li class="nav-item"><a href="#dataflow">System Data Flow</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-title">Git & Branching</div>
+      <ul class="nav-list">
+        <li class="nav-item"><a href="#git-workflow">Git Workflow</a></li>
+        <li class="nav-item"><a href="#git-commits">Commit Guidelines</a></li>
+        <li class="nav-item"><a href="#git-conflicts">Conflict Resolution</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-title">Code Conventions</div>
+      <ul class="nav-list">
+        <li class="nav-item"><a href="#naming-conventions">Naming Conventions</a></li>
+        <li class="nav-item"><a href="#backend-standards">Backend Standards</a></li>
+        <li class="nav-item"><a href="#frontend-standards">Frontend Standards</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-title">Best Practices</div>
+      <ul class="nav-list">
+        <li class="nav-item"><a href="#api-docs">API Documentation</a></li>
+        <li class="nav-item"><a href="#comments">Comments & Docs</a></li>
+        <li class="nav-item"><a href="#read-code">Reading Code</a></li>
+      </ul>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-title">Tooling & Environment</div>
+      <ul class="nav-list">
+        <li class="nav-item"><a href="#ide-setup">IDE Integration</a></li>
+        <li class="nav-item"><a href="#troubleshooting">Troubleshooting</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main>
+    <header>
+      <h1>Developer Handbook</h1>
+      <div class="subtitle">Complete technical blueprint, coding guidelines, development workflow, and conventions for the AI Personal Teacher System development team.</div>
+    </header>
+
+    <!-- QUICKSTART -->
+    <section id="quickstart">
+      <h2>🚀 Quick Start Guide</h2>
+      <p>Welcome to the project! The AI Personal Teacher System is built to be modular, secure, and production-ready. The complete containerized application stack can be built and launched locally using a single configuration command.</p>
+      
+      <div class="alert alert-info">
+        <strong>⚠️ Networking Alert:</strong> 
+        The development Docker Compose stack binds to host port <strong>8081</strong>. This ensures the environment runs cleanly without conflicting with default web services or local Nginx configurations utilizing ports 80 or 8080.
+      </div>
+
+      <div class="steps">
+        <div class="step-item">
+          <div class="step-number">1</div>
+          <h3>Checkout codebase and instantiate environments</h3>
+          <p>Clone the project files, navigate to the project root directory, and duplicate the environment config templates:</p>
+          <pre><code># Copy template variables
+cp .env.example .env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env</code></pre>
+        </div>
+
+        <div class="step-item">
+          <div class="step-number">2</div>
+          <h3>Initialize and start docker stack</h3>
+          <p>Trigger the Docker Compose execution. This pulls base images, executes multi-stage builds for components, and starts background services:</p>
+          <pre><code>docker compose up --build</code></pre>
+        </div>
+
+        <div class="step-item">
+          <div class="step-number">3</div>
+          <h3>Verify application container health</h3>
+          <p>Confirm that the system services are accepting traffic by launching the following verification routes:</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Access URL</th>
+                <th>Target Protocol</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Nginx Proxy Entrypoint</strong></td>
+                <td><code>http://localhost:8081</code></td>
+                <td>HTTP / HTTPS</td>
+                <td>Gateway proxy routing to Web & API services</td>
+              </tr>
+              <tr>
+                <td><strong>Vite Frontend</strong></td>
+                <td><code>http://localhost:8081/</code></td>
+                <td>HTTP + WSS (HMR WebSocket)</td>
+                <td>React landing dashboard</td>
+              </tr>
+              <tr>
+                <td><strong>FastAPI Docs</strong></td>
+                <td><code>http://localhost:8081/docs</code></td>
+                <td>HTTP</td>
+                <td>Swagger specification utility</td>
+              </tr>
+              <tr>
+                <td><strong>API Health Check</strong></td>
+                <td><code>http://localhost:8081/api/v1/health</code></td>
+                <td>JSON HTTP REST</td>
+                <td>Verification check for database and broker</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROJECT STRUCTURE -->
+    <section id="structure">
+      <h2>📁 Project Directory Architecture</h2>
+      <p>The codebase enforces an organized physical structure designed for clean separation of concerns. Modularizing front-end UI layouts, server-side routes, background workers, and environments allows high-velocity execution among several independent developers.</p>
+      
+      <pre><code>/home/satyam/leen_ai/
+├── backend/                       # Backend API Engine (Python 3.12 + FastAPI)
+│   ├── app/
+│   │   ├── api/                   # Router and endpoint declarations
+│   │   │   └── v1/
+│   │   │       ├── dependencies/  # Route-level dependency injection (Auth, DB)
+│   │   │       ├── endpoints/     # Request handler definitions (e.g., health.py)
+│   │   │       └── router.py      # Main V1 routing register
+│   │   ├── config/                # Settings management
+│   │   │   ├── __init__.py
+│   │   │   └── settings.py        # Pydantic Settings class parsing environment vars
+│   │   ├── core/                  # Core modules and configurations
+│   │   │   ├── celery_app.py      # Celery app initialization with Redis broker
+│   │   │   ├── exceptions.py      # Global custom error definitions and mappings
+│   │   │   ├── logging.py         # Standard logging configurations
+│   │   │   └── tasks.py           # Background tasks definitions
+│   │   ├── database/              # SQLAlchemy engine initialization and session builders
+│   │   ├── models/                # SQLAlchemy ORM models definitions
+│   │   ├── schemas/               # Pydantic models for request validation and serializations
+│   │   ├── services/              # External service wrappers (e.g., Redis Client)
+│   │   └── main.py                # App entrypoint (initializes lifespan and middlewares)
+│   ├── alembic/                   # Alembic schema migration scripts
+│   ├── alembic.ini                # Alembic database context configurations
+│   ├── pyproject.toml             # Ruff linter configs, project metadata
+│   ├── requirements.txt           # Main runtime requirements
+│   ├── requirements-dev.txt       # Tooling and testing requirements
+│   └── tests/                     # Automated testing suite
+├── frontend/                      # Frontend Application (React 19 + Vite 8)
+│   ├── src/
+│   │   ├── components/            # Reusable UI components
+│   │   ├── hooks/                 # Custom React hooks
+│   │   ├── layouts/               # Page layout wrappers (e.g. RootLayout)
+│   │   ├── pages/                 # Route components (DashboardPage, LandingPage)
+│   │   ├── routes/                # React Router index file
+│   │   ├── services/              # Axios API caller and endpoint wrappers
+│   │   ├── store/                 # Global state configurations / React Query contexts
+│   │   ├── utils/                 # General helpers and formatting modules
+│   │   ├── index.css              # Custom Tailwind CSS v4 layers
+│   │   └── main.jsx               # Client initialization entrypoint
+│   ├── package.json               # Package declarations
+│   └── vite.config.js             # Vite building & proxy settings
+├── infrastructure/                # System deployment and configurations
+│   ├── docker/
+│   │   ├── api.Dockerfile         # Multi-stage Docker builder for FastAPI & Celery
+│   │   ├── web.Dockerfile         # Multi-stage Docker builder for Node/React static builds
+│   │   ├── nginx.conf             # Local reverse proxy development configuration
+│   │   └── nginx.prod.conf        # Production web deployment configuration
+│   └── scripts/
+│       ├── setup.sh               # Initialization setup scripts
+│       └── reset-db.sh            # Database wipe and schema rebuild script
+├── docker-compose.yml             # Orchestrates components locally in development
+└── docker-compose.prod.yml        # Production static Nginx & application composer</code></pre>
+    </section>
+
+    <!-- DATA FLOW -->
+    <section id="dataflow">
+      <h2>🔄 System Data Flow & Request Lifecycle</h2>
+      <p>Understanding the request path is critical for debugging connection state issues. Below is a trace of the network data flow through the architecture:</p>
+      
+      <pre><code>[Client Web Browser]
+         │
+         │ HTTP / WS (Port 8081)
+         ▼
+ ┌───────────────┐          /api/v1/*          ┌───────────────┐
+ │  leen-nginx   │────────────────────────────▶│   leen-api    │
+ │ (Proxy Gate)  │                             │  (FastAPI)    │
+ └───────────────┘                             └───────┬───────┘
+         │                                             │
+         │ / (Static React Assets)                     │ Write/Read DB
+         ▼                                             ▼
+ ┌───────────────┐                             ┌───────────────┐
+ │   leen-web    │                             │ leen-postgres │
+ │ (Vite Server) │                             │   (Postgres)  │
+ └───────────────┘                             └───────────────┘
+                                                       │
+                                                       │ Trigger Task
+                                                       ▼
+ ┌───────────────┐     Fetch Task Payload      ┌───────────────┐
+ │  leen-worker  │◀────────────────────────────│  leen-redis   │
+ │   (Celery)    │                             │  (Redis MQ)   │
+ └───────────────┘                             └───────────────┘</code></pre>
+
+      <h3>Lifecycle Steps</h3>
+      <ol>
+        <li><strong>Proxy Ingress:</strong> The user accesses <code>http://localhost:8081</code>. The request hits <code>leen-nginx</code>.</li>
+        <li><strong>Static Assets:</strong> In development, requests for pages and files are proxied to the Vite server (`leen-web`). In production, Nginx serves pre-built React files directly from the static volume.</li>
+        <li><strong>API Requests:</strong> Requests prefixed with <code>/api/v1/</code> are forwarded to <code>leen-api</code> (FastAPI running on port 8000 internally).</li>
+        <li><strong>Data Resolution:</strong> The API reads or writes to <code>leen-postgres</code>. If a request demands long-running execution (e.g. email dispatching, AI generation), it schedules a Celery task.</li>
+        <li><strong>Task Brokerage:</strong> The task metadata is serialized to JSON and pushed to `leen-redis` Database 0 (the Celery message queue).</li>
+        <li><strong>Async Processing:</strong> The Celery worker (`leen-worker`) picks up the task asynchronously, processes it, and writes the status and return data back to Redis Database 1 (results backend).</li>
+      </ol>
+    </section>
+
+    <!-- GIT WORKFLOW -->
+    <section id="git-workflow">
+      <h2>🌿 Git & Branching Workflow</h2>
+      <p>To preserve branch integrity and guarantee a stable staging environment, the team follows strict branching rules. Direct commits to stable branches (<code>main</code> and <code>develop</code>) are blocked. Changes are reviewed through pull requests.</p>
+      
+      <div class="grid">
+        <div class="card">
+          <h4><span class="badge badge-success">Workflow</span> Standard Development Flow</h4>
+          <p>1. Pull down the latest develop branch state before beginning work.</p>
+          <p>2. Create a clean branch from <code>develop</code> using naming rules.</p>
+          <p>3. Format and check lint rules before pushing.</p>
+          <p>4. Push and create a PR targeting the <code>develop</code> branch.</p>
+        </div>
+        <div class="card">
+          <h4><span class="badge badge-warning">Review</span> Peer Validation</h4>
+          <p>Every pull request demands a minimum of <strong>1 code approval</strong> from another team member.</p>
+          <p>All automated checks (linters, backend tests) must pass successfully before merging.</p>
+        </div>
+      </div>
+
+      <h3>Git Branch Naming Conventions</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Branch Type</th>
+            <th>Name Format</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Feature additions</strong></td>
+            <td><code>feature/&lt;issue-number&gt;-&lt;hyphenated-desc&gt;</code></td>
+            <td><code>feature/102-oauth-github-integration</code></td>
+          </tr>
+          <tr>
+            <td><strong>Bug fixes</strong></td>
+            <td><code>bugfix/&lt;issue-number&gt;-&lt;hyphenated-desc&gt;</code></td>
+            <td><code>bugfix/45-fix-db-timeout-leak</code></td>
+          </tr>
+          <tr>
+            <td><strong>Documentation updates</strong></td>
+            <td><code>docs/&lt;hyphenated-desc&gt;</code></td>
+            <td><code>docs/update-architecture-manual</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- COMMIT GUIDELINES -->
+    <section id="git-commits">
+      <h2>📝 Commit Message Conventions</h2>
+      <p>We use the <strong>Conventional Commits</strong> standard. This ensures git logs are clear and enables automated release notes.</p>
+      
+      <pre><code>&lt;type&gt;(&lt;scope&gt;): &lt;description&gt;
+
+[Optional longer body detailing breaking changes or ticket references]</code></pre>
+
+      <h3>Commit Types Checklist</h3>
+      <ul>
+        <li><strong><code>feat</code></strong>: Incorporating new capabilities (e.g. <code>feat(api): expose register endpoints</code>).</li>
+        <li><strong><code>fix</code></strong>: Repairing logic defects (e.g. <code>fix(frontend): adjust register state reset</code>).</li>
+        <li><strong><code>refactor</code></strong>: Improving design quality without code changes (e.g. <code>refactor(database): extract session pooler</code>).</li>
+        <li><strong><code>docs</code></strong>: Modifying markdown, instructions, documentation (e.g. <code>docs(handbook): add rebase guides</code>).</li>
+        <li><strong><code>test</code></strong>: Building or editing checking suites (e.g. <code>test(api): write login endpoints validations</code>).</li>
+        <li><strong><code>chore</code></strong>: Changing dependencies, build tasks, configurations (e.g. <code>chore(deps): upgrade fastapi</code>).</li>
+      </ul>
+    </section>
+
+    <!-- CONFLICT RESOLUTION -->
+    <section id="git-conflicts">
+      <h2>🛡️ Conflict Resolution & Event Management</h2>
+      <p>In a team environment, merge conflicts on configuration files or database schemas can occur. Follow these procedures to resolve conflicts cleanly.</p>
+
+      <div class="alert alert-danger">
+        <strong>⚠️ Alembic Database Migration Alert:</strong>
+        Never edit Alembic migration scripts manually. If developers merge features that generate parallel database migration states, it creates split head branches. 
+      </div>
+
+      <h3>Resolving Migration Splits</h3>
+      <p>If Alembic reports a <code>Multiple Heads Detected</code> database error, run the following commands to create a merge revision:</p>
+      <pre><code># 1. Inspect migration history branch heads
+alembic heads
+
+# 2. Create a merge revision linking both heads
+alembic merge -m "merge branch heads" &lt;head-id-1&gt; &lt;head-id-2&gt;
+
+# 3. Apply changes to local PostgreSQL container
+alembic upgrade head</code></pre>
+
+      <h3>Resolving Standard Git Conflicts</h3>
+      <p>Always fetch and rebase your branch against the latest target branch to verify your conflicts locally before submitting PRs:</p>
+      <pre><code># 1. Pull changes
+git checkout develop
+git pull origin develop
+
+# 2. Start rebase on your branch
+git checkout feature/your-feature-branch
+git rebase develop
+
+# 3. Resolve conflicts highlighted in files, then stage:
+git add &lt;resolved-files&gt;
+
+# 4. Continue rebase
+git rebase --continue</code></pre>
+    </section>
+
+    <!-- NAMING CONVENTIONS -->
+    <section id="naming-conventions">
+      <h2>🏷️ Naming Conventions</h2>
+      <p>Following strict variable casing rules ensures that developers reading backend Python scripts, frontend React components, or configurations can quickly identify data types and structures.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Construct</th>
+            <th>Casing Convention</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Python Files & Modules</td>
+            <td><code>snake_case</code></td>
+            <td><code>celery_app.py</code></td>
+          </tr>
+          <tr>
+            <td>Python Classes</td>
+            <td><code>PascalCase</code></td>
+            <td><code>RedisService</code></td>
+          </tr>
+          <tr>
+            <td>Python Functions & Variables</td>
+            <td><code>snake_case</code></td>
+            <td><code>get_user_by_id()</code></td>
+          </tr>
+          <tr>
+            <td>JavaScript Component Files</td>
+            <td><code>PascalCase</code></td>
+            <td><code>LoginPage.jsx</code></td>
+          </tr>
+          <tr>
+            <td>JavaScript Functions & Variables</td>
+            <td><code>camelCase</code></td>
+            <td><code>useTaskPolling()</code></td>
+          </tr>
+          <tr>
+            <td>CSS Class Names</td>
+            <td><code>kebab-case</code></td>
+            <td><code>glass-card</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- BACKEND STANDARDS -->
+    <section id="backend-standards">
+      <h2>🐍 Backend Coding Standards (Python/FastAPI)</h2>
+      <p>We use Python 3.12 features and require code structure to compile cleanly. Below are our core coding guidelines.</p>
+
+      <h3>1. Type Safety with Type Hints</h3>
+      <p>Type hints are mandatory for all function parameters, class attributes, and return signatures. Use standard collections types (e.g. <code>list[str]</code> instead of <code>List[str]</code>) and the pipe operator for optional variables:</p>
+      <pre><code>def fetch_user_profile(user_uuid: str, db_session: Session) -> User | None:
+    return db_session.query(User).filter(User.id == user_uuid).first()</code></pre>
+
+      <h3>2. Dependency Injection</h3>
+      <p>FastAPI uses dependency injection via <code>Depends</code>. Use dependencies to resolve database sessions, verify authentication tokens, and fetch caching clients. This decouples logic from routing:</p>
+      <pre><code>from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+from app.database import get_db
+
+router = APIRouter()
+
+@router.get("/users/me")
+def read_current_user(db: Session = Depends(get_db)):
+    # The db session is resolved, used, and closed automatically
+    return {"message": "Success"}</code></pre>
+
+      <h3>3. Secure Handling of Sensitive Data</h3>
+      <p>Never log sensitive values like user passwords, authorization tokens, or environment keys. Passwords must be hashed using bcrypt or Argon2 prior to storage. Do not store tokens in the database as plaintext; always hash session keys or tokens at rest.</p>
+    </section>
+
+    <!-- FRONTEND STANDARDS -->
+    <section id="frontend-standards">
+      <h2>⚛️ Frontend Coding Standards (React/JavaScript)</h2>
+      <p>The frontend is a lightweight, responsive React 19 application built using Vite. We use JavaScript (ES6+) and TailwindCSS v4.</p>
+
+      <h3>1. Component Architecture</h3>
+      <p>Components must be functional declarations. Avoid legacy class-based architectures. Group code logic, states, and event handles cleanly before the return block:</p>
+      <pre><code>// PascalCase file naming: UserCard.jsx
+import React from 'react';
+
+export function UserCard({ username, userRole }) {
+  const isAdmin = userRole === 'admin';
+
+  return (
+    &lt;div className="glass-card p-6 border border-white/10 rounded-xl"&gt;
+      &lt;h4 className="text-white text-lg font-bold"&gt;{username}&lt;/h4&gt;
+      &lt;span className={`badge ${isAdmin ? 'badge-success' : 'badge-warning'}`}&gt;
+        {userRole}
+      &lt;/span&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+      <h3>2. React Query for Server-State Caching</h3>
+      <p>Avoid caching API responses in global React state (like Redux or Context) when they can be managed by **React Query**. React Query handles cache invalidations and fetches: </p>
+      <pre><code>import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+
+function useFetchHealth() {
+  return useQuery({
+    queryKey: ['api-health'],
+    queryFn: async () => {
+      const response = await axios.get('/api/v1/health');
+      return response.data;
+    },
+    staleTime: 60000, // Keep cache fresh for 60 seconds
+  });
+}</code></pre>
+    </section>
+
+    <!-- API DOCUMENTATION -->
+    <section id="api-docs">
+      <h2>🔌 API Documentation & Schema Design</h2>
+      <p>Well-documented APIs make client integration easier. Use the following standards to document your code for Swagger/OpenAPI generators:</p>
+      
+      <ul>
+        <li><strong>Response Models:</strong> Always specify the <code>response_model</code> parameter in FastAPI decorators. This ensures response payload structures are checked and serialized correctly.</li>
+        <li><strong>Schema fields:</strong> Use Pydantic's <code>Field</code> to document parameter rules and describe what each key contains.</li>
+        <li><strong>Route summaries:</strong> Write clean, descriptive docstrings inside route handlers. The first line forms the route summary, and subsequent lines populate the endpoint description in Swagger.</li>
+      </ul>
+
+      <h3>API Endpoint Implementation Blueprint</h3>
+      <pre><code>from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
+
+router = APIRouter()
+
+class UserDetailsResponse(BaseModel):
+    user_id: str = Field(..., description="Unique UUID for the user", example="b9c51-a204...")
+    email: str = Field(..., description="Registered user email", example="team@leen.ai")
+    is_active: bool = Field(True, description="Account status flag")
+
+@router.get(
+    "/users/{user_id}",
+    response_model=UserDetailsResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve details of a user",
+    response_description="User details payload"
+)
+def fetch_user_details(user_id: str):
+    """
+    Look up user record in the relational store.
+    
+    If the user record is missing, returns a 404 error response.
+    """
+    user_record = find_user_by_id(user_id)
+    if not user_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User records could not be found."
+        )
+    return user_record</code></pre>
+    </section>
+
+    <!-- COMMENTS -->
+    <section id="comments">
+      <h2>💬 Commenting & Documentation Guidelines</h2>
+      <p>Write comments to explain the **context** and **decisions** behind the code. Do not restate what the code does step-by-step.</p>
+      
+      <div class="grid">
+        <div class="card">
+          <h4><span class="badge badge-success">Good</span> Comment Context</h4>
+          <p>Explain why a specific third-party client configuration or timeout parameter was chosen.</p>
+          <p>Document technical choices made to address performance bottlenecks or safety concerns.</p>
+        </div>
+        <div class="card">
+          <h4><span class="badge badge-error">Bad</span> Redundant Comments</h4>
+          <p>Avoid simple, line-by-line descriptions (e.g., <code># Increment x by 1</code>).</p>
+          <p>Do not leave dead or commented-out code blocks. Rely on Git history for changes.</p>
+        </div>
+      </div>
+
+      <h3>Python Google-Style Docstring Template</h3>
+      <pre><code>def trigger_celery_task(task_name: str, payload: dict) -> str:
+    """Dispatches a task signature to the Celery Redis message broker queue.
+
+    Args:
+        task_name: Registered Celery task module identifier.
+        payload: Keyword arguments dictionary containing arguments for the task.
+
+    Returns:
+        String UUID format representing the queued Celery task identifier.
+
+    Raises:
+        ConnectionError: Raised if the Redis instance cannot be resolved.
+    """
+    # implementation</code></pre>
+    </section>
+
+    <!-- READING CODE -->
+    <section id="read-code">
+      <h2>📖 Guide to Reading & Navigating the Codebase</h2>
+      <p>For new team members, follow this step-by-step cognitive walkthrough to build a mental model of the codebase:</p>
+
+      <div class="steps">
+        <div class="step-item">
+          <div class="step-number">1</div>
+          <h3>Start at the Gateway proxy configuration</h3>
+          <p>Open [nginx.conf](file:///home/satyam/leen_ai/infrastructure/docker/nginx.conf) to trace reverse-proxy ingress routes, static file configurations, and WebSocket proxy paths.</p>
+        </div>
+
+        <div class="step-item">
+          <div class="step-number">2</div>
+          <h3>Examine the Backend Engine Lifecycles</h3>
+          <p>Open [backend/app/main.py](file:///home/satyam/leen_ai/backend/app/main.py). Read the application lifespan logic, database initialization, and middleware sequencing (CORS, Request Tracing, Logging).</p>
+        </div>
+
+        <div class="step-item">
+          <div class="step-number">3</div>
+          <h3>Follow the Route Registry</h3>
+          <p>Trace endpoint registration from [backend/app/api/v1/router.py](file:///home/satyam/leen_ai/backend/app/api/v1/router.py) into the endpoints folder to understand the API architecture.</p>
+        </div>
+
+        <div class="step-item">
+          <div class="step-number">4</div>
+          <h3>Understand Client-Side Routing and Page Components</h3>
+          <p>Navigate to [frontend/src/routes/index.jsx](file:///home/satyam/leen_ai/frontend/src/routes/index.jsx). Follow how URL changes render layouts (RootLayout) and pages. Inspect pages in `frontend/src/pages/` to see components and how hooks fetch data.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- IDE SETUP -->
+    <section id="ide-setup">
+      <h2>🛠️ Editor & IDE Integration</h2>
+      <p>Enforce style compliance automatically on save by configuring code style formats in your IDE.</p>
+      
+      <h3>VS Code Integration</h3>
+      <p>Create a <code>.vscode/settings.json</code> file at the project root directory with the following configuration to automate code quality checks:</p>
+      <pre><code>{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "always",
+      "source.fixAll": "always"
+    }
+  },
+  "ruff.enable": true,
+  "prettier.configPath": ".prettierrc"
+}</code></pre>
+    </section>
+
+    <!-- TROUBLESHOOTING -->
+    <section id="troubleshooting">
+      <h2>🔧 Troubleshooting FAQ</h2>
+      
+      <h4>Q: Celery worker reports connection timeouts to Redis.</h4>
+      <p><strong>A:</strong> Ensure the Redis service is healthy. Check container health status with <code>docker compose ps</code>. If necessary, stop and restart the containers with <code>docker compose down && docker compose up</code>.</p>
+
+      <h4>Q: Changes in Python backend do not show up in container.</h4>
+      <p><strong>A:</strong> Verify that the volume mount is active. In development mode, the local directory is mounted to <code>/app</code> inside the container, which allows Uvicorn and Celery to reload code automatically on save.</p>
+    </section>
+  </main>
+
+  <script>
+    // active link tracker on scroll
+    window.addEventListener('DOMContentLoaded', () => {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const id = entry.target.getAttribute('id');
+          if (entry.intersectionRatio > 0.3) {
+            document.querySelectorAll('aside .nav-item').forEach(item => {
+              item.classList.remove('active');
+            });
+            const activeLink = document.querySelector(`aside a[href="#${id}"]`);
+            if (activeLink) {
+              activeLink.parentElement.classList.add('active');
+            }
+          }
+        });
+      }, { threshold: [0.1, 0.4, 0.7] });
+
+      document.querySelectorAll('section').forEach(section => {
+        observer.observe(section);
+      });
+    });
+  </script>
+</body>
+</html>
