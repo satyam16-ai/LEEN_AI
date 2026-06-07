@@ -666,15 +666,15 @@ cp frontend/.env.example frontend/.env</code></pre>
     <!-- GIT WORKFLOW -->
     <section id="git-workflow">
       <h2>🌿 Git & Branching Workflow</h2>
-      <p>To preserve branch integrity and guarantee a stable staging environment, the team follows strict branching rules. Direct commits to stable branches (<code>main</code> and <code>develop</code>) are blocked. Changes are reviewed through pull requests.</p>
+      <p>To preserve branch integrity and guarantee a stable staging environment, the team follows strict branching rules. Direct commits to the stable branch (<code>main</code>) are blocked. Changes are reviewed through pull requests.</p>
       
       <div class="grid">
         <div class="card">
           <h4><span class="badge badge-success">Workflow</span> Standard Development Flow</h4>
-          <p>1. Pull down the latest develop branch state before beginning work.</p>
-          <p>2. Create a clean branch from <code>develop</code> using naming rules.</p>
+          <p>1. Pull down the latest main branch state before beginning work.</p>
+          <p>2. Create a clean branch from <code>main</code> using naming rules.</p>
           <p>3. Format and check lint rules before pushing.</p>
-          <p>4. Push and create a PR targeting the <code>develop</code> branch.</p>
+          <p>4. Push and create a PR targeting the <code>main</code> branch.</p>
         </div>
         <div class="card">
           <h4><span class="badge badge-warning">Review</span> Peer Validation</h4>
@@ -756,12 +756,12 @@ alembic upgrade head</code></pre>
       <h3>Resolving Standard Git Conflicts</h3>
       <p>Always fetch and rebase your branch against the latest target branch to verify your conflicts locally before submitting PRs:</p>
       <pre><code># 1. Pull changes
-git checkout develop
-git pull origin develop
+git checkout main
+git pull origin main
 
 # 2. Start rebase on your branch
 git checkout feature/your-feature-branch
-git rebase develop
+git rebase main
 
 # 3. Resolve conflicts highlighted in files, then stage:
 git add &lt;resolved-files&gt;

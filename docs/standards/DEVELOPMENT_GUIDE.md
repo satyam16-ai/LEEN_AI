@@ -25,8 +25,8 @@ cd frontend && pnpm dev
 ### 2. Create a Feature Branch
 
 ```bash
-git checkout develop
-git pull origin develop
+git checkout main
+git pull origin main
 git checkout -b feature/your-feature-name
 ```
 
@@ -40,7 +40,7 @@ git checkout -b feature/your-feature-name
 
 ```bash
 git push origin feature/your-feature-name
-# Open a PR targeting the `develop` branch
+# Open a PR targeting the `main` branch
 ```
 
 ---
