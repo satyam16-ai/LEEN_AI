@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI Personal Teacher System is a full-stack application with a clear separation between frontend and backend, connected via a versioned REST API.
+The AI Personal Teacher System is a full-stack application with a clear separation between frontend and backend, connected via versioned FastAPI API endpoints.
 
 ```
 ┌─────────────────┐     ┌──────────────────────────┐
