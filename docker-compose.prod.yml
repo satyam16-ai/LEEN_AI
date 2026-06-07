@@ -1,0 +1,102 @@
+# =============================================================================
+# AI Personal Teacher System — Docker Compose (Production)
+# Usage: docker compose -f docker-compose.prod.yml up -d
+# =============================================================================
+
+services:
+  # ---- Nginx Reverse Proxy ----
+  nginx:
+    image: nginx:alpine
+    container_name: leen-nginx
+    ports:
+      - "80:80"
+      # Uncomment for SSL:
+      # - "443:443"
+    volumes:
+      - ./infrastructure/docker/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - frontend-build:/usr/share/nginx/html:ro
+      # Uncomment for SSL:
+      # - ./infrastructure/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+      - web-build
+    networks:
+      - leen-network
+    restart: always
+
+  # ---- Frontend Build (one-shot, builds and exits) ----
+  web-build:
+    build:
+      context: ./frontend
+      dockerfile: ../infrastructure/docker/web.Dockerfile
+      target: build
+    container_name: leen-web-build
+    volumes:
+      - frontend-build:/app/dist
+    networks:
+      - leen-network
+
+  # ---- Backend (FastAPI - Production) ----
+  api:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/api.Dockerfile
+      target: production
+    container_name: leen-api
+    env_file:
+      - ./backend/.env
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql://leen:${POSTGRES_PASSWORD}@postgres:5432/leen_ai
+      - REDIS_HOST=redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - leen-network
+    restart: always
+
+  # ---- PostgreSQL ----
+  postgres:
+    image: postgres:16-alpine
+    container_name: leen-postgres
+    environment:
+      POSTGRES_DB: leen_ai
+      POSTGRES_USER: leen
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leen -d leen_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - leen-network
+    restart: always
+
+  # ---- Redis ----
+  redis:
+    image: redis:7-alpine
+    container_name: leen-redis
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - leen-network
+    restart: always
+
+networks:
+  leen-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  frontend-build:

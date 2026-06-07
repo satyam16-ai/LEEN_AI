@@ -1,0 +1,69 @@
+# =============================================================================
+# AI Personal Teacher System - .gitignore
+# =============================================================================
+
+# --------------- Dependencies ---------------
+node_modules/
+.pnpm-store/
+
+# --------------- Python ---------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+env/
+.uv/
+
+# --------------- Frontend Build ---------------
+frontend/dist/
+frontend/.vite/
+
+# --------------- Backend ---------------
+backend/.pytest_cache/
+backend/htmlcov/
+backend/.coverage
+backend/coverage.xml
+
+# --------------- Environment Variables ---------------
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# --------------- IDE ---------------
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --------------- Docker ---------------
+docker-compose.override.yml
+
+# --------------- Logs ---------------
+*.log
+logs/
+
+# --------------- Testing ---------------
+coverage/
+.nyc_output/
+
+# --------------- Misc ---------------
+*.bak
+*.tmp
+*.temp
+.cache/
