@@ -129,8 +129,10 @@ app.include_router(v2_router, prefix="/api/v2")  # future
 | ---------- | ------------------ | ---- | ---------------- |
 | `web`      | Custom (Vite)      | 3000 | Frontend dev     |
 | `api`      | Custom (FastAPI)   | 8000 | Backend dev      |
+| `worker`   | Custom (FastAPI)   | N/A  | Celery background tasks |
 | `postgres` | postgres:16-alpine | 5432 | Database         |
-| `redis`    | redis:7-alpine     | 6379 | Cache            |
+| `redis`    | redis:7-alpine     | 6379 | Cache & Celery broker |
+
 
 ### Network
 

@@ -58,6 +58,29 @@ services:
       - leen-network
     restart: always
 
+  # ---- Celery Worker ----
+  worker:
+    build:
+      context: ./backend
+      dockerfile: ../infrastructure/docker/api.Dockerfile
+      target: production
+    container_name: leen-worker
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    env_file:
+      - ./backend/.env
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql://leen:${POSTGRES_PASSWORD}@postgres:5432/leen_ai
+      - REDIS_HOST=redis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - leen-network
+    restart: always
+
   # ---- PostgreSQL ----
   postgres:
     image: postgres:16-alpine

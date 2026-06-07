@@ -87,14 +87,16 @@ Start the entire stack with a single command:
 docker compose up
 ```
 
-| Service    | URL                                   |
-| ---------- | ------------------------------------- |
-| Frontend   | http://localhost:3000                  |
-| Backend    | http://localhost:8000                  |
-| API Docs   | http://localhost:8000/docs             |
-| Health     | http://localhost:8000/api/v1/health    |
-| PostgreSQL | localhost:5432                         |
-| Redis      | localhost:6379                         |
+| Service        | URL                                   | Description |
+| -------------- | ------------------------------------- | ----------- |
+| Frontend       | http://localhost                      | Served via Nginx reverse proxy |
+| Backend API    | http://localhost/api/v1               | Proxied via Nginx |
+| API Docs       | http://localhost/docs                 | Swagger UI docs |
+| Health Endpoint| http://localhost/api/v1/health        | Health status |
+| Celery Worker  | N/A (runs tasks in background)        | Background tasks |
+| PostgreSQL     | localhost:5432                        | Database port mapping |
+| Redis          | localhost:6379                        | Cache and Celery message broker |
+
 
 ### Useful Docker Commands
 
