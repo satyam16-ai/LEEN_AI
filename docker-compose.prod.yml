@@ -45,10 +45,12 @@ services:
     container_name: leen-api
     env_file:
       - ./backend/.env
-    environment:
+    environment: &backend-env
       - APP_ENV=production
       - DATABASE_URL=postgresql://leen:${POSTGRES_PASSWORD}@postgres:5432/leen_ai
       - REDIS_HOST=redis
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set}
+      - COOKIE_SECURE=true
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,13 +67,10 @@ services:
       dockerfile: ../infrastructure/docker/api.Dockerfile
       target: production
     container_name: leen-worker
-    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    command: celery -A app.core.celery_app.celery_app worker -Q default --loglevel=info
     env_file:
       - ./backend/.env
-    environment:
-      - APP_ENV=production
-      - DATABASE_URL=postgresql://leen:${POSTGRES_PASSWORD}@postgres:5432/leen_ai
-      - REDIS_HOST=redis
+    environment: *backend-env
     depends_on:
       postgres:
         condition: service_healthy

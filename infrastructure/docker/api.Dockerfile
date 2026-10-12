@@ -1,5 +1,6 @@
 # =============================================================================
 # Backend Dockerfile — FastAPI + Python
+# Migrations run on API start; the Celery worker overrides CMD and skips them.
 # =============================================================================
 
 FROM python:3.12-slim AS base
@@ -10,11 +11,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # ---- Development ----
 FROM base AS development
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
 COPY . .
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]
 
 # ---- Production ----
 FROM base AS production
@@ -24,4 +25,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 USER appuser
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"]

@@ -31,7 +31,7 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:8081/api/v1
+      - VITE_API_URL=/api/v1
     depends_on:
       - api
     networks:
@@ -48,9 +48,13 @@ services:
       - ./backend:/app
     env_file:
       - ./backend/.env.example
-    environment:
+    environment: &backend-env
       - DATABASE_URL=postgresql://leen:leen_dev_password@postgres:5432/leen_ai
       - REDIS_HOST=redis
+      - FRONTEND_URL=http://localhost:8081
+      - CORS_ORIGINS=http://localhost:8081,http://localhost:3000
+      - SMTP_HOST=mailpit
+      - SMTP_PORT=1025
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,19 +70,28 @@ services:
       dockerfile: ../infrastructure/docker/api.Dockerfile
       target: development
     container_name: leen-worker
-    command: celery -A app.core.celery_app.celery_app worker --loglevel=info
+    command: celery -A app.core.celery_app.celery_app worker -Q default --loglevel=info
     volumes:
       - ./backend:/app
     env_file:
       - ./backend/.env.example
-    environment:
-      - DATABASE_URL=postgresql://leen:leen_dev_password@postgres:5432/leen_ai
-      - REDIS_HOST=redis
+    environment: *backend-env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mailpit:
+        condition: service_started
+    networks:
+      - leen-network
+
+  # ---- Mailpit (dev SMTP inbox → http://localhost:8025) ----
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: leen-mailpit
+    ports:
+      - "8025:8025"
     networks:
       - leen-network
 
