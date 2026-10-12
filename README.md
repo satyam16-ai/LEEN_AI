@@ -29,14 +29,20 @@
 ```bash
 # Clone & start everything
 cp .env.example .env
-docker compose up
+docker compose up -d
+
+# Create the first admin account (prompts for a password)
+docker compose exec api python -m app.cli create-admin --email admin@leen.dev --name "Site Admin"
 ```
 
 Everything is served through **Nginx** on a single port:
 
-- App → http://localhost
-- API → http://localhost/api/v1/health
-- API Docs → http://localhost/docs
+- App → http://localhost:8081
+- API → http://localhost:8081/api/v1/health
+- API Docs → http://localhost:8081/docs
+- Dev inbox (password reset emails) → http://localhost:8025
+
+Students and parents sign up at `/register`. Admins create teacher accounts from **Users → Add user**.
 
 ### Option 2: Local Development
 
@@ -75,6 +81,7 @@ docker compose up postgres redis
 
 ## Documentation
 
+- [Roadmap](docs/ROADMAP.md)
 - [Setup Guide](docs/setup/SETUP.md)
 - [Architecture](docs/architecture/ARCHITECTURE.md)
 - [Project Structure](docs/architecture/PROJECT_STRUCTURE.md)

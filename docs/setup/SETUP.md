@@ -48,7 +48,7 @@ pnpm install
 pnpm dev
 ```
 
-Frontend will be available at **http://localhost:3000**.
+Frontend will be available at **http://localhost:3000**. Vite proxies `/api` to `http://localhost:8000`, so auth cookies stay same-origin. Override the target with `API_PROXY_TARGET`.
 
 ### 3. Backend
 
@@ -77,6 +77,16 @@ cd backend
 alembic upgrade head
 ```
 
+### 6. Create the first admin
+
+```bash
+cd backend
+python -m app.cli create-admin --email admin@leen.dev --name "Site Admin"
+# prompts for a password (8+ chars, at least one letter and one number)
+```
+
+Students and parents sign up from `/register`. Teachers are created by an admin under **Users → Add user**.
+
 ---
 
 ## Docker Development
@@ -84,18 +94,30 @@ alembic upgrade head
 Start the entire stack with a single command:
 
 ```bash
-docker compose up
+docker compose up -d
+docker compose exec api python -m app.cli create-admin --email admin@leen.dev --name "Site Admin"
 ```
+
+Migrations run automatically when the `api` container starts.
 
 | Service        | URL                                   | Description |
 | -------------- | ------------------------------------- | ----------- |
-| Frontend       | http://localhost                      | Served via Nginx reverse proxy |
-| Backend API    | http://localhost/api/v1               | Proxied via Nginx |
-| API Docs       | http://localhost/docs                 | Swagger UI docs |
-| Health Endpoint| http://localhost/api/v1/health        | Health status |
-| Celery Worker  | N/A (runs tasks in background)        | Background tasks |
+| Frontend       | http://localhost:8081                 | Served via Nginx reverse proxy |
+| Backend API    | http://localhost:8081/api/v1          | Proxied via Nginx |
+| API Docs       | http://localhost:8081/docs            | Swagger UI docs |
+| Health Endpoint| http://localhost:8081/api/v1/health   | Health status |
+| Mailpit        | http://localhost:8025                 | Dev inbox: password reset emails land here |
+| Celery Worker  | N/A (runs tasks in background)        | Sends emails (queue `default`) |
 | PostgreSQL     | localhost:5432                        | Database port mapping |
-| Redis          | localhost:6379                        | Cache and Celery message broker |
+| Redis          | localhost:6379                        | Cache, rate limits, Celery broker |
+
+### Running tests
+
+```bash
+docker compose exec api pytest -q          # backend (uses a separate leen_ai_test database)
+docker compose exec api ruff check app tests
+cd frontend && pnpm test && pnpm lint      # frontend (Vitest + ESLint)
+```
 
 
 ### Useful Docker Commands
@@ -108,8 +130,11 @@ docker compose up -d
 docker compose logs -f api
 docker compose logs -f web
 
-# Rebuild after dependency changes
-docker compose up --build
+# Rebuild after dependency changes (-V recreates the web container's node_modules volume)
+docker compose up -d --build -V
+
+# If Nginx returns 502 after the api/web containers were recreated
+docker compose restart nginx
 
 # Stop everything
 docker compose down
@@ -136,11 +161,29 @@ docker compose down -v
 | `REDIS_HOST`        | Redis host                   | localhost              |
 | `REDIS_PORT`        | Redis port                   | 6379                   |
 
+### Backend auth & email (`backend/.env`)
+
+| Variable                   | Description                                         | Default                 |
+| -------------------------- | --------------------------------------------------- | ----------------------- |
+| `SECRET_KEY`               | JWT signing key: **set a random 32+ char value in production** | dev placeholder |
+| `ACCESS_TOKEN_TTL_MINUTES` | Access token lifetime                               | 15                      |
+| `REFRESH_TOKEN_TTL_DAYS`   | "Remember me" session lifetime                      | 30                      |
+| `REFRESH_TOKEN_SESSION_TTL_HOURS` | Session lifetime without "remember me"       | 24                      |
+| `PASSWORD_RESET_TTL_MINUTES` | Reset link validity                               | 30                      |
+| `COOKIE_SECURE`            | `true` when served over HTTPS (required in prod)    | false                   |
+| `CORS_ORIGINS`             | Comma-separated allowed origins                     | http://localhost:3000   |
+| `FRONTEND_URL`             | Base URL used in email links                        | http://localhost:8081   |
+| `RATE_LIMIT_ENABLED`       | Redis-backed rate limiting                          | true                    |
+| `SMTP_HOST` / `SMTP_PORT`  | SMTP server (Mailpit in dev)                        | localhost / 1025        |
+| `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_USE_TLS` | SMTP auth for real providers  | empty / false           |
+| `EMAIL_FROM`               | Sender address                                      | LEEN AI <no-reply@leen.ai> |
+| `DB_ECHO`                  | Log every SQL statement                             | false                   |
+
 ### Frontend `.env`
 
 | Variable        | Description   | Default                          |
 | --------------- | ------------- | -------------------------------- |
-| `VITE_API_URL`  | Backend API URL | http://localhost:8000/api/v1   |
+| `VITE_API_URL`  | Backend API base path. Keep it relative so cookies are same-origin. | /api/v1 |
 
 ---
 

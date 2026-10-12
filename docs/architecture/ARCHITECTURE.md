@@ -5,18 +5,20 @@
 The AI Personal Teacher System is a full-stack application with a clear separation between frontend and backend, connected via versioned FastAPI API endpoints.
 
 ```
-┌─────────────────┐     ┌──────────────────────────┐
-│   React + Vite  │────▶│  FastAPI (/api/v1/...)    │
-│   Port 3000     │     │  Port 8000               │
-└─────────────────┘     └────────┬─────────────────┘
-                                 │
-                      ┌──────────┴──────────┐
-                      │                     │
-                ┌─────▼─────┐       ┌───────▼──────┐
-                │ PostgreSQL │       │    Redis     │
-                │ Port 5432  │       │  Port 6379   │
-                └────────────┘       └──────────────┘
+                    ┌───────────────────────────────┐
+  Browser ─────────▶│  Nginx  (localhost:8081)       │
+                    │   /        → web  (Vite :3000)  │
+                    │   /api/*   → api  (FastAPI :8000)│
+                    └──────────────┬────────────────┘
+                                   │
+                ┌──────────────────┼──────────────────┐
+          ┌─────▼──────┐    ┌──────▼─────┐    ┌───────▼──────┐
+          │ PostgreSQL │    │   Redis    │◀───│ Celery worker │──▶ Mailpit (SMTP, dev)
+          │   :5432    │    │   :6379    │    └──────────────┘
+          └────────────┘    └────────────┘
 ```
+
+The SPA and the API are served from **one origin**: Nginx in Docker, or the Vite `/api` proxy in local dev. This lets auth cookies stay `SameSite=Lax` with no CORS on the request path.
 
 ---
 
@@ -26,26 +28,32 @@ The AI Personal Teacher System is a full-stack application with a clear separati
 
 ```
 frontend/src/
-├── components/     Reusable UI components
-│   ├── layout/     Navbar, Footer
-│   └── ui/         Buttons, Cards, Inputs (future)
-├── pages/          Route-level page components
-├── layouts/        Page layout wrappers
-├── hooks/          Custom React hooks
-├── services/       API client (Axios)
-├── store/          State management (React Query)
-├── routes/         React Router configuration
-├── types/          (reserved for future use)
-├── utils/          Helper functions
-└── assets/         Images, fonts
+├── components/
+│   ├── ui/          Design-system primitives (Button, Input, FormField, Dialog, …)
+│   ├── layout/      PublicNavbar, PublicFooter, AppSidebar, AppTopbar, UserMenu
+│   ├── dashboard/   PageHeader, WelcomeBanner, StatCard, FeatureCard, ChecklistCard
+│   └── landing/     Landing page sections
+├── features/        Domain logic grouped by feature
+│   ├── auth/        forms, guards, session + mutation hooks, zod schemas, role constants
+│   └── admin/       user table, create-user dialog, admin hooks
+├── pages/           Route-level pages (auth/, dashboard/, admin/, errors/)
+├── layouts/         RootLayout, PublicLayout, AuthLayout, AppLayout
+├── routes/          Router tree with guards
+├── services/        Axios client + per-domain services (authService, adminUsersService)
+├── store/           QueryClient, ThemeProvider
+├── config/          Per-role navigation
+├── hooks/           useTheme, useDocumentTitle, useDebouncedValue, useScrolled
+└── utils/           cn, apiError, redirect, format, passwordStrength
 ```
 
 ### Key Decisions
 
-- **React Router** for client-side routing with a `RootLayout` wrapper
-- **React Query** for server state management (caching, refetching)
-- **Axios** with interceptors for API communication
-- **TailwindCSS v4** with custom design tokens (oklch colors)
+- **React Router** data router. Guards are layout routes: `GuestOnly`, `RequireAuth` and `RequireRole`.
+- **React Query** owns server state. The signed-in user is the `['auth', 'me']` query, the single source of truth for auth state, so there is no separate auth context.
+- **Axios** client sends cookies (`withCredentials`) and the CSRF header. On a 401 it runs a single shared refresh and retries the request.
+- **TailwindCSS v4** with semantic tokens (`bg-card`, `text-muted-foreground`, …) defined for light and `.dark`. Fonts are self-hosted via Fontsource.
+- **react-hook-form + zod** for forms. Server `422` field errors are mapped onto inputs.
+- **Radix primitives** (dialog, dropdown) for accessible overlays. All styling is our own.
 
 ---
 
@@ -64,8 +72,8 @@ backend/app/
 ├── database/                SQLAlchemy engine & session
 ├── models/                  SQLAlchemy ORM models
 ├── schemas/                 Pydantic request/response schemas
-├── services/                Business logic & external integrations
-├── repositories/            Data access layer (future)
+├── services/                Business logic (auth_service) & integrations (redis)
+├── repositories/            Data access (user_repository, token_repository)
 ├── middlewares/              Request/response middleware
 └── utils/                   Helper utilities
 ```
@@ -104,17 +112,20 @@ app.include_router(v2_router, prefix="/api/v2")  # future
 
 ## Database Architecture
 
-**Technology:** PostgreSQL 16 + SQLAlchemy 2.0
+**Technology:** PostgreSQL 16 + SQLAlchemy 2.1 (psycopg 3)
 
 ### Current Schema
 
-| Table   | Purpose                          |
-| ------- | -------------------------------- |
-| `users` | Foundation model for DB verification |
+| Table                   | Purpose                                                       |
+| ----------------------- | ------------------------------------------------------------- |
+| `users`                 | Accounts with one role (`student`/`parent`/`teacher`/`admin`), Argon2 password hash, `token_version` |
+| `refresh_tokens`        | SHA-256 hashes of refresh tokens, grouped into rotation families |
+| `password_reset_tokens` | SHA-256 hashes of single-use reset tokens (30 min)            |
 
 ### Migration Strategy
 
 - All schema changes go through Alembic migrations
+- The `api` container runs `alembic upgrade head` on every start
 - Auto-generate migrations: `alembic revision --autogenerate -m "description"`
 - Apply migrations: `alembic upgrade head`
 - Rollback: `alembic downgrade -1`
@@ -125,13 +136,15 @@ app.include_router(v2_router, prefix="/api/v2")  # future
 
 ### Docker Compose Services
 
-| Service    | Image              | Port | Purpose          |
-| ---------- | ------------------ | ---- | ---------------- |
-| `web`      | Custom (Vite)      | 3000 | Frontend dev     |
-| `api`      | Custom (FastAPI)   | 8000 | Backend dev      |
-| `worker`   | Custom (FastAPI)   | N/A  | Celery background tasks |
-| `postgres` | postgres:16-alpine | 5432 | Database         |
-| `redis`    | redis:7-alpine     | 6379 | Cache & Celery broker |
+| Service    | Image              | Host port | Purpose                                  |
+| ---------- | ------------------ | --------- | ---------------------------------------- |
+| `nginx`    | nginx:alpine       | 8081      | Single entry point (SPA + `/api`)        |
+| `web`      | Custom (Vite)      | —         | Frontend dev server (behind Nginx)       |
+| `api`      | Custom (FastAPI)   | —         | Backend (behind Nginx); runs migrations  |
+| `worker`   | Custom (FastAPI)   | —         | Celery worker on the `default` queue (emails) |
+| `mailpit`  | axllent/mailpit    | 8025      | Dev SMTP server + inbox UI               |
+| `postgres` | postgres:16-alpine | 5432      | Database                                 |
+| `redis`    | redis:7-alpine     | 6379      | Cache, rate limits, Celery broker        |
 
 
 ### Network
@@ -140,11 +153,66 @@ All services communicate over the `leen-network` bridge network. The backend con
 
 ---
 
+## Authentication & Authorization
+
+### Roles
+
+| Role      | How the account is created                              | Home       |
+| --------- | ------------------------------------------------------- | ---------- |
+| `student` | Self sign-up                                            | `/student` |
+| `parent`  | Self sign-up                                            | `/parent`  |
+| `teacher` | An admin creates it (`POST /api/v1/admin/users`)        | `/teacher` |
+| `admin`   | CLI: `python -m app.cli create-admin`, or another admin | `/admin`   |
+
+### Tokens & cookies
+
+| Cookie          | Contents                                   | Lifetime                                                     | Path           | Flags                         |
+| --------------- | ------------------------------------------ | ------------------------------------------------------------ | -------------- | ----------------------------- |
+| `access_token`  | JWT (HS256): `sub`, `role`, `tv`, `exp`     | 15 min                                                       | `/`            | HttpOnly, SameSite=Lax, Secure in prod |
+| `refresh_token` | Opaque random token (only its SHA-256 is stored) | 30 days with "remember me", otherwise a session cookie (24 h server-side) | `/api/v1/auth` | HttpOnly, SameSite=Lax, Secure in prod |
+
+- **Rotation.** Every `POST /auth/refresh` revokes the presented token and issues a new one in the same family.
+- **Reuse detection.** If a revoked token is presented again, the whole family is revoked. The exception is a 30 s grace window for a token that was just rotated, which covers two tabs refreshing at the same time. That case gets a new access token only.
+- **Instant invalidation.** `users.token_version` is embedded in access tokens (`tv`). Password reset and password change bump it and revoke every refresh token, so stolen tokens stop working immediately.
+- **The frontend never reads tokens.** On a 401 it calls `/auth/refresh` once (single-flight) and retries the request. If that fails, the session is cleared and the guards redirect to `/login?next=…`.
+
+### CSRF
+
+Cookies are `SameSite=Lax`. Every POST/PUT/PATCH/DELETE must also send `X-Requested-With: XMLHttpRequest`, or come from the browser with `Sec-Fetch-Site: same-origin` (which keeps Swagger usable). Cross-site forms can't set either header.
+
+### Endpoints
+
+| Method | Path                         | Access         | Notes                                              |
+| ------ | ---------------------------- | -------------- | -------------------------------------------------- |
+| POST   | `/api/v1/auth/register`      | Guest          | `role` must be `student` or `parent`; starts a session |
+| POST   | `/api/v1/auth/login`         | Guest          | `remember_me` controls refresh lifetime            |
+| POST   | `/api/v1/auth/refresh`       | Refresh cookie | Rotates tokens                                     |
+| POST   | `/api/v1/auth/logout`        | Any            | Revokes the token family, clears cookies           |
+| GET    | `/api/v1/auth/me`            | Signed in      | Current user                                       |
+| POST   | `/api/v1/auth/forgot-password` | Guest        | Always 200 (no account enumeration); emails a 30-min link |
+| POST   | `/api/v1/auth/reset-password`  | Reset token  | Single use; signs out all sessions                 |
+| POST   | `/api/v1/auth/change-password` | Signed in    | Wrong current password → 400; other sessions signed out |
+| GET    | `/api/v1/admin/users`        | Admin          | `role`, `search`, `page`, `page_size`; includes counts per role |
+| POST   | `/api/v1/admin/users`        | Admin          | Create a teacher (or any role)                     |
+
+Protect new endpoints with `Depends(get_current_user)` or `Depends(require_roles(UserRole.TEACHER, ...))` from `app/api/v1/dependencies/auth.py`.
+
+### Rate limits (Redis, fixed window, fail-open)
+
+| Action          | Limit                                        |
+| --------------- | -------------------------------------------- |
+| Login           | 5 / min per IP + email                       |
+| Register        | 10 / hour per IP                             |
+| Forgot password | 3 / 15 min per email, 10 / 15 min per IP     |
+
+Over the limit returns `429` with a `Retry-After` header.
+
 ## Security Considerations
 
-- CORS restricted to `localhost:3000` in development
-- Global exception handler returns generic errors to clients
-- API docs (`/docs`, `/redoc`) disabled in production
-- Docker production images run as non-root user
-- No secrets hardcoded — all via environment variables
-- TODO(security): Authentication, CSRF, rate limiting to be implemented
+- Passwords are hashed with Argon2id (`pwdlib`). Login compares against a dummy hash for unknown emails, so timing doesn't reveal which accounts exist.
+- Validation errors return the standard envelope: `{"success": false, "message": ..., "data": {"errors": [{"field", "message"}]}}`
+- The global exception handler returns generic errors to clients
+- API docs (`/docs`, `/redoc`) are disabled in production
+- In production, settings refuse to start without a 32+ character `SECRET_KEY` and `COOKIE_SECURE=true`
+- Docker production images run as a non-root user
+- No secrets are hardcoded; everything comes from environment variables
