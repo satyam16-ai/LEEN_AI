@@ -31,7 +31,8 @@ celery_app.conf.update(
     # Result expiration (24 hours)
     result_expires=86400,
 
-    # Auto-discover tasks from all app modules
+    # Workers must consume this queue (`-Q default`); routed tasks never land on "celery"
+    task_default_queue="default",
     task_routes={
         "app.core.tasks.*": {"queue": "default"},
     },

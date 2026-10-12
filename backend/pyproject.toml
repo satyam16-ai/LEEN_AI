@@ -7,14 +7,17 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
-    "sqlalchemy>=2.0.0",
+    "sqlalchemy>=2.1.0",
     "alembic>=1.14.0",
-    "psycopg2-binary>=2.9.0",
+    "psycopg[binary]>=3.2.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
+    "email-validator>=2.2.0",
     "redis>=5.2.0",
     "celery[redis]>=5.4.0",
     "python-dotenv>=1.0.0",
+    "pyjwt>=2.10.0",
+    "pwdlib[argon2]>=0.2.1",
 ]
 
 [project.optional-dependencies]
@@ -35,3 +38,7 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency injection relies on calls in argument defaults.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Cookie"]

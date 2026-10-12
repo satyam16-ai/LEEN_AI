@@ -3,17 +3,16 @@
 # =============================================================================
 
 import logging
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.router import router as v1_router
 from app.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import setup_logging
 from app.middlewares import LoggingMiddleware, RequestIdMiddleware
-from app.api.v1.router import router as v1_router
 from app.services import redis_service
 
 logger = logging.getLogger("leen_ai")
@@ -48,11 +47,10 @@ def create_app() -> FastAPI:
 
     # ---- Middleware (order matters: last added = first executed) ----
 
-    # CORS — restrict origins in production
-    # TODO(security): Replace wildcard origins with explicit allowed origins for production
+    # CORS — the SPA is served same-origin via Nginx; this only covers direct dev access
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"] if settings.is_development else [],
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],

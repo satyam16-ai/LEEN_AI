@@ -5,6 +5,7 @@
 import logging
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -23,6 +24,24 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "success": False,
                 "message": exc.detail,
                 "data": None,
+            },
+            headers=getattr(exc, "headers", None),
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        """Return field-level validation errors inside the standard envelope."""
+        errors = []
+        for error in exc.errors():
+            location = [str(part) for part in error.get("loc", ()) if part not in ("body", "query")]
+            message = error.get("msg", "Invalid value").removeprefix("Value error, ")
+            errors.append({"field": ".".join(location) or None, "message": message})
+        return JSONResponse(
+            status_code=422,
+            content={
+                "success": False,
+                "message": errors[0]["message"] if len(errors) == 1 else "Validation failed",
+                "data": {"errors": errors},
             },
         )
 

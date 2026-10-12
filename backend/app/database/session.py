@@ -10,7 +10,7 @@ from app.config import settings
 
 engine = create_engine(
     settings.database_url,
-    echo=settings.is_development,
+    echo=settings.db_echo,
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,

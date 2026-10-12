@@ -5,13 +5,12 @@
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
-from alembic import context
-
-from app.config import settings
-from app.database import Base
 
 # Import all models so Alembic can detect them
-from app.models import User  # noqa: F401
+import app.models  # noqa: F401
+from alembic import context
+from app.config import settings
+from app.database import Base
 
 config = context.config
 

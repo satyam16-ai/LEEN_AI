@@ -2,6 +2,8 @@
 # Base Response Schemas
 # =============================================================================
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -18,4 +20,11 @@ class ApiResponse(BaseModel):
 
     success: bool = True
     message: str = "OK"
-    data: dict | list | None = None
+    data: Any = None
+
+
+def ok(data: Any = None, message: str = "OK") -> dict:
+    """Build a success envelope. Pydantic models in `data` are serialized to JSON-safe dicts."""
+    if isinstance(data, BaseModel):
+        data = data.model_dump(mode="json")
+    return {"success": True, "message": message, "data": data}
