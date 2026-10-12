@@ -1,4 +1,14 @@
+export { AccountSettingsPage } from './AccountSettingsPage';
+export { AdminUsersPage } from './admin/AdminUsersPage';
+export { ForgotPasswordPage } from './auth/ForgotPasswordPage';
+export { LoginPage } from './auth/LoginPage';
+export { RegisterPage } from './auth/RegisterPage';
+export { ResetPasswordPage } from './auth/ResetPasswordPage';
+export { AdminDashboardPage } from './dashboard/AdminDashboardPage';
+export { ParentDashboardPage } from './dashboard/ParentDashboardPage';
+export { StudentDashboardPage } from './dashboard/StudentDashboardPage';
+export { TeacherDashboardPage } from './dashboard/TeacherDashboardPage';
+export { ForbiddenPage } from './errors/ForbiddenPage';
+export { NotFoundPage } from './errors/NotFoundPage';
+export { RouteErrorPage } from './errors/RouteErrorPage';
 export { LandingPage } from './LandingPage';
-export { LoginPage } from './LoginPage';
-export { RegisterPage } from './RegisterPage';
-export { DashboardPage } from './DashboardPage';

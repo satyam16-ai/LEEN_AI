@@ -14,10 +14,17 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
+      // Same-origin API in local dev so auth cookies just work
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.API_PROXY_TARGET || 'http://localhost:8000',
         changeOrigin: true,
       },
     },
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.js',
+    css: false,
   },
 });
