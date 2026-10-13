@@ -1,7 +1,11 @@
+from datetime import UTC, datetime, timedelta
+
+import jwt
 import pytest
 from sqlalchemy import text
 
 from app.config import settings
+from app.core import security
 from app.database import SessionLocal
 from app.models.user import User, UserRole
 from tests.conftest import PASSWORD
@@ -121,6 +125,19 @@ def test_me_requires_authentication(client):
 
     assert response.status_code == 401
     assert response.json()["success"] is False
+
+
+def test_access_token_tolerates_small_clock_skew():
+    # A VM clock that steps back after issuing makes `iat` look slightly in the future.
+    now = datetime.now(UTC)
+    claims = {"sub": "user-1", "role": "student", "tv": 0, "type": "access"}
+    token = jwt.encode(
+        {**claims, "iat": now + timedelta(seconds=3), "exp": now + timedelta(minutes=15)},
+        settings.secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+    assert security.decode_access_token(token)["sub"] == "user-1"
 
 
 def test_state_changing_requests_require_csrf_header(make_client, create_user):

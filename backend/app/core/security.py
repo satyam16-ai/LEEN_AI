@@ -15,6 +15,9 @@ from app.config import settings
 
 ACCESS_COOKIE = "access_token"
 REFRESH_COOKIE = "refresh_token"
+# VM clocks (e.g. Docker Desktop) can step back a second or two; without leeway a token
+# issued just before the step has an `iat` "in the future" and is rejected.
+CLOCK_SKEW_LEEWAY = timedelta(seconds=10)
 
 _password_hash = PasswordHash.recommended()
 
@@ -47,7 +50,12 @@ def create_access_token(user_id: str, role: str, token_version: int) -> str:
 
 def decode_access_token(token: str) -> dict | None:
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.jwt_algorithm],
+            leeway=CLOCK_SKEW_LEEWAY,
+        )
     except jwt.PyJWTError:
         return None
     if payload.get("type") != "access":
