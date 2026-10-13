@@ -22,7 +22,7 @@ export const NAVIGATION = {
     { label: 'Dashboard', to: '/student', icon: LayoutDashboard, end: true },
     { label: 'My classes', to: '/student/classes', icon: School },
     { label: 'Parent access', to: '/student/parent-access', icon: KeyRound },
-    { label: 'Ask a doubt', icon: MessageCircleQuestion, phase: 3 },
+    { label: 'Ask a doubt', to: '/student/doubts', icon: MessageCircleQuestion },
     { label: 'Quizzes', icon: ClipboardCheck, phase: 4 },
     { label: 'Study plan', icon: CalendarCheck, phase: 5 },
     { label: 'Progress', icon: BarChart3, phase: 6 },

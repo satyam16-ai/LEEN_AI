@@ -22,6 +22,7 @@ import {
   SettingsLayout,
   StudentClassesPage,
   StudentDashboardPage,
+  StudentDoubtsPage,
   StudentOnboardingPage,
   StudentParentAccessPage,
   TeacherClassDetailPage,
@@ -72,6 +73,8 @@ export const routes = [
                   page('student/onboarding', <StudentOnboardingPage />, 'Learning profile'),
                   page('student/classes', <StudentClassesPage />, 'My classes'),
                   page('student/parent-access', <StudentParentAccessPage />, 'Parent access'),
+                  // One route (optional id) so the page stays mounted while a live doubt gets its URL.
+                  page('student/doubts/:doubtId?', <StudentDoubtsPage />, 'Ask a doubt'),
                 ],
               },
               {

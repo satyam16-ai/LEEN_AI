@@ -31,6 +31,11 @@ export function setSessionExpiredHandler(handler) {
   sessionExpiredHandler = handler;
 }
 
+/** For requests made outside axios (e.g. streaming fetch) whose refresh failed. */
+export function notifySessionExpired() {
+  sessionExpiredHandler();
+}
+
 /** Single-flight: concurrent 401s share one refresh request. */
 export function refreshSession() {
   if (!refreshPromise) {

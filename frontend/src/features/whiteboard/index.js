@@ -1,0 +1,10 @@
+export { DoubtComposer } from './components/DoubtComposer';
+export { DoubtHistory } from './components/DoubtHistory';
+export { DoubtSuggestions } from './components/DoubtSuggestions';
+export { MathText } from './components/MathText';
+export { StepsList } from './components/StepsList';
+export { Whiteboard } from './components/Whiteboard';
+export { useBoardPlayer } from './hooks/useBoardPlayer';
+export { useDoubtSession } from './hooks/useDoubtSession';
+export { useDeleteDoubt, useDoubt, useDoubts } from './hooks/useDoubts';
+export { boardStatus } from './status';

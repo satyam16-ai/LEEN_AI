@@ -16,13 +16,14 @@ import { useSession } from '@/features/auth';
 import { useMyClasses } from '@/features/classes';
 import { useLinkedParents } from '@/features/family';
 import { gradeLabel, useProfile } from '@/features/profile';
+import { useDoubts } from '@/features/whiteboard';
 
 const TOOLS = [
   {
     icon: MessageCircleQuestion,
     title: 'Ask a doubt',
-    description: 'Type, speak or snap a photo of any question and get a step-by-step answer.',
-    phase: 3,
+    description: 'Type any question and watch your AI teacher explain it on a whiteboard.',
+    to: '/student/doubts',
     tone: 'primary',
   },
   {
@@ -77,11 +78,13 @@ export function StudentDashboardPage() {
   const profile = useProfile();
   const classes = useMyClasses();
   const parents = useLinkedParents();
+  const doubts = useDoubts();
 
   const learning = profile.data?.student_profile;
   const profileComplete = Boolean(learning?.is_complete);
   const classCount = classes.data?.length ?? 0;
   const parentCount = parents.data?.length ?? 0;
+  const solvedCount = doubts.data?.filter((doubt) => doubt.status === 'complete').length ?? 0;
 
   return (
     <>
@@ -114,7 +117,14 @@ export function StudentDashboardPage() {
           tone="accent"
           loading={parents.isPending}
         />
-        <StatCard label="Doubts solved" value={0} icon={MessageCircleQuestion} tone="warning" />
+        <StatCard
+          label="Doubts solved"
+          value={solvedCount}
+          icon={MessageCircleQuestion}
+          tone="warning"
+          loading={doubts.isPending}
+          hint={solvedCount ? undefined : 'Ask your first doubt'}
+        />
         <StatCard
           label="Quizzes taken"
           value={0}
@@ -148,7 +158,7 @@ export function StudentDashboardPage() {
             },
             { label: 'Join your first class', done: classCount > 0, to: '/student/classes' },
             { label: 'Link a parent', done: parentCount > 0, to: '/student/parent-access' },
-            { label: 'Ask your first doubt', phase: 3 },
+            { label: 'Ask your first doubt', done: solvedCount > 0, to: '/student/doubts' },
           ]}
         />
       </div>

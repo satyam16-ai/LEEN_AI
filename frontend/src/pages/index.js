@@ -18,6 +18,7 @@ export { ProfileSettingsPage } from './settings/ProfileSettingsPage';
 export { SecuritySettingsPage } from './settings/SecuritySettingsPage';
 export { SettingsLayout } from './settings/SettingsLayout';
 export { StudentClassesPage } from './student/StudentClassesPage';
+export { StudentDoubtsPage } from './student/StudentDoubtsPage';
 export { StudentOnboardingPage } from './student/StudentOnboardingPage';
 export { StudentParentAccessPage } from './student/StudentParentAccessPage';
 export { TeacherClassDetailPage } from './teacher/TeacherClassDetailPage';
