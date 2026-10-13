@@ -35,8 +35,18 @@ class UserOut(BaseModel):
     name: str
     role: UserRole
     is_active: bool
+    avatar_url: str | None = None
     last_login_at: datetime | None
     created_at: datetime
+
+
+class UserSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    email: str
+    avatar_url: str | None = None
 
 
 class AdminCreateUserRequest(BaseModel):
@@ -44,6 +54,15 @@ class AdminCreateUserRequest(BaseModel):
     email: Email
     password: Password
     role: UserRole = UserRole.TEACHER
+
+
+class AdminUserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: Name | None = None
+    email: Email | None = None
+    role: UserRole | None = None
+    is_active: bool | None = None
 
 
 class UserListOut(BaseModel):

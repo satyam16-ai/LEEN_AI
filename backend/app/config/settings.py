@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://leen:leen_dev_password@localhost:5432/leen_ai"
     db_echo: bool = False
 
+    # Media (user uploads, served at /media)
+    media_root: str = "media"
+    max_avatar_bytes: int = 2 * 1024 * 1024
+
     # Redis
     redis_host: str = "localhost"
     redis_port: int = 6379
@@ -48,6 +52,7 @@ class Settings(BaseSettings):
     refresh_reuse_grace_seconds: int = 30
     password_reset_ttl_minutes: int = 30
     cookie_secure: bool = False
+    link_code_ttl_hours: int = 48
     rate_limit_enabled: bool = True
 
     # Email

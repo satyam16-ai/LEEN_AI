@@ -23,12 +23,29 @@ def create(db: Session, *, name: str, email: str, password_hash: str, role: User
     return user
 
 
+def count_active_admins(db: Session) -> int:
+    return (
+        db.scalar(
+            select(func.count(User.id)).where(User.role == UserRole.ADMIN, User.is_active.is_(True))
+        )
+        or 0
+    )
+
+
 def list_users(
-    db: Session, *, role: UserRole | None, search: str | None, page: int, page_size: int
+    db: Session,
+    *,
+    role: UserRole | None,
+    search: str | None,
+    page: int,
+    page_size: int,
+    is_active: bool | None = None,
 ) -> tuple[list[User], int]:
     query = select(User)
     if role:
         query = query.where(User.role == role)
+    if is_active is not None:
+        query = query.where(User.is_active.is_(is_active))
     if search:
         pattern = f"%{search.lower()}%"
         query = query.where(

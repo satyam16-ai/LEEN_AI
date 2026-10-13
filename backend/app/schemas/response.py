@@ -23,8 +23,14 @@ class ApiResponse(BaseModel):
     data: Any = None
 
 
-def ok(data: Any = None, message: str = "OK") -> dict:
-    """Build a success envelope. Pydantic models in `data` are serialized to JSON-safe dicts."""
+def _serialize(data: Any) -> Any:
     if isinstance(data, BaseModel):
-        data = data.model_dump(mode="json")
-    return {"success": True, "message": message, "data": data}
+        return data.model_dump(mode="json")
+    if isinstance(data, list):
+        return [_serialize(item) for item in data]
+    return data
+
+
+def ok(data: Any = None, message: str = "OK") -> dict:
+    """Build a success envelope. Pydantic models (or lists of them) become JSON-safe dicts."""
+    return {"success": True, "message": message, "data": _serialize(data)}

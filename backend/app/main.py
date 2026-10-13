@@ -3,10 +3,13 @@
 # =============================================================================
 
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import router as v1_router
 from app.config import settings
@@ -17,6 +20,9 @@ from app.services import redis_service
 
 logger = logging.getLogger("leen_ai")
 
+# Slim Python images ship without a MIME table entry for WebP (our avatar format).
+mimetypes.add_type("image/webp", ".webp")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,6 +30,7 @@ async def lifespan(app: FastAPI):
     # Startup
     setup_logging()
     logger.info("Starting %s (%s)", settings.app_name, settings.app_env)
+    Path(settings.media_root, "avatars").mkdir(parents=True, exist_ok=True)
 
     redis_service.connect()
 
@@ -64,6 +71,9 @@ def create_app() -> FastAPI:
 
     # ---- Versioned API Routers ----
     app.include_router(v1_router, prefix=settings.api_v1_prefix)
+
+    # User uploads (re-encoded images only); Nginx proxies /media here.
+    app.mount("/media", StaticFiles(directory=settings.media_root, check_dir=False), name="media")
 
     # Future versions:
     # app.include_router(v2_router, prefix="/api/v2")

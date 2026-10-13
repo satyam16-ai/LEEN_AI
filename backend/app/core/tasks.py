@@ -4,10 +4,13 @@
 
 import logging
 import smtplib
+from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 
 from app.config import settings
 from app.core.celery_app import celery_app
+from app.database import SessionLocal
+from app.repositories import token_repository
 
 logger = logging.getLogger("leen_ai")
 
@@ -46,3 +49,15 @@ def send_email_task(self, to_email, subject, body, html=None):
     except (smtplib.SMTPException, OSError) as exc:
         logger.exception("Email delivery failed; retrying")
         raise self.retry(exc=exc, countdown=60) from exc
+
+
+@celery_app.task(name="app.core.tasks.cleanup_expired_tokens")
+def cleanup_expired_tokens():
+    """Daily: drop refresh/reset tokens that expired more than a day ago."""
+    with SessionLocal() as db:
+        refresh, reset = token_repository.purge_expired(
+            db, older_than=datetime.now(UTC) - timedelta(days=1)
+        )
+        db.commit()
+    logger.info("Token cleanup: %d refresh, %d reset tokens removed", refresh, reset)
+    return {"refresh_tokens": refresh, "reset_tokens": reset}

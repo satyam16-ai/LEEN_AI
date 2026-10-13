@@ -3,6 +3,7 @@
 # =============================================================================
 
 from celery import Celery
+from celery.schedules import crontab
 
 from app.config import settings
 
@@ -30,6 +31,14 @@ celery_app.conf.update(
 
     # Result expiration (24 hours)
     result_expires=86400,
+
+    # Periodic jobs (run by `celery worker -B` / a beat process)
+    beat_schedule={
+        "cleanup-expired-tokens": {
+            "task": "app.core.tasks.cleanup_expired_tokens",
+            "schedule": crontab(hour=3, minute=0),
+        },
+    },
 
     # Workers must consume this queue (`-Q default`); routed tasks never land on "celery"
     task_default_queue="default",

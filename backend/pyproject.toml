@@ -18,6 +18,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pyjwt>=2.10.0",
     "pwdlib[argon2]>=0.2.1",
+    "pillow>=11.0.0",
+    "python-multipart>=0.0.20",
 ]
 
 [project.optional-dependencies]
@@ -41,4 +43,4 @@ asyncio_mode = "auto"
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI dependency injection relies on calls in argument defaults.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Cookie"]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Cookie", "fastapi.File"]

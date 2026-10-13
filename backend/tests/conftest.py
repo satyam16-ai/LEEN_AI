@@ -1,7 +1,10 @@
 import os
 import re
+import tempfile
 
-# Point the app at a dedicated test database before any app module is imported.
+# Point the app at a dedicated test database (and a throwaway media dir) before
+# any app module is imported.
+os.environ["MEDIA_ROOT"] = tempfile.mkdtemp(prefix="leen-media-")
 _BASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql://leen:leen_dev_password@localhost:5432/leen_ai"
 )
@@ -100,5 +103,16 @@ def login(make_client):
         )
         assert response.status_code == 200, response.text
         return session_client
+
+    return factory
+
+
+@pytest.fixture
+def signed_in(create_user, login):
+    """Create a user with `role` and return a signed-in client for them."""
+
+    def factory(email: str, role: UserRole, name: str = "Test User"):
+        create_user(email, role, name=name)
+        return login(email)
 
     return factory

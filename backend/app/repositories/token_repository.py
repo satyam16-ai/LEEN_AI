@@ -4,7 +4,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.models.auth_token import PasswordResetToken, RefreshToken
@@ -73,3 +73,12 @@ def invalidate_reset_tokens(db: Session, user_id: str) -> None:
         .where(PasswordResetToken.user_id == user_id, PasswordResetToken.used_at.is_(None))
         .values(used_at=utcnow())
     )
+
+
+def purge_expired(db: Session, *, older_than: datetime) -> tuple[int, int]:
+    """Delete refresh/reset tokens that expired before `older_than`. Returns deleted counts."""
+    refresh = db.execute(delete(RefreshToken).where(RefreshToken.expires_at < older_than))
+    reset = db.execute(
+        delete(PasswordResetToken).where(PasswordResetToken.expires_at < older_than)
+    )
+    return refresh.rowcount, reset.rowcount

@@ -53,12 +53,17 @@ class User(Base):
     # Embedded in access tokens; bumping it invalidates every outstanding access token.
     token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    avatar_filename: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
     )
+
+    @property
+    def avatar_url(self) -> str | None:
+        return f"/media/avatars/{self.avatar_filename}" if self.avatar_filename else None
 
     def __repr__(self) -> str:
         return f"<User id={self.id} role={self.role.value}>"
