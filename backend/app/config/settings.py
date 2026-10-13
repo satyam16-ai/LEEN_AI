@@ -63,6 +63,18 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = False
     email_from: str = "LEEN AI <no-reply@leen.ai>"
 
+    # AI whiteboard tutor (Claude Code bridge on the host, see infrastructure/claude-bridge)
+    claude_bridge_url: str = "http://host.docker.internal:8765"
+    claude_bridge_token: str = "dev-bridge-token"
+    whiteboard_model: str = "sonnet"
+    whiteboard_effort: str = "low"
+    whiteboard_timeout_seconds: int = 180
+    whiteboard_max_actions: int = 150
+
+    # Narration: neural text-to-speech (Microsoft Edge voices via edge-tts; needs internet)
+    tts_enabled: bool = True
+    tts_cache_ttl_seconds: int = 7 * 24 * 3600
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value):

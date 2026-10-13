@@ -13,3 +13,5 @@ pyjwt>=2.10.0
 pwdlib[argon2]>=0.2.1
 pillow>=11.0.0
 python-multipart>=0.0.20
+httpx>=0.28.0
+edge-tts>=7.0

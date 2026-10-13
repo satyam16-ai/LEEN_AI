@@ -1,8 +1,9 @@
 # =============================================================================
-# Student Endpoints — /api/v1/student (parent link code, classes)
+# Student Endpoints — /api/v1/student (parent link code, classes, doubts)
 # =============================================================================
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.v1.dependencies.auth import require_roles
@@ -11,7 +12,8 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.family import CodeRequest
 from app.schemas.response import ok
-from app.services import classroom_service, family_service
+from app.schemas.whiteboard import DoubtCreate
+from app.services import classroom_service, family_service, whiteboard_service
 
 router = APIRouter()
 current_student = require_roles(UserRole.STUDENT)
@@ -60,3 +62,38 @@ def leave_class(
 ):
     classroom_service.leave(db, student, classroom_id)
     return ok(message="You left the class")
+
+
+@router.post("/doubts")
+def ask_doubt(
+    payload: DoubtCreate, student: User = Depends(current_student), db: Session = Depends(get_db)
+):
+    """Stream the whiteboard explanation as server-sent events."""
+    rate_limit.enforce(f"doubt:{student.id}", 15, 3600)
+    doubt, prompt = whiteboard_service.start_doubt(db, student, payload)
+    return StreamingResponse(
+        whiteboard_service.stream_solution(doubt, prompt),
+        media_type="text/event-stream",
+        # Nginx would otherwise buffer the stream and the board would draw in one go.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/doubts")
+def list_doubts(student: User = Depends(current_student), db: Session = Depends(get_db)):
+    return ok(whiteboard_service.list_doubts(db, student))
+
+
+@router.get("/doubts/{doubt_id}")
+def get_doubt(
+    doubt_id: str, student: User = Depends(current_student), db: Session = Depends(get_db)
+):
+    return ok(whiteboard_service.get_doubt(db, student, doubt_id))
+
+
+@router.delete("/doubts/{doubt_id}")
+def delete_doubt(
+    doubt_id: str, student: User = Depends(current_student), db: Session = Depends(get_db)
+):
+    whiteboard_service.delete_doubt(db, student, doubt_id)
+    return ok(message="Doubt deleted")
