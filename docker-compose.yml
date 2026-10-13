@@ -55,6 +55,12 @@ services:
       - CORS_ORIGINS=http://localhost:8081,http://localhost:3000
       - SMTP_HOST=mailpit
       - SMTP_PORT=1025
+      # AI whiteboard tutor → Claude Code bridge running in a host terminal
+      - CLAUDE_BRIDGE_URL=${CLAUDE_BRIDGE_URL:-http://host.docker.internal:8765}
+      - CLAUDE_BRIDGE_TOKEN=${CLAUDE_BRIDGE_TOKEN:-dev-bridge-token}
+    extra_hosts:
+      # Docker Desktop provides this name already; plain Linux engines need the mapping.
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
