@@ -43,6 +43,8 @@ services:
       dockerfile: ../infrastructure/docker/api.Dockerfile
       target: production
     container_name: leen-api
+    volumes:
+      - media-data:/app/media
     env_file:
       - ./backend/.env
     environment: &backend-env
@@ -67,7 +69,7 @@ services:
       dockerfile: ../infrastructure/docker/api.Dockerfile
       target: production
     container_name: leen-worker
-    command: celery -A app.core.celery_app.celery_app worker -Q default --loglevel=info
+    command: celery -A app.core.celery_app.celery_app worker -B -s /tmp/celerybeat-schedule -Q default --loglevel=info
     env_file:
       - ./backend/.env
     environment: *backend-env
@@ -122,3 +124,4 @@ volumes:
   postgres-data:
   redis-data:
   frontend-build:
+  media-data:

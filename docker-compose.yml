@@ -70,7 +70,7 @@ services:
       dockerfile: ../infrastructure/docker/api.Dockerfile
       target: development
     container_name: leen-worker
-    command: celery -A app.core.celery_app.celery_app worker -Q default --loglevel=info
+    command: celery -A app.core.celery_app.celery_app worker -B -s /tmp/celerybeat-schedule -Q default --loglevel=info
     volumes:
       - ./backend:/app
     env_file:

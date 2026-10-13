@@ -33,6 +33,7 @@ backend/.pytest_cache/
 backend/htmlcov/
 backend/.coverage
 backend/coverage.xml
+backend/media/
 
 # --------------- Environment Variables ---------------
 .env
