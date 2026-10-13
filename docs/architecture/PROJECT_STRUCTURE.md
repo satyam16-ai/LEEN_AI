@@ -18,16 +18,21 @@ leen_ai/
 │   │   │   ├── profile/               AvatarUploader, LearningProfileFields, OnboardingWizard, hooks/
 │   │   │   ├── family/                LinkCodeCard, LinkedParentsList, LinkChildCard, ChildCard, hooks/
 │   │   │   ├── classes/               ClassFormDialog, JoinCodePanel, RosterTable, JoinClassCard, hooks/
+│   │   │   ├── whiteboard/            AI tutor: engine/ (BoardPlayer canvas player, maths text layout,
+│   │   │   │                          hand-drawn strokes, pencil/duster, narrator, scene + motion
+│   │   │   │                          + sprites for 2D animation), Whiteboard,
+│   │   │   │                          NarrationMenu, DoubtComposer,
+│   │   │   │                          StepsList, DoubtHistory, hooks/ (useDoubtSession streams SSE)
 │   │   │   └── admin/                 UsersTable, CreateUserDialog, EditUserForm, hooks/, schemas.js
 │   │   ├── pages/                     LandingPage, auth/, dashboard/, student/, parent/, teacher/,
 │   │   │                              admin/, settings/ (layout + profile/security/appearance), errors/
 │   │   ├── layouts/                   RootLayout, PublicLayout, AuthLayout, AppLayout
 │   │   ├── routes/index.jsx           Router tree + guards
-│   │   ├── services/                  api.js (Axios + refresh), auth/profile/family/classroom/adminUsers services
+│   │   ├── services/                  api.js (Axios + refresh), auth/profile/family/classroom/adminUsers/doubt services
 │   │   ├── store/                     queryClient, ThemeProvider
 │   │   ├── config/navigation.js       Sidebar items per role ("Soon" items carry their phase)
 │   │   ├── hooks/                     useTheme, useDocumentTitle, useDebouncedValue, useScrolled
-│   │   ├── utils/                     cn, apiError, redirect, format, passwordStrength
+│   │   ├── utils/                     cn, apiError, redirect, format, passwordStrength, sse (stream parser)
 │   │   ├── test/                      Vitest setup + render helpers
 │   │   ├── App.jsx                    Providers + session-expiry / cross-tab sync
 │   │   ├── main.jsx                   Entry point (fonts, styles, App)
@@ -92,7 +97,11 @@ leen_ai/
 │   │   │   ├── profile_service.py     Profile updates, avatar processing
 │   │   │   ├── family_service.py      Link codes, parent ↔ student links
 │   │   │   ├── classroom_service.py   Classes, join codes, enrollments
-│   │   │   └── admin_user_service.py  User detail, edits, (de)activation
+│   │   │   ├── admin_user_service.py  User detail, edits, (de)activation
+│   │   │   ├── whiteboard_service.py  Doubts: start, SSE stream of board actions, history
+│   │   │   ├── tts_service.py         Neural narration audio (edge-tts) with Redis cache
+│   │   │   ├── whiteboard/            prompt.py (system prompt), parser.py (NDJSON → validated actions)
+│   │   │   └── llm/claude_bridge.py   Streams text from the Claude Code bridge
 │   │   ├── repositories/             Data access layer
 │   │   │   ├── user_repository.py
 │   │   │   └── token_repository.py
@@ -130,6 +139,7 @@ leen_ai/
 │   ├── docker/
 │   │   ├── web.Dockerfile            Frontend Docker image
 │   │   └── api.Dockerfile            Backend Docker image
+│   ├── claude-bridge/                Runs on the host: exposes `claude -p` to the API (AI tutor)
 │   └── scripts/
 │       ├── setup.sh                  First-time setup
 │       └── reset-db.sh              Database reset

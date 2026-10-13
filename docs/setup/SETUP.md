@@ -100,6 +100,16 @@ docker compose exec api python -m app.cli create-admin --email admin@leen.dev --
 
 Migrations run automatically when the `api` container starts.
 
+### AI whiteboard tutor: start the Claude Code bridge
+
+**Ask a doubt** gets its answers from Claude Code on your machine. Sign in to Claude Code once (`claude`), then keep this running in a terminal:
+
+```bash
+python3 infrastructure/claude-bridge/claude_bridge.py
+```
+
+The API reaches it at `http://host.docker.internal:8765`. Without it, students see "The AI tutor is offline". See [infrastructure/claude-bridge/README.md](../../infrastructure/claude-bridge/README.md) for options and security notes.
+
 | Service        | URL                                   | Description |
 | -------------- | ------------------------------------- | ----------- |
 | Frontend       | http://localhost:8081                 | Served via Nginx reverse proxy |
@@ -117,6 +127,7 @@ Migrations run automatically when the `api` container starts.
 docker compose exec api pytest -q          # backend (uses a separate leen_ai_test database)
 docker compose exec api ruff check app tests
 cd frontend && pnpm test && pnpm lint      # frontend (Vitest + ESLint)
+python3 -m pytest infrastructure/claude-bridge -q   # Claude Code bridge
 ```
 
 
@@ -181,6 +192,12 @@ docker compose down -v
 | `MEDIA_ROOT`               | Where uploads (avatars) are stored                  | media                   |
 | `MAX_AVATAR_BYTES`         | Avatar upload size limit                            | 2097152 (2 MB)          |
 | `LINK_CODE_TTL_HOURS`      | How long a student's parent link code stays valid   | 48                      |
+| `CLAUDE_BRIDGE_URL`        | Claude Code bridge. In Docker it is `http://host.docker.internal:8765` (set in `docker-compose.yml`). | http://localhost:8765 |
+| `CLAUDE_BRIDGE_TOKEN`      | Shared secret. It must match the bridge's `CLAUDE_BRIDGE_TOKEN`. | dev-bridge-token |
+| `WHITEBOARD_MODEL` / `WHITEBOARD_EFFORT` | Claude model alias and effort for board explanations | sonnet / low |
+| `WHITEBOARD_TIMEOUT_SECONDS` / `WHITEBOARD_MAX_ACTIONS` | Stream timeout / action cap per doubt | 180 / 150 |
+| `TTS_ENABLED`              | Neural voice narration via edge-tts. The API needs internet. | true |
+| `TTS_CACHE_TTL_SECONDS`    | How long narration audio stays cached in Redis      | 604800 (7 days)         |
 
 ### Frontend `.env`
 

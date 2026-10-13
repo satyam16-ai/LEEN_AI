@@ -33,6 +33,9 @@ docker compose up -d
 
 # Create the first admin account (prompts for a password)
 docker compose exec api python -m app.cli create-admin --email admin@leen.dev --name "Site Admin"
+
+# AI whiteboard tutor: keep this running in a terminal (uses your Claude Code login)
+python3 infrastructure/claude-bridge/claude_bridge.py
 ```
 
 Everything is served through **Nginx** on a single port:
@@ -42,7 +45,7 @@ Everything is served through **Nginx** on a single port:
 - API Docs → http://localhost:8081/docs
 - Dev inbox (password reset emails) → http://localhost:8025
 
-Students and parents sign up at `/register`. Admins create teacher accounts from **Users → Add user**.
+Students and parents sign up at `/register`. Admins create teacher accounts from **Users → Add user**. Students open **Ask a doubt** to watch the AI explain on a whiteboard.
 
 ### Option 2: Local Development
 
