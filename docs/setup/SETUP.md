@@ -178,6 +178,9 @@ docker compose down -v
 | `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_USE_TLS` | SMTP auth for real providers  | empty / false           |
 | `EMAIL_FROM`               | Sender address                                      | LEEN AI <no-reply@leen.ai> |
 | `DB_ECHO`                  | Log every SQL statement                             | false                   |
+| `MEDIA_ROOT`               | Where uploads (avatars) are stored                  | media                   |
+| `MAX_AVATAR_BYTES`         | Avatar upload size limit                            | 2097152 (2 MB)          |
+| `LINK_CODE_TTL_HOURS`      | How long a student's parent link code stays valid   | 48                      |
 
 ### Frontend `.env`
 

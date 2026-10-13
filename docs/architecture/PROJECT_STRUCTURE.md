@@ -15,11 +15,15 @@ leen_ai/
 │   │   │   └── landing/               Landing page sections
 │   │   ├── features/
 │   │   │   ├── auth/                  components/ (forms), guards/, hooks/, schemas.js, constants.js
-│   │   │   └── admin/                 components/ (UsersTable, CreateUserDialog), hooks/, schemas.js
-│   │   ├── pages/                     LandingPage, auth/, dashboard/, admin/, errors/, AccountSettingsPage
+│   │   │   ├── profile/               AvatarUploader, LearningProfileFields, OnboardingWizard, hooks/
+│   │   │   ├── family/                LinkCodeCard, LinkedParentsList, LinkChildCard, ChildCard, hooks/
+│   │   │   ├── classes/               ClassFormDialog, JoinCodePanel, RosterTable, JoinClassCard, hooks/
+│   │   │   └── admin/                 UsersTable, CreateUserDialog, EditUserForm, hooks/, schemas.js
+│   │   ├── pages/                     LandingPage, auth/, dashboard/, student/, parent/, teacher/,
+│   │   │                              admin/, settings/ (layout + profile/security/appearance), errors/
 │   │   ├── layouts/                   RootLayout, PublicLayout, AuthLayout, AppLayout
 │   │   ├── routes/index.jsx           Router tree + guards
-│   │   ├── services/                  api.js (Axios + refresh), authService, adminUsersService
+│   │   ├── services/                  api.js (Axios + refresh), auth/profile/family/classroom/adminUsers services
 │   │   ├── store/                     queryClient, ThemeProvider
 │   │   ├── config/navigation.js       Sidebar items per role ("Soon" items carry their phase)
 │   │   ├── hooks/                     useTheme, useDocumentTitle, useDebouncedValue, useScrolled
@@ -45,7 +49,11 @@ leen_ai/
 │   │   │       ├── endpoints/         Endpoint handlers
 │   │   │       │   ├── health.py      GET /api/v1/health
 │   │   │       │   ├── auth.py        /api/v1/auth/* (register, login, refresh, …)
-│   │   │       │   └── admin_users.py /api/v1/admin/users
+│   │   │       │   ├── profile.py     /api/v1/profile (+ avatar)
+│   │   │       │   ├── student.py     /api/v1/student (link code, parents, classes)
+│   │   │       │   ├── parent.py      /api/v1/parent/children
+│   │   │       │   ├── teacher.py     /api/v1/teacher/classes
+│   │   │       │   └── admin_users.py /api/v1/admin/users (+ detail, edit, reset link)
 │   │   │       └── dependencies/
 │   │   │           └── auth.py        get_current_user, require_roles, CSRF check
 │   │   ├── config/                    Application configuration
@@ -69,7 +77,9 @@ leen_ai/
 │   │   ├── models/                    SQLAlchemy ORM models
 │   │   │   ├── __init__.py
 │   │   │   ├── user.py               User model + Role enum
-│   │   │   └── auth_token.py         RefreshToken, PasswordResetToken
+│   │   │   ├── auth_token.py         RefreshToken, PasswordResetToken
+│   │   │   ├── profile.py            StudentProfile, ParentStudentLink
+│   │   │   └── classroom.py          Classroom, ClassEnrollment
 │   │   ├── schemas/                   Pydantic schemas
 │   │   │   ├── __init__.py
 │   │   │   ├── response.py           Response envelope + ok() helper
@@ -78,7 +88,11 @@ leen_ai/
 │   │   ├── services/                  Business logic layer
 │   │   │   ├── __init__.py
 │   │   │   ├── redis_service.py       Redis connection wrapper
-│   │   │   └── auth_service.py        Registration, sessions, rotation, password flows
+│   │   │   ├── auth_service.py        Registration, sessions, rotation, password flows
+│   │   │   ├── profile_service.py     Profile updates, avatar processing
+│   │   │   ├── family_service.py      Link codes, parent ↔ student links
+│   │   │   ├── classroom_service.py   Classes, join codes, enrollments
+│   │   │   └── admin_user_service.py  User detail, edits, (de)activation
 │   │   ├── repositories/             Data access layer
 │   │   │   ├── user_repository.py
 │   │   │   └── token_repository.py
@@ -87,7 +101,7 @@ leen_ai/
 │   │   ├── cli.py                    `python -m app.cli create-admin`
 │   │   └── main.py                   FastAPI app factory
 │   ├── alembic/                       Database migrations
-│   │   ├── versions/                  Migration files (0001_auth_schema)
+│   │   ├── versions/                  0001_auth_schema, 0002_profiles_and_classes
 │   │   ├── env.py                    Migration environment
 │   │   └── script.py.mako            Migration template
 │   ├── tests/                         Pytest suite (real Postgres test DB)
