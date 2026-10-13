@@ -1,13 +1,10 @@
+import { Link } from 'react-router-dom';
+
 import { Avatar, Badge } from '@/components/ui';
 import { ROLE_LABELS } from '@/features/auth/constants';
 import { formatDate, formatRelative } from '@/utils/format';
 
-const ROLE_BADGE = {
-  student: 'primary',
-  parent: 'accent',
-  teacher: 'success',
-  admin: 'warning',
-};
+import { ROLE_BADGE_VARIANT } from '../constants';
 
 export function UsersTable({ users }) {
   return (
@@ -34,18 +31,23 @@ export function UsersTable({ users }) {
         </thead>
         <tbody className="divide-y divide-border">
           {users.map((user) => (
-            <tr key={user.id} className="transition-colors hover:bg-muted/40">
+            <tr key={user.id} className="relative transition-colors hover:bg-muted/40">
               <td className="px-6 py-3.5">
                 <div className="flex items-center gap-3">
-                  <Avatar name={user.name} size="sm" />
+                  <Avatar name={user.name} src={user.avatar_url} size="sm" />
                   <div className="min-w-0">
-                    <p className="truncate font-medium">{user.name}</p>
+                    <Link
+                      to={`/admin/users/${user.id}`}
+                      className="block truncate font-medium focus-ring rounded after:absolute after:inset-0 hover:underline"
+                    >
+                      {user.name}
+                    </Link>
                     <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
               </td>
               <td className="px-4 py-3.5">
-                <Badge variant={ROLE_BADGE[user.role]}>{ROLE_LABELS[user.role]}</Badge>
+                <Badge variant={ROLE_BADGE_VARIANT[user.role]}>{ROLE_LABELS[user.role]}</Badge>
               </td>
               <td className="px-4 py-3.5">
                 {user.is_active ? (

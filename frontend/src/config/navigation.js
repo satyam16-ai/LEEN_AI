@@ -1,11 +1,12 @@
 import {
   BarChart3,
+  Bell,
   BookOpenText,
   CalendarCheck,
   ClipboardCheck,
   FileText,
+  KeyRound,
   LayoutDashboard,
-  Bell,
   MessageCircleQuestion,
   School,
   Users,
@@ -19,6 +20,8 @@ import {
 export const NAVIGATION = {
   student: [
     { label: 'Dashboard', to: '/student', icon: LayoutDashboard, end: true },
+    { label: 'My classes', to: '/student/classes', icon: School },
+    { label: 'Parent access', to: '/student/parent-access', icon: KeyRound },
     { label: 'Ask a doubt', icon: MessageCircleQuestion, phase: 3 },
     { label: 'Quizzes', icon: ClipboardCheck, phase: 4 },
     { label: 'Study plan', icon: CalendarCheck, phase: 5 },
@@ -26,13 +29,13 @@ export const NAVIGATION = {
   ],
   parent: [
     { label: 'Dashboard', to: '/parent', icon: LayoutDashboard, end: true },
-    { label: 'My children', icon: UsersRound, phase: 2 },
+    { label: 'My children', to: '/parent/children', icon: UsersRound },
     { label: 'Reports', icon: FileText, phase: 7 },
     { label: 'Notifications', icon: Bell, phase: 7 },
   ],
   teacher: [
     { label: 'Dashboard', to: '/teacher', icon: LayoutDashboard, end: true },
-    { label: 'Classes', icon: School, phase: 2 },
+    { label: 'Classes', to: '/teacher/classes', icon: School },
     { label: 'Syllabus', icon: BookOpenText, phase: 3 },
     { label: 'Quizzes', icon: ClipboardCheck, phase: 4 },
     { label: 'Class analytics', icon: BarChart3, phase: 6 },

@@ -18,7 +18,8 @@ describe('canAccessPath', () => {
   it('allows the role area and shared settings', () => {
     expect(canAccessPath('student', '/student')).toBe(true);
     expect(canAccessPath('admin', '/admin/users')).toBe(true);
-    expect(canAccessPath('parent', '/settings/account')).toBe(true);
+    expect(canAccessPath('parent', '/settings/profile')).toBe(true);
+    expect(canAccessPath('teacher', '/teacher/classes/abc')).toBe(true);
   });
 
   it('rejects other role areas and lookalike prefixes', () => {

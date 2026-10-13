@@ -2,11 +2,19 @@ import { z } from 'zod';
 
 import { newPasswordSchema } from '@/features/auth/schemas';
 
+const ROLES = ['teacher', 'student', 'parent', 'admin'];
+
 export const createUserSchema = z.object({
   name: z.string().trim().min(2, 'Enter the full name').max(100, 'Name is too long'),
   email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address'),
-  role: z.enum(['teacher', 'student', 'parent', 'admin']),
+  role: z.enum(ROLES),
   password: newPasswordSchema,
+});
+
+export const editUserSchema = z.object({
+  name: z.string().trim().min(2, 'Enter the full name').max(100, 'Name is too long'),
+  email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address'),
+  role: z.enum(ROLES),
 });
 
 /** Readable temporary password that satisfies the backend rules. */

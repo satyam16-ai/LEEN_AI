@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, Search, Users } from 'lucide-react';
 import { useState } from 'react';
 
 import { PageHeader } from '@/components/dashboard';
-import { Button, Card, Input, Spinner } from '@/components/ui';
+import { Button, Card, Input, Select, Spinner } from '@/components/ui';
 import { CreateUserDialog, UsersTable, useAdminUsers } from '@/features/admin';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { cn } from '@/utils/cn';
@@ -18,12 +18,14 @@ const FILTERS = [
 
 export function AdminUsersPage() {
   const [role, setRole] = useState('');
+  const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search.trim());
 
   const { data, isPending, isError, isPlaceholderData } = useAdminUsers({
     role,
+    status,
     search: debouncedSearch,
     page,
     pageSize: PAGE_SIZE,
@@ -79,22 +81,37 @@ export function AdminUsersPage() {
               );
             })}
           </div>
-          <div className="relative lg:w-72">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              type="search"
-              value={search}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Select
+              value={status}
               onChange={(event) => {
-                setSearch(event.target.value);
+                setStatus(event.target.value);
                 setPage(1);
               }}
-              placeholder="Search name or email"
-              aria-label="Search users"
-              className="h-10 pl-9"
-            />
+              aria-label="Filter by status"
+              className="h-10 sm:w-40"
+            >
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="deactivated">Deactivated</option>
+            </Select>
+            <div className="relative lg:w-72">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search name or email"
+                aria-label="Search users"
+                className="h-10 pl-9"
+              />
+            </div>
           </div>
         </div>
 

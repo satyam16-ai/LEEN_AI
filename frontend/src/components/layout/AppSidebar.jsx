@@ -57,9 +57,9 @@ export function AppSidebar({ role, onNavigate }) {
       </nav>
 
       <div className="border-t border-border p-3">
-        <NavLink to="/settings/account" className={navClasses} onClick={onNavigate}>
+        <NavLink to="/settings" className={navClasses} onClick={onNavigate}>
           <Settings className="size-[18px]" aria-hidden="true" />
-          Account settings
+          Settings
         </NavLink>
       </div>
     </div>

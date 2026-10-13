@@ -1,23 +1,35 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { GuestOnly, RequireAuth, RequireRole, RoleRedirect } from '@/features/auth';
 import { AppLayout, AuthLayout, PublicLayout, RootLayout } from '@/layouts';
 import {
-  AccountSettingsPage,
   AdminDashboardPage,
+  AdminUserDetailPage,
   AdminUsersPage,
+  AppearanceSettingsPage,
   ForbiddenPage,
   ForgotPasswordPage,
   LandingPage,
   LoginPage,
   NotFoundPage,
+  ParentChildrenPage,
   ParentDashboardPage,
+  ProfileSettingsPage,
   RegisterPage,
   ResetPasswordPage,
   RouteErrorPage,
+  SecuritySettingsPage,
+  SettingsLayout,
+  StudentClassesPage,
   StudentDashboardPage,
+  StudentOnboardingPage,
+  StudentParentAccessPage,
+  TeacherClassDetailPage,
+  TeacherClassesPage,
   TeacherDashboardPage,
 } from '@/pages';
+
+const page = (path, element, title) => ({ path, element, handle: { title } });
 
 /** Route tree; exported separately so tests can mount it in a memory router. */
 export const routes = [
@@ -56,48 +68,44 @@ export const routes = [
               {
                 element: <RequireRole roles={['student']} />,
                 children: [
-                  {
-                    path: 'student',
-                    element: <StudentDashboardPage />,
-                    handle: { title: 'Dashboard' },
-                  },
+                  page('student', <StudentDashboardPage />, 'Dashboard'),
+                  page('student/onboarding', <StudentOnboardingPage />, 'Learning profile'),
+                  page('student/classes', <StudentClassesPage />, 'My classes'),
+                  page('student/parent-access', <StudentParentAccessPage />, 'Parent access'),
                 ],
               },
               {
                 element: <RequireRole roles={['parent']} />,
                 children: [
-                  {
-                    path: 'parent',
-                    element: <ParentDashboardPage />,
-                    handle: { title: 'Dashboard' },
-                  },
+                  page('parent', <ParentDashboardPage />, 'Dashboard'),
+                  page('parent/children', <ParentChildrenPage />, 'My children'),
                 ],
               },
               {
                 element: <RequireRole roles={['teacher']} />,
                 children: [
-                  {
-                    path: 'teacher',
-                    element: <TeacherDashboardPage />,
-                    handle: { title: 'Dashboard' },
-                  },
+                  page('teacher', <TeacherDashboardPage />, 'Dashboard'),
+                  page('teacher/classes', <TeacherClassesPage />, 'Classes'),
+                  page('teacher/classes/:classId', <TeacherClassDetailPage />, 'Class'),
                 ],
               },
               {
                 element: <RequireRole roles={['admin']} />,
                 children: [
-                  {
-                    path: 'admin',
-                    element: <AdminDashboardPage />,
-                    handle: { title: 'Dashboard' },
-                  },
-                  { path: 'admin/users', element: <AdminUsersPage />, handle: { title: 'Users' } },
+                  page('admin', <AdminDashboardPage />, 'Dashboard'),
+                  page('admin/users', <AdminUsersPage />, 'Users'),
+                  page('admin/users/:userId', <AdminUserDetailPage />, 'User'),
                 ],
               },
               {
-                path: 'settings/account',
-                element: <AccountSettingsPage />,
-                handle: { title: 'Account settings' },
+                path: 'settings',
+                element: <SettingsLayout />,
+                children: [
+                  { index: true, element: <Navigate to="profile" replace /> },
+                  page('profile', <ProfileSettingsPage />, 'Settings'),
+                  page('security', <SecuritySettingsPage />, 'Settings'),
+                  page('appearance', <AppearanceSettingsPage />, 'Settings'),
+                ],
               },
             ],
           },

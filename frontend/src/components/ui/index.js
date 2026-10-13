@@ -4,6 +4,10 @@ export { Badge } from './Badge';
 export { Button } from './Button';
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './Card';
 export { Checkbox } from './Checkbox';
+export { ChoiceGroup } from './ChoiceGroup';
+export { CodeEntryForm } from './CodeEntryForm';
+export { ConfirmDialog } from './ConfirmDialog';
+export { CopyButton } from './CopyButton';
 export {
   Dialog,
   DialogClose,
@@ -23,6 +27,7 @@ export {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './DropdownMenu';
+export { EmptyState } from './EmptyState';
 export { FormField } from './FormField';
 export { Input } from './Input';
 export { Label } from './Label';
@@ -32,4 +37,5 @@ export { PasswordStrength } from './PasswordStrength';
 export { Select } from './Select';
 export { Spinner } from './Spinner';
 export { SplashScreen } from './SplashScreen';
+export { Textarea } from './Textarea';
 export { ThemeToggle } from './ThemeToggle';

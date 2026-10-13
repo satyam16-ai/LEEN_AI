@@ -1,14 +1,10 @@
-import { BellRing, FileText, Link2, TrendingDown, UserPlus } from 'lucide-react';
+import { ArrowRight, BellRing, FileText, TrendingDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { FeatureCard, WelcomeBanner } from '@/components/dashboard';
-import { Badge, Button, Card } from '@/components/ui';
+import { Button, Spinner } from '@/components/ui';
 import { useSession } from '@/features/auth';
-
-const STEPS = [
-  'Your child signs up for a student account',
-  'They share their link code from their profile',
-  'Enter the code here to see their progress',
-];
+import { ChildCard, LinkChildCard, useChildren } from '@/features/family';
 
 const FEATURES = [
   {
@@ -36,52 +32,52 @@ const FEATURES = [
 
 export function ParentDashboardPage() {
   const { user } = useSession();
+  const { data: children, isPending } = useChildren();
+  const hasChildren = Boolean(children?.length);
 
   return (
     <>
       <WelcomeBanner
         user={user}
-        subtitle="Stay close to your child's learning journey — without hovering."
+        subtitle={
+          hasChildren
+            ? `You're following ${children.length} ${children.length === 1 ? 'child' : 'children'}.`
+            : "Stay close to your child's learning journey — without hovering."
+        }
       />
 
-      <Card className="mb-8 overflow-hidden">
-        <div className="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center sm:p-8">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="flex size-11 items-center justify-center rounded-xl bg-primary-soft text-primary-soft-foreground">
-                <Link2 className="size-5" aria-hidden="true" />
-              </span>
-              <div>
-                <h2 className="text-lg font-bold">Link your child's account</h2>
-                <p className="text-sm text-muted-foreground">
-                  Connect to their student account to unlock reports and insights.
-                </p>
-              </div>
-            </div>
-            <ol className="grid gap-3 sm:grid-cols-3">
-              {STEPS.map((step, index) => (
-                <li key={step} className="flex gap-3 rounded-xl bg-muted/60 p-3.5 text-sm">
-                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-card text-xs font-bold text-primary shadow-xs">
-                    {index + 1}
-                  </span>
-                  {step}
-                </li>
-              ))}
-            </ol>
-          </div>
-          <div className="flex flex-col items-start gap-2 md:items-end">
-            <Button disabled>
-              <UserPlus className="size-4" aria-hidden="true" />
-              Link a child
-            </Button>
-            <Badge variant="outline">Available in Phase 2</Badge>
-          </div>
+      {isPending ? (
+        <div className="mb-8 flex justify-center py-10">
+          <Spinner />
         </div>
-      </Card>
+      ) : hasChildren ? (
+        <section aria-labelledby="children-heading" className="mb-8">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 id="children-heading" className="text-lg font-bold">
+              Your children
+            </h2>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/parent/children">
+                Manage
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {children.map((child) => (
+              <ChildCard key={child.id} child={child} />
+            ))}
+          </div>
+        </section>
+      ) : (
+        <div className="mb-8">
+          <LinkChildCard />
+        </div>
+      )}
 
       <section aria-labelledby="parent-tools">
         <h2 id="parent-tools" className="mb-4 text-lg font-bold">
-          What you'll be able to see
+          Coming soon for parents
         </h2>
         <div className="grid gap-4 md:grid-cols-3">
           {FEATURES.map((feature) => (

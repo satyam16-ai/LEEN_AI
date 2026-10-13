@@ -29,7 +29,7 @@ export function UserMenu() {
           className="flex items-center gap-2.5 rounded-lg p-1 transition-colors hover:bg-muted focus-ring sm:pr-2"
           aria-label="Open account menu"
         >
-          <Avatar name={user.name} size="sm" />
+          <Avatar name={user.name} src={user.avatar_url} size="sm" />
           <span className="hidden text-left sm:block">
             <span className="block max-w-36 truncate text-sm leading-tight font-medium">
               {user.name}
@@ -45,7 +45,7 @@ export function UserMenu() {
       <DropdownMenuContent className="w-64">
         <DropdownMenuLabel>
           <div className="flex items-center gap-3">
-            <Avatar name={user.name} />
+            <Avatar name={user.name} src={user.avatar_url} />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{user.name}</p>
               <p className="truncate text-xs font-normal text-muted-foreground">{user.email}</p>
@@ -63,7 +63,7 @@ export function UserMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link to="/settings/account">
+          <Link to="/settings/profile">
             <Settings />
             Account settings
           </Link>
