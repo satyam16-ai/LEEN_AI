@@ -292,6 +292,10 @@ export class BoardPlayer {
     this.stage = { stageY: STAGE.y };
     this.column = 'left';
     this.columnFlow = {};
+    // Finished pages (a scene starts a new one), the current page's title, the camera zoom.
+    this.pages = [];
+    this.pageTitle = null;
+    this.camera = null;
   }
 
   _restart() {
@@ -322,6 +326,9 @@ export class BoardPlayer {
       captions: this.captions,
       speed: this.speed,
       narrate: this.narrate,
+      pages: this.pages,
+      pageTitle: this.pageTitle,
+      camera: this.camera,
     };
   }
 
@@ -333,7 +340,10 @@ export class BoardPlayer {
       prev.status === next.status &&
       prev.captions === next.captions &&
       prev.speed === next.speed &&
-      prev.narrate === next.narrate
+      prev.narrate === next.narrate &&
+      prev.pages === next.pages &&
+      prev.pageTitle === next.pageTitle &&
+      prev.camera === next.camera
     ) {
       return;
     }
@@ -498,6 +508,11 @@ export class BoardPlayer {
       case 'column':
         this._switchColumn(action.side);
         return null;
+      case 'scene':
+        return this._startPage(action.title, index);
+      case 'focus':
+        this.camera = Array.isArray(action.at) ? action.at : null;
+        return { kind: 'pause', duration: 600 };
       case 'box': {
         const item = this.items.get(action.id);
         if (!item) return null;
@@ -545,12 +560,7 @@ export class BoardPlayer {
         this.scene.remove(action.id, this.clock);
         return null;
       case 'clear':
-        this.items.clear();
-        this.flow = null;
-        this.column = 'left';
-        this.columnFlow = {};
-        this.stage.stageY = STAGE.y;
-        this.scene.removeAll(this.clock);
+        this._resetBoard();
         return this._erasePlan({ x: 0, y: 0, w: BOARD_WIDTH, h: BOARD_HEIGHT }, true);
       default:
         return null;
@@ -583,10 +593,55 @@ export class BoardPlayer {
     }
   }
 
-  /** One primitive of a compiled visual (see compile/index.js). */
+  /** Everything a fresh board forgets: write positions, columns, the stage and objects. */
+  _resetBoard() {
+    this.items.clear();
+    this.flow = null;
+    this.column = 'left';
+    this.columnFlow = {};
+    this.stage.stageY = STAGE.y;
+    this.camera = null;
+    this.scene.removeAll(this.clock);
+  }
+
+  /** Keep the current page (title + thumbnail), wipe the board and write the new title. */
+  _startPage(title, index) {
+    if (this.committed.length || this.pageTitle) {
+      const name = this.pageTitle ?? `Page ${this.pages.length + 1}`;
+      this.pages = [...this.pages, { title: name, thumb: this._thumbnail() }];
+    }
+    this.pageTitle = title;
+    this._resetBoard();
+    const heading = { type: 'write', text: title, x: COLUMNS.left, y: MARGIN + 50, size: 'lg' };
+    this.expanded.push({ action: { ...heading, color: 'blue' }, seed: (index + 1) * 1000 });
+    return this._erasePlan({ x: 0, y: 0, w: BOARD_WIDTH, h: BOARD_HEIGHT }, true);
+  }
+
+  /** A small PNG of the ink so far, for the page strip (null where canvas isn't available). */
+  _thumbnail() {
+    try {
+      const source = this.ink?.canvas;
+      if (!source?.width) return null;
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.fillStyle = BOARD_THEMES[this.theme].background;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
+    } catch {
+      return null;
+    }
+  }
+
+  /** One primitive of a compiled visual (see compile/index.js), or a queued write. */
   _resolvePrimitive(part, seed) {
     const rng = mulberry32(seed);
     switch (part.type) {
+      case 'write':
+        return this._resolveWrite(part);
       case 'path':
         return this._pathPlan(part);
       case 'label':

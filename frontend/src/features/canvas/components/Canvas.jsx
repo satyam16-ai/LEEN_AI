@@ -18,8 +18,10 @@ import { cn } from '@/utils/cn';
 
 import { SPEEDS } from '../constants';
 import { BOARD_THEMES } from '../engine/board';
+import { cameraTransform } from '../engine/camera';
 import { MathText } from './MathText';
 import { NarrationMenu } from './NarrationMenu';
+import { PageStrip } from './PageStrip';
 
 const FRAME_COLORS = { light: '#d9dde5', dark: '#5b4129' };
 
@@ -117,7 +119,8 @@ export function Canvas({ player, board, status, label, canReplay, children }) {
 
   useEffect(() => player.setTheme(resolvedTheme), [player, resolvedTheme]);
 
-  const { status: playerStatus, captions, speed } = board;
+  const { status: playerStatus, captions, speed, pages, pageTitle, camera } = board;
+  const zoom = cameraTransform(camera);
   const playing = playerStatus === 'playing' || playerStatus === 'waiting';
   const hasBoard = playerStatus !== 'idle';
 
@@ -142,27 +145,31 @@ export function Canvas({ player, board, status, label, canReplay, children }) {
         className="relative mx-auto w-full overflow-hidden rounded-xl border-[5px] shadow-soft sm:border-[7px] [:fullscreen_&]:w-[min(100%,calc((100vh-10rem)*16/9))]"
         style={{ borderColor: FRAME_COLORS[resolvedTheme] }}
       >
-        <div
-          ref={surfaceRef}
-          className="relative aspect-video w-full"
-          style={boardBackground(resolvedTheme)}
-        >
-          <canvas
-            ref={inkRef}
-            className="absolute inset-0 size-full"
-            role="img"
-            aria-label={label ? `Whiteboard explanation: ${label}` : 'Whiteboard'}
-          />
-          <canvas
-            ref={sceneRef}
-            className="pointer-events-none absolute inset-0 size-full"
-            aria-hidden="true"
-          />
-          <canvas
-            ref={overlayRef}
-            className="pointer-events-none absolute inset-0 size-full"
-            aria-hidden="true"
-          />
+        <div ref={surfaceRef} className="relative aspect-video w-full">
+          <div
+            className="absolute inset-0 transition-transform duration-600 ease-in-out motion-reduce:transition-none"
+            style={{
+              ...boardBackground(resolvedTheme),
+              transform: `translate(${zoom.tx}%, ${zoom.ty}%) scale(${zoom.scale})`,
+            }}
+          >
+            <canvas
+              ref={inkRef}
+              className="absolute inset-0 size-full"
+              role="img"
+              aria-label={label ? `Whiteboard explanation: ${label}` : 'Whiteboard'}
+            />
+            <canvas
+              ref={sceneRef}
+              className="pointer-events-none absolute inset-0 size-full"
+              aria-hidden="true"
+            />
+            <canvas
+              ref={overlayRef}
+              className="pointer-events-none absolute inset-0 size-full"
+              aria-hidden="true"
+            />
+          </div>
           {!hasBoard && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-4 text-center sm:gap-2 sm:p-6">
               <p
@@ -186,6 +193,7 @@ export function Canvas({ player, board, status, label, canReplay, children }) {
 
       <div className="mx-auto w-full space-y-3 [:fullscreen_&]:w-[min(100%,calc((100vh-10rem)*16/9))]">
         <CaptionBar caption={captions.at(-1)} />
+        <PageStrip pages={pages} current={pageTitle} />
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
