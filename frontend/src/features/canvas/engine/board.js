@@ -45,3 +45,12 @@ export function colorOf(theme, name) {
   const { colors } = BOARD_THEMES[theme] ?? BOARD_THEMES.light;
   return colors[name] ?? colors.ink;
 }
+
+/** Where visuals go when the AI gives no box: the right side of the board. */
+export const STAGE = { x: 920, y: 100, w: 620, h: 760 };
+/** Left edge of each writing column (writes without x/y flow down the active one). */
+export const COLUMNS = { left: 80, right: 940, full: 80 };
+/** Colours for multiple curves, bars or slices, in order. */
+export const PALETTE = ['blue', 'red', 'green', 'purple'];
+/** Font size of labels inside visuals (ticks, node text, diagram labels). */
+export const LABEL_PX = 24;

@@ -3,11 +3,17 @@ import {
   BOARD_THEMES,
   BOARD_WIDTH,
   colorOf,
+  COLUMNS,
   FONT_SIZES,
   handFont,
+  LABEL_PX,
   LINE_SPACING,
   MARGIN,
+  STAGE,
 } from './board';
+import { expandAction, isCompiled, needsMath } from './compile';
+import { placeVisual } from './compile/layout';
+import { isMathReady, loadMath } from './math/expr';
 import { layoutMathText } from './mathText';
 import { drawObject, Scene } from './scene';
 import {
@@ -35,6 +41,8 @@ const SPEECH_TIMEOUT_MS = 30000;
 const EDGE = 24;
 const FONT_WEIGHT = 400;
 const POP_MS = 420;
+const LABEL_SPEED = 0.6; // labels inside visuals are written faster than the main writing
+const DASH = [14, 10];
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 // Overshoots a little, so placed pictures "pop" onto the board.
@@ -51,14 +59,26 @@ function tracePath(ctx, points) {
   for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
 }
 
-function strokePath(ctx, points, color) {
+function strokePath(ctx, points, color, style) {
   if (points.length < 2) return;
   tracePath(ctx, points);
   ctx.strokeStyle = color;
-  ctx.lineWidth = STROKE_WIDTH;
+  ctx.lineWidth = style?.width ?? STROKE_WIDTH;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  if (style?.dash) ctx.setLineDash(DASH);
   ctx.stroke();
+  if (style?.dash) ctx.setLineDash([]);
+}
+
+/** Where the pencil hovers while a fill (rectangle, polygon or disc) is being shaded. */
+function fillCenter(fill) {
+  if (fill.points) {
+    const sum = fill.points.reduce(([sx, sy], [x, y]) => [sx + x, sy + y], [0, 0]);
+    return [sum[0] / fill.points.length, sum[1] / fill.points.length];
+  }
+  if (fill.r !== undefined) return [fill.cx, fill.cy];
+  return [fill.x + fill.w * 0.5, fill.y + fill.h * 0.5];
 }
 
 function loadFonts() {
@@ -267,6 +287,11 @@ export class BoardPlayer {
     this.clock = 0;
     this.captionHoldUntil = 0;
     this.pen = [MARGIN + 40, MARGIN + 90];
+    // Primitives a compiled visual expanded into, drawn before the next action.
+    this.expanded = [];
+    this.stage = { stageY: STAGE.y };
+    this.column = 'left';
+    this.columnFlow = {};
   }
 
   _restart() {
@@ -284,7 +309,8 @@ export class BoardPlayer {
 
   _status() {
     if (!this.started) return 'idle';
-    const pending = this.current !== null || this.next < this.actions.length;
+    const pending =
+      this.current !== null || this.expanded.length > 0 || this.next < this.actions.length;
     if (this.paused && (pending || this.streaming)) return 'paused';
     if (pending) return 'playing';
     return this.streaming ? 'waiting' : 'finished';
@@ -353,7 +379,14 @@ export class BoardPlayer {
     let budget = dt;
     for (let guard = 0; guard < 1000; guard += 1) {
       if (!this.current) {
+        if (this.expanded.length) {
+          const { action, seed } = this.expanded.shift();
+          const plan = this._resolvePrimitive(action, seed);
+          if (plan) this.current = { plan, elapsed: 0 };
+          continue;
+        }
         if (this.next >= this.actions.length) return;
+        if (this._waitForMath(this.actions[this.next])) return;
         const index = this.next;
         this.next += 1;
         const plan = this._resolve(this.actions[index], index);
@@ -429,8 +462,27 @@ export class BoardPlayer {
 
   // -- turning actions into timed plans -----------------------------------------------
 
+  /** True while a visual that evaluates expressions waits for mathjs to load. */
+  _waitForMath(action) {
+    if (!action || this.mathFailed || !needsMath(action) || isMathReady()) return false;
+    loadMath()
+      .catch(() => {
+        this.mathFailed = true; // draw what we can (axes, labels) without the curves
+      })
+      .finally(() => this._wake());
+    return true;
+  }
+
   _resolve(action, index) {
     const rng = mulberry32(index + 1);
+    if (action && isCompiled(action.type)) {
+      const box = placeVisual(action, this.stage);
+      const parts = expandAction(action, { box, measure: this._measureLabel });
+      parts.forEach((part, i) =>
+        this.expanded.push({ action: part, seed: (index + 1) * 1000 + i })
+      );
+      return null;
+    }
     switch (action?.type) {
       case 'caption':
         return { kind: 'caption', text: action.text };
@@ -439,16 +491,13 @@ export class BoardPlayer {
       case 'write':
         return this._resolveWrite(action);
       case 'line':
-        return this._strokePlan([wobblyLine(action.from, action.to, rng)], action.color);
       case 'arrow':
-        return this._strokePlan(arrowStrokes(action.from, action.to, rng), action.color);
-      case 'rect': {
-        const { x, y, w, h } = action;
-        const fill = action.fill ? { x, y, w, h } : null;
-        return this._strokePlan(rectStrokes(x, y, w, h, rng), action.color, fill);
-      }
+      case 'rect':
       case 'circle':
-        return this._strokePlan([circleStroke(action.x, action.y, action.r, rng)], action.color);
+        return this._shapePlan(action, rng);
+      case 'column':
+        this._switchColumn(action.side);
+        return null;
       case 'box': {
         const item = this.items.get(action.id);
         if (!item) return null;
@@ -498,6 +547,9 @@ export class BoardPlayer {
       case 'clear':
         this.items.clear();
         this.flow = null;
+        this.column = 'left';
+        this.columnFlow = {};
+        this.stage.stageY = STAGE.y;
         this.scene.removeAll(this.clock);
         return this._erasePlan({ x: 0, y: 0, w: BOARD_WIDTH, h: BOARD_HEIGHT }, true);
       default:
@@ -510,10 +562,83 @@ export class BoardPlayer {
     return this.ink.measureText(text).width;
   };
 
+  /** Width of a label as the board will write it (maths text included). */
+  _measureLabel = (text, px) => layoutMathText(String(text), px, this._measure).width;
+
+  _shapePlan(action, rng) {
+    switch (action.type) {
+      case 'line':
+        return this._strokePlan([wobblyLine(action.from, action.to, rng)], action.color);
+      case 'arrow':
+        return this._strokePlan(arrowStrokes(action.from, action.to, rng), action.color);
+      case 'rect': {
+        const { x, y, w, h } = action;
+        const fill = action.fill ? { x, y, w, h } : null;
+        return this._strokePlan(rectStrokes(x, y, w, h, rng), action.color, fill);
+      }
+      case 'circle':
+        return this._strokePlan([circleStroke(action.x, action.y, action.r, rng)], action.color);
+      default:
+        return null;
+    }
+  }
+
+  /** One primitive of a compiled visual (see compile/index.js). */
+  _resolvePrimitive(part, seed) {
+    const rng = mulberry32(seed);
+    switch (part.type) {
+      case 'path':
+        return this._pathPlan(part);
+      case 'label':
+        return this._labelPlan(part);
+      case 'dot': {
+        const fill = part.hollow ? null : { cx: part.x, cy: part.y, r: part.r, solid: true };
+        return this._strokePlan([circleStroke(part.x, part.y, part.r, rng)], part.color, fill);
+      }
+      default:
+        return this._shapePlan(part, rng);
+    }
+  }
+
+  _pathPlan(part) {
+    if (!Array.isArray(part.points) || part.points.length < 2) return null;
+    const points = part.closed ? [...part.points, part.points[0]] : part.points;
+    const plan = this._strokePlan([points], part.color, part.fill ? { points: part.points } : null);
+    plan.style = { dash: part.dash, width: part.width };
+    return plan;
+  }
+
+  _labelPlan(part) {
+    const layout = layoutMathText(String(part.text), part.px ?? LABEL_PX, this._measure);
+    const shift =
+      part.align === 'center' ? layout.width / 2 : part.align === 'right' ? layout.width : 0;
+    let time = 0;
+    const glyphs = layout.glyphs.map((glyph) => {
+      const timed = { ...glyph, start: time, end: time + glyphDuration(glyph) * LABEL_SPEED };
+      time = timed.end;
+      return timed;
+    });
+    return {
+      kind: 'write',
+      x: part.x - shift,
+      y: part.y,
+      color: part.color,
+      glyphs,
+      duration: time,
+      done: 0,
+    };
+  }
+
+  _switchColumn(side) {
+    this.columnFlow[this.column] = this.flow;
+    this.column = COLUMNS[side] === undefined ? 'left' : side;
+    this.flow = this.columnFlow[this.column] ?? null;
+  }
+
   _resolveWrite(action) {
     let size = FONT_SIZES[action.size] ?? FONT_SIZES.md;
     const prev = this.flow;
-    const column = action.x ?? prev?.column ?? MARGIN + 20;
+    const column = action.x ?? prev?.column ?? COLUMNS[this.column];
     let y = action.y ?? (prev ? prev.y + Math.max(prev.size, size) * LINE_SPACING : MARGIN + size);
 
     let layout = layoutMathText(action.text, size, this._measure);
@@ -595,11 +720,21 @@ export class BoardPlayer {
   }
 
   _drawFill(ctx, plan, alpha = 1) {
-    const { x, y, w, h } = plan.fill;
+    const { fill } = plan;
     ctx.save();
-    ctx.globalAlpha = BOARD_THEMES[this.theme].fillAlpha * alpha;
+    ctx.globalAlpha = (fill.solid ? 1 : BOARD_THEMES[this.theme].fillAlpha) * alpha;
     ctx.fillStyle = this._color(plan.color);
-    ctx.fillRect(x, y, w, h);
+    if (fill.points) {
+      tracePath(ctx, fill.points);
+      ctx.closePath();
+      ctx.fill();
+    } else if (fill.r !== undefined) {
+      ctx.beginPath();
+      ctx.arc(fill.cx, fill.cy, fill.r, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillRect(fill.x, fill.y, fill.w, fill.h);
+    }
     ctx.restore();
   }
 
@@ -644,7 +779,7 @@ export class BoardPlayer {
         plan.done < plan.strokes.length &&
         (complete || plan.strokes[plan.done].end <= elapsed)
       ) {
-        strokePath(ctx, plan.strokes[plan.done].points, this._color(plan.color));
+        strokePath(ctx, plan.strokes[plan.done].points, this._color(plan.color), plan.style);
         plan.done += 1;
       }
     } else if (plan.kind === 'erase') {
@@ -670,7 +805,9 @@ export class BoardPlayer {
       if (plan.kind === 'write') plan.glyphs.forEach((glyph) => this._drawGlyph(ctx, plan, glyph));
       if (plan.kind === 'strokes') {
         if (plan.fill) this._drawFill(ctx, plan);
-        plan.strokes.forEach((stroke) => strokePath(ctx, stroke.points, this._color(plan.color)));
+        plan.strokes.forEach((stroke) =>
+          strokePath(ctx, stroke.points, this._color(plan.color), plan.style)
+        );
       }
       if (plan.kind === 'erase') ctx.clearRect(plan.rect.x, plan.rect.y, plan.rect.w, plan.rect.h);
     }
@@ -684,7 +821,7 @@ export class BoardPlayer {
       if (plan.fillDone) this._drawFill(ctx, plan);
       plan.strokes
         .slice(0, plan.done)
-        .forEach((stroke) => strokePath(ctx, stroke.points, this._color(plan.color)));
+        .forEach((stroke) => strokePath(ctx, stroke.points, this._color(plan.color), plan.style));
     } else if (plan.kind === 'erase') {
       this._erase(plan, current.elapsed / plan.duration);
     }
@@ -743,14 +880,14 @@ export class BoardPlayer {
     } else if (plan?.kind === 'strokes') {
       if (plan.fill && !plan.fillDone) {
         this._drawFill(ctx, plan, clamp01(current.elapsed / FILL_MS));
-        tip = [plan.fill.x + plan.fill.w * 0.5, plan.fill.y + plan.fill.h * 0.5];
+        tip = fillCenter(plan.fill);
         lifted = 10;
       }
       const stroke = plan.strokes[plan.done];
       if (stroke && current.elapsed >= stroke.start) {
         const k = clamp01((current.elapsed - stroke.start) / (stroke.end - stroke.start));
         const points = partialPath(stroke.points, k);
-        strokePath(ctx, points, this._color(plan.color));
+        strokePath(ctx, points, this._color(plan.color), plan.style);
         tip = points.at(-1);
       } else if (stroke && plan.done > 0) {
         // Pen lifted, travelling to the start of the next stroke.
