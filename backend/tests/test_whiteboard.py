@@ -4,11 +4,13 @@ import pytest
 
 from app.database import SessionLocal
 from app.models.board import BoardEvent, BoardSession
+from app.models.llm_call import LlmCall
 from app.models.user import User, UserRole
 from app.repositories import board_repository
 from app.services import whiteboard_service
 from app.services.llm import claude_bridge
 from app.services.whiteboard.parser import ActionStreamParser
+from app.services.whiteboard.summary import summarize_board
 
 DOUBTS = "/api/v1/student/doubts"
 
@@ -295,3 +297,155 @@ def test_flatten_turns_inserts_scenes_between_turns():
     assert len(actions) == 4
     assert actions[2] == {"type": "scene", "title": "Second question?"}
     assert actions[:2] == turns[0]["actions"] and actions[3] == {"type": "clear"}
+
+
+# -- follow-ups, another way, cache -------------------------------------------------
+
+
+def counting_stream(text: str):
+    async def stream_text(system, prompt, **kwargs):
+        stream_text.calls += 1
+        stream_text.prompt = prompt
+        yield text
+
+    stream_text.calls = 0
+    return stream_text
+
+
+def ask(client, question="What is a prime?", subject=None) -> str:
+    body = {"question": question} | ({"subject": subject} if subject else {})
+    return read_events(client.post(DOUBTS, json=body))[0][1]["id"]
+
+
+def test_summarize_board_is_short_and_descriptive():
+    actions = [{"type": "write", "text": f"line {n}"} for n in range(300)]
+    actions.append({"type": "plot", "fns": ["x^2"], "x": [-3, 3]})
+    actions.append({"type": "diagram", "kind": "circuit"})
+
+    summary = summarize_board(actions)
+
+    assert "plot: x^2" in summary and "diagram: circuit" in summary
+    assert "line 0" in summary
+    assert len(summary) <= 800
+
+
+def test_follow_up_streams_onto_the_same_board(signed_in, monkeypatch):
+    fake = counting_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = ask(student)
+
+    response = student.post(f"{DOUBTS}/{doubt_id}/turns", json={"question": "Why is it 2xy?"})
+
+    assert response.status_code == 200
+    events = read_events(response)
+    assert events[0][1]["id"] == doubt_id and events[-1][0] == "done"
+    assert "<board>" in fake.prompt and "follow-up" in fake.prompt
+    assert "<doubt>\nWhy is it 2xy?\n</doubt>" in fake.prompt
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert [turn["mode"] for turn in saved["turns"]] == ["ask", "follow_up"]
+    assert {"type": "scene", "title": "Why is it 2xy?"} in saved["actions"]
+    assert saved["status"] == "complete"
+    with SessionLocal() as db:
+        assert db.query(LlmCall).count() == 2
+
+
+def test_explain_another_way_reuses_the_question(signed_in, monkeypatch):
+    fake = counting_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = ask(student, "What is a prime number?")
+
+    response = student.post(f"{DOUBTS}/{doubt_id}/turns", json={"mode": "another_way"})
+
+    assert read_events(response)[-1][0] == "done"
+    assert "different way" in fake.prompt
+    assert "<doubt>\nWhat is a prime number?\n</doubt>" in fake.prompt
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert saved["turns"][1]["question"] == "What is a prime number?"
+
+
+def test_follow_up_needs_a_question(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(BOARD_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = ask(student)
+
+    assert student.post(f"{DOUBTS}/{doubt_id}/turns", json={}).status_code == 422
+
+
+def _turn(question: str, status: str = "complete") -> dict:
+    return {
+        "question": question,
+        "mode": "follow_up",
+        "actions": [],
+        "status": status,
+        "error": None,
+        "cached": False,
+    }
+
+
+def test_busy_board_and_turn_limit(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(BOARD_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    busy_id, full_id = ask(student), ask(student, "What is a factor?")
+    with SessionLocal() as db:
+        board_repository.add_turn(db, db.get(BoardSession, busy_id), _turn("q", "streaming"))
+        full = db.get(BoardSession, full_id)
+        for n in range(5):
+            board_repository.add_turn(db, full, _turn(f"q{n}"))
+        db.commit()
+
+    busy = student.post(f"{DOUBTS}/{busy_id}/turns", json={"question": "Again?"})
+    assert busy.status_code == 409 and "Wait" in busy.json()["message"]
+    full = student.post(f"{DOUBTS}/{full_id}/turns", json={"question": "Again?"})
+    assert full.status_code == 409 and "full" in full.json()["message"]
+
+
+def test_turns_are_owner_only(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(BOARD_SCRIPT))
+    owner = signed_in("s@example.com", UserRole.STUDENT)
+    other = signed_in("s2@example.com", UserRole.STUDENT)
+    teacher = signed_in("t@example.com", UserRole.TEACHER)
+    doubt_id = ask(owner)
+
+    body = {"question": "Why?"}
+    assert other.post(f"{DOUBTS}/{doubt_id}/turns", json=body).status_code == 404
+    assert teacher.post(f"{DOUBTS}/{doubt_id}/turns", json=body).status_code == 403
+
+
+def test_identical_doubt_is_served_from_cache(signed_in, monkeypatch):
+    fake = counting_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    first = signed_in("s1@example.com", UserRole.STUDENT)
+    second = signed_in("s2@example.com", UserRole.STUDENT)
+    third = signed_in("s3@example.com", UserRole.STUDENT)
+    for client, grade in ((first, 9), (second, 9), (third, 10)):
+        client.patch("/api/v1/profile", json={"grade": grade, "board": "cbse"})
+
+    ask(first, "What is a prime number?", "Maths")
+    events = read_events(
+        second.post(DOUBTS, json={"question": "  what is a PRIME   number ", "subject": "maths"})
+    )
+
+    assert fake.calls == 1
+    assert [name for name, _ in events].count("action") == 4 and events[-1][0] == "done"
+    with SessionLocal() as db:
+        turn = db.query(BoardEvent).filter_by(session_id=events[0][1]["id"]).one()
+        assert turn.payload["cached"] is True and turn.payload["status"] == "complete"
+        assert db.query(LlmCall).count() == 1
+
+    ask(third, "What is a prime number?", "Maths")
+    assert fake.calls == 2
+
+
+def test_failed_board_is_never_cached(signed_in, monkeypatch):
+    error = claude_bridge.BridgeError("exit 1")
+    monkeypatch.setattr(claude_bridge, "stream_text", fake_stream(BOARD_SCRIPT, error=error))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    ask(student)
+
+    fake = counting_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    ask(student)
+
+    assert fake.calls == 1

@@ -3,9 +3,11 @@
 # =============================================================================
 
 import asyncio
+import hashlib
 import json
 import logging
 from collections.abc import AsyncIterator
+from typing import NamedTuple
 
 import anyio
 from fastapi import HTTPException, status
@@ -15,16 +17,21 @@ from starlette.concurrency import run_in_threadpool
 from app.config import settings
 from app.database import SessionLocal
 from app.models.board import BoardSession
+from app.models.profile import StudentProfile
 from app.models.user import User, utcnow
 from app.repositories import board_repository, profile_repository
-from app.schemas.whiteboard import DoubtCreate, DoubtOut, DoubtSummary, TurnOut
+from app.schemas.whiteboard import DoubtCreate, DoubtOut, DoubtSummary, TurnCreate, TurnOut
 from app.services.llm import claude_bridge, gateway
 from app.services.whiteboard.parser import ActionStreamParser
 from app.services.whiteboard.prompt import build_prompt
+from app.services.whiteboard.summary import summarize_board
 
 logger = logging.getLogger("leen_ai")
 
 NOT_FOUND = "Doubt not found"
+MAX_TURNS = 6
+BUSY = "Wait for the current explanation to finish."
+FULL = "This board is full. Start a new doubt to keep going."
 KEEPALIVE_SECONDS = 15
 OFFLINE_DEV = (
     "The AI tutor is offline. Start the Claude Code bridge "
@@ -103,25 +110,83 @@ def _new_turn(question: str, mode: str) -> dict:
     }
 
 
-def start_doubt(
-    db: Session, student: User, payload: DoubtCreate
-) -> tuple[DoubtSummary, str, str, str]:
+class TurnStart(NamedTuple):
+    """What the endpoint needs to stream a turn: from the model, or from the cache."""
+
+    doubt: DoubtSummary
+    event_id: str
+    system: str | None
+    prompt: str | None
+    cached_actions: list[dict] | None = None
+
+
+def cache_key(question: str, subject: str | None, profile: StudentProfile | None) -> str:
+    normal = " ".join(question.casefold().split()).rstrip("?.! ")
+    parts = [
+        normal,
+        (subject or "").casefold().strip(),
+        str(profile.grade or "") if profile else "",
+        (profile.board or "") if profile else "",
+        (profile.learning_level or "") if profile else "",
+        (profile.preferred_language or "") if profile else "",
+    ]
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()
+
+
+def start_doubt(db: Session, student: User, payload: DoubtCreate) -> TurnStart:
     """Record the doubt and its first turn, and build the prompts.
 
-    Returns (doubt, turn event id, system prompt, user prompt); the board is streamed separately.
+    An identical doubt from a student with the same profile is copied from the
+    earlier board instead (no model call). The board itself is streamed separately.
     """
     profile = profile_repository.get(db, student.id)
+    key = cache_key(payload.question, payload.subject, profile)
+    cached = board_repository.find_cached_turn(db, key) if settings.board_cache_enabled else None
+
     session = board_repository.create_session(
         db,
         student_id=student.id,
         title=payload.question,
         subject=payload.subject,
         model=gateway.agent_config("board_teacher").model,
+        cache_key=key,
     )
-    turn = board_repository.add_turn(db, session, _new_turn(payload.question, "ask"))
+    turn = _new_turn(payload.question, "ask")
+    if cached is not None:
+        actions = list(cached.payload["actions"])
+        turn.update(actions=actions, status="complete", cached=True)
+        session.status = "complete"
+        session.completed_at = utcnow()
+    event = board_repository.add_turn(db, session, turn)
     db.commit()
+
+    if cached is not None:
+        return TurnStart(_summary(session), event.id, None, None, actions)
     system, prompt = build_prompt(payload.question, payload.subject, profile)
-    return _summary(session), turn.id, system, prompt
+    return TurnStart(_summary(session), event.id, system, prompt)
+
+
+def start_turn(db: Session, student: User, doubt_id: str, payload: TurnCreate) -> TurnStart:
+    """Add a follow-up (or "explain another way") turn to a doubt's board."""
+    session = _owned(db, student, doubt_id)
+    turns = board_repository.list_turns(db, session.id)
+    if turns and turns[-1].payload.get("status") == "streaming":
+        raise HTTPException(status.HTTP_409_CONFLICT, BUSY)
+    if len(turns) >= MAX_TURNS:
+        raise HTTPException(status.HTTP_409_CONFLICT, FULL)
+
+    question = payload.question if payload.mode == "follow_up" else session.title
+    context = summarize_board(flatten_turns([turn.payload for turn in turns]))
+    profile = profile_repository.get(db, student.id)
+    event = board_repository.add_turn(db, session, _new_turn(question, payload.mode))
+    session.status = "streaming"
+    session.error = None
+    db.commit()
+
+    system, prompt = build_prompt(
+        question, session.subject, profile, context=context, mode=payload.mode
+    )
+    return TurnStart(_summary(session), event.id, system, prompt)
 
 
 def _sse(event: str, data: dict) -> str:
@@ -213,3 +278,11 @@ async def stream_solution(
         yield _sse("error", {"message": error})
     else:
         yield _sse("done", {"id": doubt.id, "count": len(actions)})
+
+
+async def stream_cached(doubt: DoubtSummary, actions: list[dict]) -> AsyncIterator[str]:
+    """The same events as stream_solution, for a board copied from the cache."""
+    yield _sse("doubt", doubt.model_dump(mode="json"))
+    for action in actions:
+        yield _sse("action", action)
+    yield _sse("done", {"id": doubt.id, "count": len(actions)})

@@ -68,3 +68,19 @@ def list_turns(db: Session, session_id: str) -> list[BoardEvent]:
 
 def delete_session(db: Session, session: BoardSession) -> None:
     db.delete(session)
+
+
+def find_cached_turn(db: Session, cache_key: str) -> BoardEvent | None:
+    """The newest complete first turn of a v2 board made for the same doubt and profile."""
+    return db.scalar(
+        select(BoardEvent)
+        .join(BoardSession, BoardSession.id == BoardEvent.session_id)
+        .where(
+            BoardSession.cache_key == cache_key,
+            BoardSession.protocol_v == 2,
+            BoardEvent.seq == 1,
+            BoardEvent.payload["status"].astext == "complete",
+        )
+        .order_by(BoardSession.created_at.desc())
+        .limit(1)
+    )

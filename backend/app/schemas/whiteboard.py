@@ -5,7 +5,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
 
 # -- Doubts -------------------------------------------------------------------
 
@@ -19,6 +19,21 @@ class DoubtCreate(BaseModel):
 
     question: Question
     subject: Subject | None = None
+
+
+class TurnCreate(BaseModel):
+    """A follow-up question on the same board, or "explain another way" (no question)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    question: Question | None = None
+    mode: Literal["follow_up", "another_way"] = "follow_up"
+
+    @model_validator(mode="after")
+    def _question_for_follow_ups(self):
+        if self.mode == "follow_up" and not self.question:
+            raise ValueError("Ask a follow-up question")
+        return self
 
 
 class DoubtSummary(BaseModel):
