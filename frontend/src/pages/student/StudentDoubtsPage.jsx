@@ -4,18 +4,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { PageHeader } from '@/components/dashboard';
 import { Alert, Button } from '@/components/ui';
+import { Canvas, MathText, useBoardPlayer } from '@/features/canvas';
 import { useProfile } from '@/features/profile';
 import {
   boardStatus,
   DoubtComposer,
   DoubtHistory,
   DoubtSuggestions,
-  MathText,
   StepsList,
-  useBoardPlayer,
   useDoubt,
   useDoubtSession,
-  Whiteboard,
 } from '@/features/whiteboard';
 
 export function StudentDoubtsPage() {
@@ -129,7 +127,7 @@ export function StudentDoubtsPage() {
             </Alert>
           )}
 
-          <Whiteboard
+          <Canvas
             player={player}
             board={board}
             label={question}
@@ -137,7 +135,7 @@ export function StudentDoubtsPage() {
             canReplay={!busy && (board.status === 'finished' || board.status === 'paused')}
           >
             <DoubtSuggestions onPick={(text) => handleAsk({ question: text, subject: null })} />
-          </Whiteboard>
+          </Canvas>
         </div>
 
         <aside className="space-y-6">

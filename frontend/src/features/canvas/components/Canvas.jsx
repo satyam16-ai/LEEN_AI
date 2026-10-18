@@ -94,7 +94,7 @@ function useFullscreen(ref) {
  * The whiteboard: three stacked canvases (ink, animated scene, pencil overlay) driven by a
  * BoardPlayer, with live captions and playback controls underneath.
  */
-export function Whiteboard({ player, board, status, label, canReplay, children }) {
+export function Canvas({ player, board, status, label, canReplay, children }) {
   const frameRef = useRef(null);
   const surfaceRef = useRef(null);
   const inkRef = useRef(null);
