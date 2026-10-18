@@ -3,10 +3,12 @@ import json
 import pytest
 
 from app.database import SessionLocal
-from app.models.user import UserRole
-from app.models.whiteboard import WhiteboardDoubt
+from app.models.board import BoardEvent, BoardSession
+from app.models.user import User, UserRole
+from app.repositories import board_repository
 from app.services.llm import claude_bridge
 from app.services.whiteboard.parser import ActionStreamParser
+from app.services import whiteboard_service
 from app.services.whiteboard.prompt import build_user_prompt
 
 DOUBTS = "/api/v1/student/doubts"
@@ -174,8 +176,10 @@ def test_bridge_offline_is_reported_and_saved_as_failed(signed_in, monkeypatch):
     name, data = events[-1]
     assert name == "error" and "offline" in data["message"]
     with SessionLocal() as db:
-        doubt = db.query(WhiteboardDoubt).one()
+        doubt = db.query(BoardSession).one()
+        turn = db.query(BoardEvent).one()
         assert doubt.status == "failed" and "offline" in doubt.error
+        assert turn.payload["status"] == "failed" and turn.payload["actions"] == []
 
 
 def test_partial_board_is_kept_when_the_run_fails(signed_in, monkeypatch):
@@ -220,6 +224,8 @@ def test_doubt_validation_and_access(signed_in, monkeypatch):
 
     assert owner.delete(f"{DOUBTS}/{doubt_id}").status_code == 200
     assert owner.get(f"{DOUBTS}/{doubt_id}").status_code == 404
+    with SessionLocal() as db:
+        assert db.query(BoardEvent).count() == 0
     assert owner.get(DOUBTS).json()["data"] == []
 
 
@@ -233,3 +239,72 @@ def test_csrf_header_is_required_to_ask(make_client, create_user, monkeypatch):
         headers={"X-Requested-With": "XMLHttpRequest"},
     )
     assert client.post(DOUBTS, json={"question": "What is a prime?"}).status_code == 403
+
+
+# -- board sessions -------------------------------------------------------------
+
+
+def test_saved_doubt_has_one_turn(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", fake_stream(BOARD_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+
+    doubt_id = read_events(student.post(DOUBTS, json={"question": "What is a prime?"}))[0][1]["id"]
+
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert saved["turns"] == [
+        {"question": "What is a prime?", "mode": "ask", "status": "complete", "count": 4}
+    ]
+    with SessionLocal() as db:
+        session = db.get(BoardSession, doubt_id)
+        assert (session.kind, session.protocol_v, session.title) == ("doubt", 2, "What is a prime?")
+
+
+def test_migrated_v1_session_replays_unchanged(signed_in):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    parser = ActionStreamParser(max_actions=100)
+    actions = parser.feed(BOARD_SCRIPT) + parser.flush()
+    with SessionLocal() as db:
+        owner = db.query(User).filter_by(email="s@example.com").one()
+        session = board_repository.create_session(
+            db,
+            student_id=owner.id,
+            title="Why is (x+y)^2 so?",
+            subject="Maths",
+            status="complete",
+            protocol_v=1,
+        )
+        board_repository.add_turn(
+            db,
+            session,
+            {
+                "question": "Why is (x+y)^2 so?",
+                "mode": "ask",
+                "actions": actions,
+                "status": "complete",
+                "error": None,
+                "cached": False,
+            },
+        )
+        db.commit()
+        doubt_id = session.id
+
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+
+    assert saved["actions"] == actions
+    assert saved["question"] == "Why is (x+y)^2 so?" and saved["status"] == "complete"
+    assert saved["turns"] == [
+        {"question": "Why is (x+y)^2 so?", "mode": "ask", "status": "complete", "count": 4}
+    ]
+
+
+def test_flatten_turns_inserts_scenes_between_turns():
+    turns = [
+        {"question": "First?", "actions": [{"type": "clear"}, {"type": "pause"}]},
+        {"question": "Second question?", "actions": [{"type": "clear"}]},
+    ]
+
+    actions = whiteboard_service.flatten_turns(turns)
+
+    assert len(actions) == 4
+    assert actions[2] == {"type": "scene", "title": "Second question?"}
+    assert actions[:2] == turns[0]["actions"] and actions[3] == {"type": "clear"}

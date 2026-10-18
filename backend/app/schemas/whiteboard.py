@@ -268,7 +268,16 @@ class DoubtSummary(BaseModel):
     created_at: datetime
 
 
+class TurnOut(BaseModel):
+    question: str
+    mode: str
+    status: DoubtStatus
+    count: int
+
+
 class DoubtOut(DoubtSummary):
+    # Every turn's actions in order, with a scene (new page) before each follow-up turn.
     actions: list[dict]
+    turns: list[TurnOut]
     error: str | None
     completed_at: datetime | None
