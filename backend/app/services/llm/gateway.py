@@ -63,12 +63,16 @@ async def stream_text(
     *,
     user_id: str | None = None,
     session_id: str | None = None,
+    usage: dict | None = None,
 ) -> AsyncIterator[str]:
-    """Yield text deltas for `agent`, then log the call with its token use."""
+    """Yield text deltas for `agent`, then log the call with its token use.
+
+    Pass `usage` to also receive the token counts, cost and duration when the call ends.
+    """
     if settings.llm_provider not in PROVIDERS:
         raise LlmConfigError(f"Unknown LLM provider: {settings.llm_provider}")
     config = agent_config(agent)
-    usage: dict = {}
+    usage = {} if usage is None else usage
     status = "error"
     started = time.monotonic()
     try:

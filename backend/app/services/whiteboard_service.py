@@ -19,7 +19,7 @@ from app.repositories import profile_repository, whiteboard_repository
 from app.schemas.whiteboard import DoubtCreate, DoubtOut, DoubtSummary
 from app.services.llm import claude_bridge, gateway
 from app.services.whiteboard.parser import ActionStreamParser
-from app.services.whiteboard.prompt import SYSTEM_PROMPT, build_user_prompt
+from app.services.whiteboard.prompt import build_prompt
 
 logger = logging.getLogger("leen_ai")
 
@@ -55,8 +55,10 @@ def delete_doubt(db: Session, student: User, doubt_id: str) -> None:
     db.commit()
 
 
-def start_doubt(db: Session, student: User, payload: DoubtCreate) -> tuple[DoubtSummary, str]:
-    """Record the doubt and build the prompt; the explanation is streamed separately."""
+def start_doubt(
+    db: Session, student: User, payload: DoubtCreate
+) -> tuple[DoubtSummary, str, str]:
+    """Record the doubt and build its (system, user) prompts; the board is streamed separately."""
     profile = profile_repository.get(db, student.id)
     doubt = whiteboard_repository.create(
         db,
@@ -66,8 +68,8 @@ def start_doubt(db: Session, student: User, payload: DoubtCreate) -> tuple[Doubt
         model=settings.whiteboard_model,
     )
     db.commit()
-    prompt = build_user_prompt(payload.question, payload.subject, profile)
-    return DoubtSummary.model_validate(doubt), prompt
+    system, prompt = build_prompt(payload.question, payload.subject, profile)
+    return DoubtSummary.model_validate(doubt), system, prompt
 
 
 def _sse(event: str, data: dict) -> str:
@@ -86,11 +88,13 @@ def _save_result(doubt_id: str, actions: list[dict], error: str | None) -> None:
         db.commit()
 
 
-async def _produce(prompt: str, queue: asyncio.Queue, student_id: str, doubt_id: str) -> None:
+async def _produce(
+    system: str, prompt: str, queue: asyncio.Queue, student_id: str, doubt_id: str
+) -> None:
     """Pump text from the model into the queue so the consumer can send keepalives."""
     try:
         async for chunk in gateway.stream_text(
-            "board_teacher", SYSTEM_PROMPT, prompt, user_id=student_id, session_id=doubt_id
+            "board_teacher", system, prompt, user_id=student_id, session_id=doubt_id
         ):
             await queue.put(("text", chunk))
         await queue.put(("end", None))
@@ -109,7 +113,7 @@ def _friendly(error: Exception) -> str:
 
 
 async def stream_solution(
-    doubt: DoubtSummary, prompt: str, student_id: str
+    doubt: DoubtSummary, system: str, prompt: str, student_id: str
 ) -> AsyncIterator[str]:
     """Server-sent events: doubt, status, action*, then done or error.
 
@@ -123,7 +127,7 @@ async def stream_solution(
     actions: list[dict] = []
     error: str | None = STOPPED  # until the stream ends normally
     queue: asyncio.Queue = asyncio.Queue()
-    producer = asyncio.create_task(_produce(prompt, queue, student_id, doubt.id))
+    producer = asyncio.create_task(_produce(system, prompt, queue, student_id, doubt.id))
 
     try:
         while True:
