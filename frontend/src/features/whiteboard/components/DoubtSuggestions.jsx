@@ -1,7 +1,7 @@
 import { cn } from '@/utils/cn';
 
 import { SUGGESTED_DOUBTS } from '../constants';
-import { MathText } from './MathText';
+import { MathText } from '@/features/canvas';
 
 /** Example doubts, asked in one click (shown on the empty board). */
 export function DoubtSuggestions({ onPick }) {

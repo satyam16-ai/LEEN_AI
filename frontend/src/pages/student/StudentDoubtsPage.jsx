@@ -4,19 +4,21 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { PageHeader } from '@/components/dashboard';
 import { Alert, Button } from '@/components/ui';
+import { Canvas, MathText, useBoardPlayer } from '@/features/canvas';
 import { useProfile } from '@/features/profile';
 import {
   boardStatus,
   DoubtComposer,
   DoubtHistory,
   DoubtSuggestions,
-  MathText,
+  FollowUpBar,
   StepsList,
-  useBoardPlayer,
   useDoubt,
   useDoubtSession,
-  Whiteboard,
 } from '@/features/whiteboard';
+
+// A board takes a first question plus up to 5 follow-ups (the server enforces it too).
+const MAX_TURNS = 6;
 
 export function StudentDoubtsPage() {
   const { doubtId } = useParams();
@@ -32,7 +34,10 @@ export function StudentDoubtsPage() {
     if (doubtId && liveId && liveId !== 'pending' && doubtId !== liveId) setLiveId(null);
   }
 
-  const { session, ask, stop, reset } = useDoubtSession(player, {
+  // Turns already on a saved board before following up on it in this visit.
+  const [baseTurns, setBaseTurns] = useState(0);
+
+  const { session, ask, followUp, stop, reset } = useDoubtSession(player, {
     onDoubt: (doubt) => {
       setLiveId(doubt.id);
       navigate(`/student/doubts/${doubt.id}`, { replace: true });
@@ -56,12 +61,30 @@ export function StudentDoubtsPage() {
   const question = live ? session.question : saved.data?.question;
 
   const handleAsk = (values) => {
+    setBaseTurns(0);
     setLiveId('pending');
     if (doubtId) navigate('/student/doubts');
     ask(values);
   };
 
+  /** A follow-up or another explanation, streamed onto the board that is showing. */
+  const continueBoard = (body) => {
+    const id = live ? session.doubt?.id : doubtId;
+    if (!id) return;
+    const title = live ? session.question : saved.data?.question;
+    if (!live) {
+      reset();
+      setBaseTurns(saved.data?.turns?.length ?? 1);
+      setLiveId(id);
+    }
+    followUp(id, { ...body, title });
+  };
+
+  const turnCount = live ? baseTurns + session.turns : (saved.data?.turns?.length ?? 0);
+  const canFollowUp = live ? Boolean(session.doubt?.id) : Boolean(saved.data);
+
   const startOver = () => {
+    setBaseTurns(0);
     setLiveId(null);
     reset();
     player.load([]);
@@ -129,7 +152,7 @@ export function StudentDoubtsPage() {
             </Alert>
           )}
 
-          <Whiteboard
+          <Canvas
             player={player}
             board={board}
             label={question}
@@ -137,7 +160,16 @@ export function StudentDoubtsPage() {
             canReplay={!busy && (board.status === 'finished' || board.status === 'paused')}
           >
             <DoubtSuggestions onPick={(text) => handleAsk({ question: text, subject: null })} />
-          </Whiteboard>
+          </Canvas>
+
+          {canFollowUp && (
+            <FollowUpBar
+              busy={busy}
+              full={turnCount >= MAX_TURNS}
+              onFollowUp={(text) => continueBoard({ question: text, mode: 'follow_up' })}
+              onAnotherWay={() => continueBoard({ mode: 'another_way' })}
+            />
+          )}
         </div>
 
         <aside className="space-y-6">

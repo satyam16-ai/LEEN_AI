@@ -116,6 +116,18 @@ export const routes = [
       },
 
       { path: '403', element: <ForbiddenPage /> },
+      // Dev-only gallery of every board visual; the branch is removed from production builds.
+      ...(import.meta.env.DEV
+        ? [
+            {
+              path: 'dev/canvas',
+              lazy: () =>
+                import('@/pages/dev/CanvasGalleryPage').then((module) => ({
+                  Component: module.CanvasGalleryPage,
+                })),
+            },
+          ]
+        : []),
       { path: '*', element: <NotFoundPage /> },
     ],
   },

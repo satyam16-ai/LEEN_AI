@@ -17,7 +17,7 @@ import { cn } from '@/utils/cn';
 import { formatRelative } from '@/utils/format';
 
 import { useDeleteDoubt, useDoubts } from '../hooks/useDoubts';
-import { MathText } from './MathText';
+import { MathText } from '@/features/canvas';
 
 const STATUS_BADGE = {
   failed: { label: 'Incomplete', variant: 'warning' },

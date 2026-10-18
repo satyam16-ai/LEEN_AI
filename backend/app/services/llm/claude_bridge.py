@@ -35,9 +35,13 @@ async def stream_text(
     *,
     model: str | None = None,
     effort: str | None = None,
+    usage: dict | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> AsyncIterator[str]:
-    """Yield text deltas as Claude writes them."""
+    """Yield text deltas as Claude writes them.
+
+    When the run ends, `usage` (if given) is filled with its token counts, cost and duration.
+    """
     body = {"system": system, "prompt": prompt, "model": model, "effort": effort}
     try:
         async with (
@@ -57,6 +61,10 @@ async def stream_text(
                 if kind == "text":
                     yield event["text"]
                 elif kind == "done":
+                    if usage is not None:
+                        usage.update(event.get("usage") or {})
+                        usage["cost_usd"] = event.get("cost_usd")
+                        usage["duration_ms"] = event.get("duration_ms")
                     return
                 elif kind == "error":
                     raise BridgeError(event.get("message") or "Claude Code run failed")

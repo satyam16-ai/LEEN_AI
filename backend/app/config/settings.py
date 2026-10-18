@@ -64,12 +64,15 @@ class Settings(BaseSettings):
     email_from: str = "LEEN AI <no-reply@leen.ai>"
 
     # AI whiteboard tutor (Claude Code bridge on the host, see infrastructure/claude-bridge)
+    llm_provider: str = "claude_bridge"
     claude_bridge_url: str = "http://host.docker.internal:8765"
     claude_bridge_token: str = "dev-bridge-token"
     whiteboard_model: str = "sonnet"
     whiteboard_effort: str = "low"
     whiteboard_timeout_seconds: int = 180
     whiteboard_max_actions: int = 150
+    # Serve an identical doubt (same question and student profile) from an earlier board.
+    board_cache_enabled: bool = True
 
     # Narration: neural text-to-speech (Microsoft Edge voices via edge-tts; needs internet)
     tts_enabled: bool = True

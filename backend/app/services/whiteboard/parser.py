@@ -7,7 +7,7 @@ import logging
 
 from pydantic import ValidationError
 
-from app.schemas.whiteboard import board_action, dump_action
+from app.schemas.board import board_action, dump_action
 
 logger = logging.getLogger("leen_ai")
 

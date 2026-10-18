@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { cn } from '@/utils/cn';
 
-import { MathText } from './MathText';
+import { MathText } from '@/features/canvas';
 
 /** Every caption so far, as a numbered transcript (also the board's text alternative). */
 export function StepsList({ captions }) {

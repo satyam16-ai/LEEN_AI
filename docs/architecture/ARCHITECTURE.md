@@ -130,7 +130,9 @@ app.include_router(v2_router, prefix="/api/v2")  # future
 | `parent_student_links`  | Parent ↔ student links (unique pair)                          |
 | `classrooms`            | Teacher-owned classes with a unique 6-character join code     |
 | `class_enrollments`     | Student ↔ classroom membership (unique pair)                  |
-| `whiteboard_doubts`     | A student's doubt and the validated board actions the AI drew (JSONB), `streaming` → `complete`/`failed` |
+| `board_sessions`        | One board the AI teaches on (today: a doubt). Title, subject, status `streaming` → `complete`/`failed`, protocol version, cache key |
+| `board_events`          | Append-only log per board. A doubt's events are its turns: `{question, mode, actions, status, error, cached}` as JSONB |
+| `llm_calls`             | One row per model call: agent, model, status, duration, input/output/cached tokens, cost |
 
 `users.avatar_filename` points at a re-encoded 256×256 WebP under `MEDIA_ROOT/avatars/`, served at `/media/avatars/<file>` (FastAPI static files behind Nginx).
 
@@ -225,7 +227,8 @@ Cookies are `SameSite=Lax`. Every POST/PUT/PATCH/DELETE must also send `X-Reques
 | POST | `/api/v1/teacher/classes/{id}/join-code` | Teacher (owner) | New join code (old one stops working) |
 | DELETE | `/api/v1/teacher/classes/{id}/students/{student_id}` | Teacher (owner) | Remove a student |
 | POST | `/api/v1/student/doubts` | Student | `{question, subject?}` → **`text/event-stream`** of the whiteboard explanation (see below) |
-| GET | `/api/v1/student/doubts` · GET / DELETE `/{id}` | Student | History (newest first) / full board for replay / delete |
+| POST | `/api/v1/student/doubts/{id}/turns` | Student (owner) | `{question}` (follow-up) or `{mode: "another_way"}` → **`text/event-stream`** onto the same board; 6 turns per board, 409 while one is streaming |
+| GET | `/api/v1/student/doubts` · GET / DELETE `/{id}` | Student | History (newest first) / full board for replay with its `turns` / delete |
 | GET | `/api/v1/tts?text=…&voice=neerja\|prabhat` | Signed in | MP3 narration of a caption (neural en-IN voice, cached 7 days) |
 
 Protect new endpoints with `Depends(get_current_user)` or `Depends(require_roles(UserRole.TEACHER, ...))` from `app/api/v1/dependencies/auth.py`.
@@ -246,7 +249,7 @@ Over the limit returns `429` with a `Retry-After` header.
 
 ## AI Whiteboard Tutor
 
-> This whiteboard is **canvas engine v1**, the first slice of LEEN AI's core engine. The daily tuition class, Board Protocol v2, the two-way board, the agents and the student model that build on it are designed in [CANVAS_ENGINE.md](CANVAS_ENGINE.md).
+> This whiteboard is LEEN AI's core engine, now at **canvas engine v2** (Phase 4: visuals computed in the browser, board sessions with follow-ups, the LLM gateway). The two-way board, daily tuition class, agents and student model that build on it are designed in [CANVAS_ENGINE.md](CANVAS_ENGINE.md).
 
 A student asks a doubt. The AI explains it on an HTML canvas in real time: a pencil writes the working, a duster erases and rewrites steps, and captions explain each step.
 
@@ -262,7 +265,12 @@ The model is **Claude Code running on the developer's machine**, not an API key.
   Each run starts in an empty temporary directory. The bridge streams only the `text_delta` events back as NDJSON.
 - Requests need `Authorization: Bearer $CLAUDE_BRIDGE_TOKEN`. The custom header also forces a CORS preflight, which the bridge never answers, so a web page can't use the bridge.
 - At most 2 runs at once, and each run is killed after 300 s. A run is also killed when the API disconnects, for example when the student presses **Stop**.
-- **Production:** swap `app/services/llm/claude_bridge.stream_text()` for an Anthropic API call that yields text deltas. Nothing else changes.
+- Every call goes through the **LLM gateway** (`app/services/llm/gateway.py`):
+  - `stream_text(agent, system, prompt, …)` picks the model and effort per agent;
+  - it logs the call's token use in `llm_calls`;
+  - `LLM_PROVIDER` selects the provider (`claude_bridge` today).
+- The bridge forwards each run's `usage` (input, output, cache read and cache write tokens) with its `done` event.
+- **Production:** add an `anthropic_api` provider to the gateway. Nothing that calls the gateway changes.
 
 ### Board protocol
 
@@ -283,7 +291,7 @@ Claude prints **one JSON action per line**, so the backend can validate and forw
 | `animate` | `id`, `motion` fall/projectile/orbit/swing/move/path/oscillate/spin/pulse, plus that motion's settings (`to_y`, `bounce`, `vx`/`vy`, `around`, `period`, `angle`, …), and `loop`, `wait`, `trail` |
 | `stop` / `remove` | Freeze an object / fade it out, together with the arrows attached to it |
 
-`app/services/whiteboard/parser.py` buffers partial lines and validates every action against the pydantic union in `app/schemas/whiteboard.py`:
+`app/services/whiteboard/parser.py` buffers partial lines and validates every action against the pydantic union in `app/schemas/board/` (v1 actions in `v1.py`, v2 visuals in `visuals.py`):
 - coordinates are clamped to the board and text is truncated;
 - unknown colours and sizes fall back to defaults;
 - code fences, prose and invalid lines are dropped;
@@ -291,9 +299,41 @@ Claude prints **one JSON action per line**, so the backend can validate and forw
 
 Because the model's output becomes plain data, a prompt-injected question can't do more than change what gets drawn.
 
+### Canvas engine v2: visuals, board sessions and tokens
+
+**Visuals are computed, not drawn by the AI.**
+- The AI sends one short line per visual: `plot`, `numberline`, `geo`, `table`, `chart`, `flow` or `diagram` (circuit, lens, mirror, free-body, atom, cell, apparatus), plus `scene`, `focus` and `column` to structure the board. Fields are listed in [CANVAS_ENGINE.md](CANVAS_ENGINE.md#layer-1-board-protocol-v2).
+- The browser compiles each one in `src/features/canvas/engine/compile/` into `path`, `label` and `dot` primitives, plus v1 shapes, which the pencil animates. The libraries:
+  - **mathjs** for expressions. It loads as its own chunk, and each expression's AST is checked against a whitelist before it is compiled.
+  - **d3-scale** and **d3-shape** for axes, ticks and pie angles.
+  - **dagre** for flowchart layout.
+  - Small helpers for geometry angles, the lens and mirror formulas, and Bohr shells.
+- **Placement:**
+  - Visuals without `at` stack down the stage (x 920–1540).
+  - Writes stay in their column, shrinking and then wrapping at spaces.
+  - `scene` keeps the page as a thumbnail in the page strip and starts a new one.
+  - `focus` zooms the board, at most 2.5×.
+- A dev-only gallery at `/dev/canvas` draws one sample of every visual.
+
+**Doubts are board sessions.**
+- Each turn is a `board_events` row: the first question, then follow-ups or "explain another way". Migration 0005 moved every existing doubt in as a single-turn session; it is reversible, and a downgrade keeps the first turn.
+- Replays flatten the turns, with a page break before each follow-up unless the model started one.
+- A follow-up sends a board summary of at most 800 characters, built without an AI call, in place of the full history.
+- An identical doubt asked by a student with the same profile is copied from an earlier v2 board with no model call. The match is on the normalised question plus subject, class, board, level and language.
+
+**Token use.**
+- The system prompt is a shared core plus only the modules a subject needs. Maths is 4.9k characters against 8.9k for v1, and the model is told never to compute what the board can.
+- `python -m app.cli board-eval --label v2 --out evals/board-v2.json --compare evals/board-v1.json` runs 8 sample doubts (2 each of maths, physics, chemistry and biology), reports the tokens, and fails if the median output grows.
+
+| Sample doubts (median) | v1 | v2 |
+| --- | --- | --- |
+| Output tokens | 1,494.5 | 593 (−60%) |
+| Actions | 33.5 | 17.5 |
+| Dropped lines | 0 | 0 |
+
 ### Streaming
 
-`POST /api/v1/student/doubts` returns server-sent events:
+`POST /api/v1/student/doubts` returns server-sent events. The same events come from `POST …/doubts/{id}/turns`, and a board served from the cache streams them at once with no `status` event:
 
 ```
 event: doubt   data: {id, question, subject, status, created_at}
@@ -309,7 +349,7 @@ event: done    data: {id, count}            or   event: error  data: {message}
 
 ### Frontend player
 
-`src/features/whiteboard/engine/BoardPlayer.js` draws on two stacked canvases:
+`src/features/canvas/engine/BoardPlayer.js` draws on two stacked canvases:
 
 | Layer | What it holds |
 | --- | --- |

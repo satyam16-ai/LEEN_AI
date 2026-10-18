@@ -17,8 +17,8 @@ async function errorMessage(response) {
   return GENERIC;
 }
 
-function postDoubt(body, signal) {
-  return fetch(`${apiClient.defaults.baseURL}/student/doubts`, {
+function post(path, body, signal) {
+  return fetch(`${apiClient.defaults.baseURL}${path}`, {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -42,26 +42,32 @@ export const doubtService = {
    * for each server-sent event (doubt, status, action, done, error). Resolves when
    * the stream ends; rejects on HTTP errors, network errors or abort.
    */
-  async stream(body, { signal, onEvent }) {
-    let response = await postDoubt(body, signal);
-    if (response.status === 401) {
-      try {
-        await refreshSession();
-      } catch (error) {
-        notifySessionExpired();
-        throw new Error('Your session has expired. Please sign in again.', { cause: error });
-      }
-      response = await postDoubt(body, signal);
-    }
-    if (!response.ok || !response.body) throw new Error(await errorMessage(response));
+  stream: (body, options) => streamSSE('/student/doubts', body, options),
 
-    const parser = createSSEParser(onEvent);
-    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      parser.feed(value);
-    }
-    parser.end();
-  },
+  /** Stream a follow-up ({question}) or "explain another way" ({mode}) onto a doubt's board. */
+  streamTurn: (doubtId, body, options) =>
+    streamSSE(`/student/doubts/${doubtId}/turns`, body, options),
 };
+
+async function streamSSE(path, body, { signal, onEvent }) {
+  let response = await post(path, body, signal);
+  if (response.status === 401) {
+    try {
+      await refreshSession();
+    } catch (error) {
+      notifySessionExpired();
+      throw new Error('Your session has expired. Please sign in again.', { cause: error });
+    }
+    response = await post(path, body, signal);
+  }
+  if (!response.ok || !response.body) throw new Error(await errorMessage(response));
+
+  const parser = createSSEParser(onEvent);
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    parser.feed(value);
+  }
+  parser.end();
+}

@@ -43,7 +43,42 @@ def test_success_result_becomes_done():
             }
         )
     )
-    assert event == {"type": "done", "duration_ms": 2257, "cost_usd": 0.0014}
+    assert event == {
+        "type": "done",
+        "duration_ms": 2257,
+        "cost_usd": 0.0014,
+        "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+        },
+    }
+
+
+def test_extract_event_forwards_usage():
+    event = extract_event(
+        line(
+            {
+                "type": "result",
+                "subtype": "success",
+                "duration_ms": 900,
+                "total_cost_usd": 0.004,
+                "usage": {
+                    "input_tokens": 12,
+                    "output_tokens": 340,
+                    "cache_read_input_tokens": 2100,
+                    "cache_creation_input_tokens": 0,
+                },
+            }
+        )
+    )
+    assert event["usage"] == {
+        "input_tokens": 12,
+        "output_tokens": 340,
+        "cache_read_tokens": 2100,
+        "cache_write_tokens": 0,
+    }
 
 
 def test_error_result_becomes_error():

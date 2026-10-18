@@ -2,7 +2,11 @@
 
 The core engine of LEEN AI is the **AI-powered 2D canvas**: the board the AI teaches on, and everything behind it. This document is the design that Phases 4–8 build against. The phase-by-phase breakdown, decisions log and demo script are in the [master plan PDF](../LEEN_AI_Master_Plan.pdf). The roadmap is in [ROADMAP.md](../ROADMAP.md).
 
-Today's whiteboard tutor (Phase 3, described in [ARCHITECTURE.md](ARCHITECTURE.md#ai-whiteboard-tutor)) is **canvas engine v1**. Everything below extends it rather than replacing it.
+**Status:**
+- **Phase 3** built canvas engine v1, the whiteboard tutor.
+- **Phase 4** built canvas engine v2: the LLM gateway, Board Protocol v2 visuals, board sessions with follow-up turns, the board cache, per-subject prompts, and a dev gallery at `/dev/canvas`.
+
+The as-built details are in [ARCHITECTURE.md](ARCHITECTURE.md#ai-whiteboard-tutor). Layers 2–5 are planned (Phases 5–8).
 
 ## The daily tuition loop
 
@@ -38,20 +42,27 @@ Today's whiteboard tutor (Phase 3, described in [ARCHITECTURE.md](ARCHITECTURE.m
 
 ## Layer 1: Board Protocol v2
 
-The v1 actions stay unchanged: `caption`, `write`, `underline`, `box`, `erase`, `line`, `arrow`, `rect`, `circle`, `clear`, `pause`, `object`, `animate`, `stop`, `remove`. Everything draws stroke by stroke, like the existing pencil.
+*Built in Phase 4.* The v1 actions stay unchanged: `caption`, `write`, `underline`, `box`, `erase`, `line`, `arrow`, `rect`, `circle`, `clear`, `pause`, `object`, `animate`, `stop`, `remove`.
 
-| Group        | Actions | Notes |
-| ------------ | ------- | ----- |
-| Structure    | `scene`, `focus`, `column` | `scene {title}` starts a new page; earlier pages stay in a thumbnail strip. `focus {x,y,w,h}` moves the camera. A `write` without x/y flows down the active column. |
-| Graphs       | `axes`, `plot` | Function graphs from a safe expression evaluator (never `eval`), with points, shaded regions and labels |
-| Geometry     | `point`, `segment`, `polygon`, `angle`, `arc` | Math units mapped to the board; angle arcs, equal-length ticks, dimension labels |
-| Tables       | `table` | Rows revealed one at a time |
-| Diagrams     | `diagram {template, params, labels[]}` | Leader-line labels. Starter set: circuit, ray optics, free-body, atom/Bohr, cell, simple apparatus |
-| Infographics | `flow`, `chart`, `numberline` | Flowcharts and mind maps with automatic layout; bar, pie and line charts |
-| Chemistry    | `write` | Chemical equations through `mathText` (subscripts, →, ⇌) |
-| Media        | `image` | An uploaded photo, such as the student's question |
-| Interaction  | `ask`, `mark`, `hint` | `ask {id, kind: mcq\|numeric\|short\|board, prompt, options?, region?}` pauses the player. `mark {target_line, kind: tick\|cross\|circle\|note}` is the red pen. `hint` is revealed on request. |
-| Grounding    | `cite {source, page}` | A chip linking to the page of an uploaded book |
+Visuals are drawn stroke by stroke, like the pencil. Any visual can take `at: [x, y, w, h]` and `color`. Without `at`, it stacks down the stage (x 920–1540, y 100–860).
+
+| Action | Fields (as built) | The board computes |
+| ------ | ----------------- | ------------------ |
+| `scene` | `title` | Keeps the page as a thumbnail, wipes the board, writes the title |
+| `focus` | `at` (none zooms back out) | A CSS zoom of up to 2.5× |
+| `column` | `side`: left \| right \| full | Which column a write without x/y flows into; each column keeps its own place |
+| `plot` | `fns` (≤4 expressions of x), `x` [lo, hi], `y` [lo, hi]?, `points` {name: [x, y]}, `labels`, `shade` {fn, from, to}, `xlabel`, `ylabel` | Curves (mathjs, 240 samples, split at asymptotes), axes and ticks (d3-scale), shading |
+| `numberline` | `range`, `marks`, `labels` {name: value}, `interval` {from, to, open: [bool, bool]} | Ticks, dots, open and closed ends |
+| `geo` | `pts` {A: [x, y]} (2–12), `shapes` ("AB", "ABC"), `angles` ("ABC"), `right`, `sides` {AB: label}, `circles` [{c, r \| through}] | Fitting to the box, angle values, label positions |
+| `table` | `head`, `rows`, or `fn` with `xs` | The values (for `fn`), column widths, text size |
+| `chart` | `kind`: bar \| pie \| line, `labels`, `values`, `title`, `unit` | Scales, bars, slices, axes |
+| `flow` | `nodes` (2–10), `edges` [[i, j]] (none = a chain), `kind`: chart \| mind, `dir`: TB \| LR | Layout (dagre), or a radial mind map |
+| `diagram` | `kind`: circuit (`parts`, `layout`), lens or mirror (`shape`, `f`, `u`, `h`), fbd (`body`, `forces` [{dir, label, size}]), atom (`z`, `symbol`), cell (`cell`, `labels`), apparatus (`items`); plus `title` | Image position by the lens or mirror formula, Bohr shells, symbol and label placement |
+
+Planned for later phases:
+- `ask`, `mark` and `hint` in Phase 5;
+- `image` in Phase 5, with photo input;
+- `cite` in Phase 6.
 
 **Adding a primitive** means adding three things:
 1. a pydantic model on the backend;
@@ -98,7 +109,7 @@ A time-budget tracker trims extra practice when the class runs long.
 - **Planner** is code, not an agent. It picks the subject (rotation weighted by weakness, exam date and days since last studied), then topics from syllabus order, mastery, revisions due (simplified SM-2), unfinished topics and daily minutes.
 - **Answer-key self-check.** The Examiner solves each generated question a second time, independently. If the answers disagree, the question is discarded.
 - **Step streaming.**
-  - Each `POST /student/classes/{id}/advance` carries the student's input: an answer, raise-hand text, "next" or "hint".
+  - Each `POST /student/lessons/{id}/advance` carries the student's input: an answer, raise-hand text, "next" or "hint".
   - It streams the next step over SSE, ending at an `ask` or at the end of a segment.
   - It uses the same events, 15 s pings and save-in-`finally` as `whiteboard_service.stream_solution`.
 - **Prefetch.** While the student answers a checkpoint, the next scene is generated.
@@ -204,7 +215,7 @@ Tokens are the main running cost and the main source of delay. The rule: **if it
 | ---- | --------- |
 | Syllabus and books | `POST /student/syllabus/uploads`, `GET`/`PUT /student/syllabus/{subject}`, `POST /student/syllabus/import/{classroom_id}`, `POST /student/documents`, teacher `POST /teacher/classes/{id}/syllabus` |
 | Today | `GET /student/today` (makes the plan if missing), `POST /student/today/switch` |
-| Class | `POST /student/classes` (start or resume), `POST /student/classes/{id}/advance` (SSE), `GET /student/classes/{id}` (replay), `POST /student/classes/{id}/pause` |
+| Lesson (the daily class) | `POST /student/lessons` (start or resume), `POST /student/lessons/{id}/advance` (SSE), `GET /student/lessons/{id}` (replay), `POST /student/lessons/{id}/pause`. These are not `/student/classes`, which is the existing classroom API. |
 | Doubts | Existing `/student/doubts` plus follow-ups, "Now you try", photo input, "Check my working" |
 | Homework and tests | `GET /student/assignments`, `POST /student/assignments/{id}/submit`, review endpoints, teacher assignment to classes |
 | Progress | `GET /student/progress`, `GET /parent/children/{id}/progress`, teacher class analytics |
