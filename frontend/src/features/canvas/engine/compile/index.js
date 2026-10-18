@@ -9,6 +9,7 @@
  */
 
 import { compileChart } from './chart';
+import { compileFlow } from './flow';
 import { compileGeo } from './geo';
 import { compileNumberLine } from './numberline';
 import { compilePlot } from './plot';
@@ -20,7 +21,7 @@ export const COMPILERS = {
   geo: compileGeo,
   table: compileTable,
   chart: compileChart,
-  flow: () => [],
+  flow: compileFlow,
   diagram: () => [],
 };
 
