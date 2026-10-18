@@ -10,7 +10,7 @@ function angleOf(dir) {
 }
 
 /** Free-body diagram: a block or ball with one labelled arrow per force. */
-export function compileFbd(action, { box }) {
+export function compileFbd(action, { box, measure }) {
   const cx = box.x + box.w / 2;
   const cy = box.y + box.h / 2;
   const ball = action.body === 'ball';
@@ -29,12 +29,23 @@ export function compileFbd(action, { box }) {
     const [ux, uy] = [Math.cos(angle), Math.sin(angle)];
     const edge = ball ? r : Math.min(hw / Math.abs(ux || 1e-9), hh / Math.abs(uy || 1e-9));
     const start = [cx + ux * edge, cy + uy * edge];
-    const length = base * Math.min(Math.max(force.size ?? 1, 0.5), 2);
+    // Leave room between the arrow tip and the box edge for its label.
+    const sideways = Math.abs(ux) > 0.5;
+    const labelSpace = force.label
+      ? sideways
+        ? measure(force.label, LABEL_PX) + 14
+        : LABEL_PX + 26
+      : 8;
+    const toEdge = Math.min(
+      ux > 0 ? (box.x + box.w - start[0]) / ux : ux < 0 ? (box.x - start[0]) / ux : Infinity,
+      uy > 0 ? (box.y + box.h - start[1]) / uy : uy < 0 ? (box.y - start[1]) / uy : Infinity
+    );
+    const wanted = base * Math.min(Math.max(force.size ?? 1, 0.5), 2);
+    const length = Math.max(8, Math.min(wanted, toEdge - labelSpace));
     const end = [start[0] + ux * length, start[1] + uy * length];
     parts.push({ type: 'arrow', from: start, to: end, color: 'red' });
     if (force.label) {
       // Sideways forces: the text starts just past the tip; up/down: centred above/below it.
-      const sideways = Math.abs(ux) > 0.5;
       const align = sideways ? (ux > 0 ? 'left' : 'right') : 'center';
       const gap = sideways ? 10 : 20;
       const at = [end[0] + ux * gap, end[1] + uy * gap + LABEL_PX / 3];

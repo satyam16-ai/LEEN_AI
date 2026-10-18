@@ -12,6 +12,13 @@ describe('compileExpr', () => {
     expect(compileExpr('log10(x)')(100)).toBeCloseTo(2);
   });
 
+  it('reads x(...) as multiplication, as students write it', () => {
+    expect(compileExpr('x(x+1)')(2)).toBe(6);
+    expect(compileExpr('2x(x-1)')(3)).toBe(12);
+    expect(compileExpr('x (x-4)')(1)).toBe(-3);
+    expect(compileExpr('exp(x)')(0)).toBe(1);
+  });
+
   it('returns NaN outside the real domain', () => {
     expect(compileExpr('sqrt(x)')(-1)).toBeNaN();
     expect(compileExpr('ln(x)')(-1)).toBeNaN();
@@ -47,6 +54,16 @@ describe('sampleFunction', () => {
   it('breaks the curve at asymptotes', () => {
     expect(sampleFunction(compileExpr('1/x'), [-2, 2]).length).toBeGreaterThanOrEqual(2);
     expect(sampleFunction(compileExpr('tan(x)'), [-3, 3]).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('splits every pole of tan(x) over a wide range', () => {
+    expect(sampleFunction(compileExpr('tan(x)'), [-10, 10]).length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('does not split smooth curves or zero crossings', () => {
+    expect(sampleFunction(compileExpr('sin(x)'), [-10, 10])).toHaveLength(1);
+    expect(sampleFunction(compileExpr('100x'), [-1, 1])).toHaveLength(1);
+    expect(sampleFunction(compileExpr('exp(x)'), [-10, 10])).toHaveLength(1);
   });
 
   it('skips points where the function is undefined', () => {

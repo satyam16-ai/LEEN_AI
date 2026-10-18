@@ -15,6 +15,19 @@ describe('compileNumberLine', () => {
     assertInBox(parts, box);
   });
 
+  it('draws an unbounded inequality as a ray, not a closed end', () => {
+    const parts = compileNumberLine(
+      { type: 'numberline', range: [-5, 5], interval: { from: 3, to: 100, open: [true, false] } },
+      { box, measure }
+    );
+    const dots = parts.filter((part) => part.type === 'dot');
+    expect(dots).toHaveLength(1);
+    expect(dots[0].hollow).toBe(true);
+    const ray = parts.find((part) => part.type === 'arrow' && part.color === 'blue');
+    expect(ray.to[0]).toBeGreaterThan(dots[0].x);
+    assertInBox(parts, box);
+  });
+
   it('draws ticks with labels, marks and named points', () => {
     const parts = compileNumberLine(
       { type: 'numberline', range: [0, 10], marks: [3], labels: { P: 7 } },

@@ -3,6 +3,7 @@ import { pie } from 'd3-shape';
 
 import { LABEL_PX, PALETTE } from '../board';
 import { formatNumber } from './plot';
+import { fitText } from './text';
 
 const PAD = { left: 24, right: 24, top: 48, bottom: 44 };
 const SLICE_STEP = Math.PI / 45; // 4°
@@ -26,7 +27,7 @@ const label = (text, x, y, color = 'ink', align = 'center') => ({
   align,
 });
 
-function bars(action, frame, labels, values) {
+function bars(action, frame, labels, values, measure) {
   const band = scaleBand()
     .domain(labels.map((_, i) => i))
     .range([frame.left, frame.right])
@@ -50,14 +51,26 @@ function bars(action, frame, labels, values) {
       color,
       fill: true,
     });
-    const valueText = `${formatNumber(value)}${action.unit ?? ''}`;
+    const room = band.step() - 4;
+    const valueText = fitText(
+      `${formatNumber(value)}${action.unit ?? ''}`,
+      LABEL_PX,
+      room,
+      measure
+    );
     parts.push(label(valueText, x + band.bandwidth() / 2, Math.min(y(value), zero) - 8, color));
-    parts.push(label(labels[i], x + band.bandwidth() / 2, frame.bottom + 30));
+    parts.push(
+      label(
+        fitText(labels[i], LABEL_PX, room, measure),
+        x + band.bandwidth() / 2,
+        frame.bottom + 30
+      )
+    );
   });
   return parts;
 }
 
-function slices(action, frame, labels, values) {
+function slices(action, frame, labels, values, measure, box) {
   // A pie has no category axis, so it can use the full height below the title.
   const bottom = frame.bottom + PAD.bottom - 16;
   const cx = (frame.left + frame.right) / 2;
@@ -86,12 +99,15 @@ function slices(action, frame, labels, values) {
       const middle = arc.startAngle + span / 2;
       const [lx, ly] = at(middle, radius + 18);
       const align = Math.sin(middle) >= 0 ? 'left' : 'right';
-      parts.push(label(labels[i], lx, ly + LABEL_PX / 3, color, align));
+      const room = align === 'left' ? box.x + box.w - lx - 2 : lx - box.x - 2;
+      parts.push(
+        label(fitText(labels[i], LABEL_PX, room, measure), lx, ly + LABEL_PX / 3, color, align)
+      );
     });
   return parts;
 }
 
-function line(action, frame, labels, values) {
+function line(action, frame, labels, values, measure) {
   const axisX = frame.left + 44;
   const x = scalePoint()
     .domain(labels.map((_, i) => i))
@@ -114,21 +130,29 @@ function line(action, frame, labels, values) {
   parts.push({ type: 'path', points, color });
   points.forEach(([px, py], i) => {
     parts.push({ type: 'dot', x: px, y: py, r: 6, color });
-    parts.push(label(labels[i], px, frame.bottom + 30));
+    const room = (frame.right - axisX - 40) / Math.max(labels.length - 1, 1);
+    parts.push(label(fitText(labels[i], LABEL_PX, room, measure), px, frame.bottom + 30));
   });
   return parts;
 }
 
 /** Bar, pie or line chart of labelled values, with an optional title. */
-export function compileChart(action, { box }) {
+export function compileChart(action, { box, measure }) {
   const count = Math.min(action.labels?.length ?? 0, action.values?.length ?? 0);
   if (!count) return [];
   const labels = action.labels.slice(0, count).map(String);
   const values = action.values.slice(0, count).map(Number);
   const frame = frameOf(box, Boolean(action.title));
   const parts = action.title
-    ? [label(action.title, box.x + box.w / 2, box.y + 30, action.color ?? 'ink')]
+    ? [
+        label(
+          fitText(action.title, LABEL_PX, box.w - 8, measure),
+          box.x + box.w / 2,
+          box.y + 30,
+          action.color ?? 'ink'
+        ),
+      ]
     : [];
   const kind = action.kind === 'pie' ? slices : action.kind === 'line' ? line : bars;
-  return [...parts, ...kind(action, frame, labels, values)];
+  return [...parts, ...kind(action, frame, labels, values, measure, box)];
 }

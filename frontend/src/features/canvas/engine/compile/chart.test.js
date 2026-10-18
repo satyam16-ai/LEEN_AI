@@ -60,6 +60,12 @@ describe('compileChart', () => {
     expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(STAGE_BOX.h * 0.75);
   });
 
+  it('long category names fit under their bars', () => {
+    const labels = Array.from({ length: 10 }, (_, i) => `category name ${i}`.slice(0, 16));
+    const values = labels.map((_, i) => i + 1);
+    assertInBox(compileChart({ type: 'chart', kind: 'bar', labels, values }, ctx), STAGE_BOX);
+  });
+
   it('charts with no values draw nothing', () => {
     expect(compileChart({ type: 'chart', labels: [], values: [] }, ctx)).toEqual([]);
     expect(compileChart({ type: 'chart' }, ctx)).toEqual([]);

@@ -47,6 +47,13 @@ describe('compileTable', () => {
     assertInBox(parts, box);
   });
 
+  it('keeps long cells inside a stage-sized box', () => {
+    const box = { x: 920, y: 100, w: 620, h: 340 };
+    const cell = 'a cell with 24 letters..';
+    const rows = Array.from({ length: 4 }, () => Array.from({ length: 6 }, () => cell));
+    assertInBox(compileTable({ type: 'table', head: rows[0], rows }, { box, measure }), box);
+  });
+
   it('draws nothing without rows', () => {
     expect(compileTable({ type: 'table' }, { box: STAGE_BOX, measure })).toEqual([]);
   });

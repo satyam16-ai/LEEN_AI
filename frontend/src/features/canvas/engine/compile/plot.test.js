@@ -34,12 +34,35 @@ describe('compilePlot', () => {
     assertInBox(parts, STAGE_BOX);
   });
 
+  it('draws curves whose values are all large', () => {
+    for (const fn of ['1000*1.05^x', '3x+1500']) {
+      const parts = compilePlot({ type: 'plot', fns: [fn], x: [0, 10] }, ctx);
+      expect(curves(parts).length).toBeGreaterThanOrEqual(1);
+      assertInBox(parts, STAGE_BOX);
+    }
+  });
+
+  it('never joins the branches of tan(x) over a wide range', () => {
+    const parts = compilePlot({ type: 'plot', fns: ['tan(x)'], x: [-10, 10] }, ctx);
+    const frameH = STAGE_BOX.h - 64;
+    for (const curve of curves(parts)) {
+      for (let i = 1; i < curve.points.length; i += 1) {
+        expect(Math.abs(curve.points[i][1] - curve.points[i - 1][1])).toBeLessThan(frameH / 4);
+      }
+    }
+  });
+
   it('auto-scales y when omitted and respects an explicit y', () => {
     const auto = compilePlot({ type: 'plot', fns: ['x^2'], x: [-3, 3] }, ctx);
     expect(labels(auto)).toContain('8');
     const fixed = compilePlot({ type: 'plot', fns: ['x^2'], x: [-3, 3], y: [0, 100] }, ctx);
     expect(labels(fixed)).toContain('100');
     expect(labels(fixed)).not.toContain('8');
+  });
+
+  it('keeps big tick numbers inside the box', () => {
+    const parts = compilePlot({ type: 'plot', fns: ['x'], x: [0, 1000000] }, ctx);
+    assertInBox(parts, STAGE_BOX);
   });
 
   it('skips invalid expressions but still draws axes', () => {

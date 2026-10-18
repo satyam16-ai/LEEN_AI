@@ -71,6 +71,11 @@ describe('compileFlow', () => {
     assertInBox(compileFlow({ type: 'flow', kind: 'mind', nodes }, ctx), STAGE_BOX);
   });
 
+  it('ten long nodes left to right still fit', () => {
+    const nodes = Array.from({ length: 10 }, (_, i) => `Step ${i} with a longish name`);
+    assertInBox(compileFlow({ type: 'flow', nodes, dir: 'LR' }, ctx), STAGE_BOX);
+  });
+
   it('one node draws nothing', () => {
     expect(compileFlow({ type: 'flow', nodes: ['alone'] }, ctx)).toEqual([]);
     expect(compileFlow({ type: 'flow' }, ctx)).toEqual([]);

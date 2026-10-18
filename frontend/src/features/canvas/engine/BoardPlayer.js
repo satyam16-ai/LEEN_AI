@@ -497,6 +497,7 @@ export class BoardPlayer {
     if (action && isCompiled(action.type)) {
       const box = placeVisual(action, this.stage);
       const parts = expandAction(action, { box, measure: this._measureLabel });
+      if (this.stage.wrapped) parts.unshift({ type: 'erase', ...box });
       parts.forEach((part, i) =>
         this.expanded.push({ action: part, seed: (index + 1) * 1000 + i })
       );
@@ -651,6 +652,8 @@ export class BoardPlayer {
     switch (part.type) {
       case 'write':
         return this._resolveWrite(part);
+      case 'erase':
+        return this._erasePlan({ x: part.x, y: part.y, w: part.w, h: part.h });
       case 'path':
         return this._pathPlan(part);
       case 'label':

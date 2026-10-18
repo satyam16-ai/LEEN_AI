@@ -2,6 +2,13 @@ import { STAGE } from '../board';
 import { placeVisual, writeRoom } from './layout';
 
 describe('placeVisual', () => {
+  it('only flags a wrap when the stage is full', () => {
+    const state = { stageY: STAGE.y };
+    placeVisual({ type: 'plot' }, state);
+    placeVisual({ type: 'plot' }, state);
+    expect(state.wrapped).toBe(false);
+  });
+
   it('uses an explicit box as given', () => {
     const state = { stageY: STAGE.y };
     expect(placeVisual({ type: 'plot', at: [100, 120, 500, 300] }, state)).toEqual({
@@ -22,6 +29,7 @@ describe('placeVisual', () => {
     expect(first).toEqual({ x: 920, y: 100, w: 620, h: 360 });
     expect(second.y).toBe(490);
     expect(third.y).toBe(100);
+    expect(state.wrapped).toBe(true);
   });
 
   it('gives each visual type its own default height', () => {

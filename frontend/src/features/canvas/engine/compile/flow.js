@@ -1,6 +1,7 @@
 import { graphlib, layout } from '@dagrejs/dagre';
 
 import { LABEL_PX } from '../board';
+import { fitText } from './text';
 
 const NODE_PAD_X = 28;
 const NODE_PAD_Y = 22;
@@ -17,10 +18,10 @@ const label = (text, x, y, px, color) => ({
 });
 
 /** Flowchart: dagre lays the nodes out, then the whole chart is scaled to fit the box. */
-function chart(action, box, measure) {
+function chart(action, box, measure, dir = action.dir === 'LR' ? 'LR' : 'TB') {
   const px = LABEL_PX + 2;
   const graph = new graphlib.Graph();
-  graph.setGraph({ rankdir: action.dir === 'LR' ? 'LR' : 'TB', nodesep: 30, ranksep: 40 });
+  graph.setGraph({ rankdir: dir, nodesep: 30, ranksep: 40 });
   graph.setDefaultEdgeLabel(() => ({}));
   action.nodes.forEach((text, i) => {
     graph.setNode(String(i), { width: measure(text, px) + NODE_PAD_X, height: px + NODE_PAD_Y });
@@ -38,6 +39,8 @@ function chart(action, box, measure) {
 
   const { width, height } = graph.graph();
   const scale = Math.min(1, box.w / width, box.h / height);
+  // A long left-to-right chain would shrink to unreadable; stack it top to bottom instead.
+  if (dir === 'LR' && scale < 0.5) return chart(action, box, measure, 'TB');
   const offsetX = box.x + (box.w - width * scale) / 2;
   const offsetY = box.y + (box.h - height * scale) / 2;
   const at = ({ x, y }) => [offsetX + x * scale, offsetY + y * scale];
@@ -51,7 +54,7 @@ function chart(action, box, measure) {
     const w = node.width * scale;
     const h = node.height * scale;
     parts.push({ type: 'rect', x: cx - w / 2, y: cy - h / 2, w, h, color });
-    parts.push(label(text, cx, cy, textPx, color));
+    parts.push(label(fitText(text, textPx, w - 6, measure), cx, cy, textPx, color));
   });
   for (const edge of graph.edges()) {
     const points = graph.edge(edge).points.map(at);
@@ -108,7 +111,7 @@ function mind(action, box, measure) {
       h: node.h,
       color,
     });
-    parts.push(label(text, node.x, node.y, px, color));
+    parts.push(label(fitText(text, px, node.w - 6, measure), node.x, node.y, px, color));
   });
   parts.push({
     type: 'rect',

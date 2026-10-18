@@ -1,4 +1,4 @@
-/** Assert that every drawn primitive stays inside `box` (give or take `slack` units). */
+/** Assert that every drawn primitive, including the full extent of its text, stays inside `box`. */
 export function assertInBox(primitives, box, slack = 2) {
   const inside = ([x, y], what) => {
     const ok =
@@ -13,9 +13,20 @@ export function assertInBox(primitives, box, slack = 2) {
       case 'path':
         part.points.forEach((point) => inside(point, 'path point'));
         break;
-      case 'label':
-        inside([part.x, part.y], `label "${part.text}"`);
+      case 'label': {
+        // The whole written text, not just its anchor.
+        const px = part.px ?? 24;
+        const width = measure(part.text, px);
+        const left =
+          part.align === 'center'
+            ? part.x - width / 2
+            : part.align === 'right'
+              ? part.x - width
+              : part.x;
+        inside([left, part.y - px * 0.8], `label "${part.text}"`);
+        inside([left + width, part.y + px * 0.3], `label "${part.text}"`);
         break;
+      }
       case 'dot':
         inside([part.x - part.r, part.y - part.r], 'dot');
         inside([part.x + part.r, part.y + part.r], 'dot');

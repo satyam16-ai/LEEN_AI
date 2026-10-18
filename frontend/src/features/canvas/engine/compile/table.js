@@ -1,6 +1,7 @@
 import { LABEL_PX } from '../board';
 import { compileExpr } from '../math/expr';
 import { formatNumber } from './plot';
+import { fitText } from './text';
 
 const CELL_PAD = 24;
 const MIN_PX = 14;
@@ -49,6 +50,7 @@ export function compileTable(action, { box, measure }) {
     const total = widths.reduce((a, b) => a + b, 0);
     widths = widths.map((width) => Math.min(width, (width * box.w) / total));
     rowH = Math.min(rowH, box.h / all.length);
+    px = Math.min(px, rowH * 0.85);
   }
 
   const totalW = widths.reduce((a, b) => a + b, 0);
@@ -91,7 +93,7 @@ export function compileTable(action, { box, measure }) {
     for (let c = 0; c < columns; c += 1) {
       parts.push({
         type: 'label',
-        text: String(row[c] ?? ''),
+        text: fitText(String(row[c] ?? ''), px, widths[c] - 8, measure),
         x: (edges[c] + edges[c + 1]) / 2,
         y: y0 + rowH * 0.68,
         px,

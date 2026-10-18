@@ -2,10 +2,11 @@ import { scaleLinear } from 'd3-scale';
 
 import { LABEL_PX, PALETTE } from '../board';
 import { compileExpr, sampleFunction } from '../math/expr';
+import { fitText } from './text';
 
 const PAD = { left: 48, right: 16, top: 16, bottom: 48 };
 const TICK = 5;
-const Y_LIMIT = 1000;
+const Y_SPAN = 1e6; // never show more than this much of y at once
 const MINUS = '−';
 
 /** A short tick label: at most 4 significant digits, trailing zeros dropped, a real minus sign. */
@@ -15,23 +16,32 @@ export function formatNumber(value) {
   return rounded < 0 ? `${MINUS}${Math.abs(rounded)}` : String(rounded);
 }
 
-function frameOf(box) {
+function frameOf(box, left = PAD.left) {
   return {
-    left: box.x + PAD.left,
+    left: box.x + left,
     right: box.x + box.w - PAD.right,
     top: box.y + PAD.top,
     bottom: box.y + box.h - PAD.bottom,
   };
 }
 
+const quantile = (sorted, q) =>
+  sorted[Math.min(sorted.length - 1, Math.floor(q * (sorted.length - 1)))];
+
+/**
+ * The y-range to show: the middle 96% of the sampled values (so a pole's huge values
+ * don't flatten the curve) plus every marked point, padded by 10%.
+ */
 function autoRange(curves, points) {
-  const ys = [
-    ...curves.flatMap((segments) => segments.flatMap((segment) => segment.map(([, y]) => y))),
-    ...points.map(([, y]) => y),
-  ].filter((y) => Number.isFinite(y) && Math.abs(y) <= Y_LIMIT);
-  if (!ys.length) return [-5, 5];
-  let low = Math.min(...ys);
-  let high = Math.max(...ys);
+  const ys = curves
+    .flatMap((segments) => segments.flatMap((segment) => segment.map(([, y]) => y)))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  const marks = points.map(([, y]) => y).filter(Number.isFinite);
+  if (!ys.length && !marks.length) return [-5, 5];
+  let low = Math.min(...(ys.length ? [quantile(ys, 0.02)] : []), ...marks);
+  let high = Math.max(...(ys.length ? [quantile(ys, 0.98)] : []), ...marks);
+  if (high - low > Y_SPAN) low = high - Y_SPAN;
   if (low === high) [low, high] = [low - 1, high + 1];
   const pad = (high - low) * 0.1;
   return [low - pad, high + pad];
@@ -57,15 +67,14 @@ function visibleRuns(segment, x, y, frame) {
 const clampTo = (value, low, high) => Math.min(Math.max(value, low), high);
 
 /** A function graph: axes with ticks, one stroke per curve, shading, points and labels. */
-export function compilePlot(action, { box }) {
-  const frame = frameOf(box);
+export function compilePlot(action, { box, measure }) {
   const domain = Array.isArray(action.x) ? action.x : [-5, 5];
   const fns = (action.fns ?? []).map(compileExpr);
   const points = Object.entries(action.points ?? {});
   const samples = fns.map((fn) => (fn ? sampleFunction(fn, domain) : []));
 
-  const x = scaleLinear().domain(domain).range([frame.left, frame.right]).nice();
-  const y = scaleLinear()
+  // The y range decides the tick labels, and their width decides the left margin.
+  const yDomain = scaleLinear()
     .domain(
       Array.isArray(action.y)
         ? action.y
@@ -74,8 +83,19 @@ export function compilePlot(action, { box }) {
             points.map(([, p]) => p)
           )
     )
-    .range([frame.bottom, frame.top])
-    .nice();
+    .nice()
+    .domain();
+  const yTickWidth = Math.max(
+    0,
+    ...scaleLinear()
+      .domain(yDomain)
+      .ticks(6)
+      .map((tick) => measure(formatNumber(tick), LABEL_PX))
+  );
+  const frame = frameOf(box, Math.max(PAD.left, yTickWidth + 20));
+
+  const x = scaleLinear().domain(domain).range([frame.left, frame.right]).nice();
+  const y = scaleLinear().domain(yDomain).range([frame.bottom, frame.top]);
   const [x0, x1] = x.domain();
   const [y0, y1] = y.domain();
   const axisY = y0 <= 0 && y1 >= 0 ? y(0) : frame.bottom;
@@ -92,10 +112,11 @@ export function compilePlot(action, { box }) {
     if (tick === 0 || at < frame.left || at > frame.right) continue;
     parts.push({ type: 'line', from: [at, axisY - TICK], to: [at, axisY + TICK], color: ink });
     const text = formatNumber(tick);
+    const half = measure(text, LABEL_PX) / 2;
     parts.push({
       type: 'label',
       text,
-      x: at,
+      x: clampTo(at, box.x + half + 1, box.x + box.w - half - 1),
       y: axisY + 30,
       px: LABEL_PX,
       color: ink,
@@ -155,14 +176,16 @@ export function compilePlot(action, { box }) {
     const sy = y(py);
     if (sx < frame.left || sx > frame.right || sy < frame.top || sy > frame.bottom) continue;
     parts.push({ type: 'dot', x: sx, y: sy, r: 7, color: 'red' });
+    // Name to the right of the point, or to the left near the right edge.
+    const flip = sx + 12 + measure(name, LABEL_PX) > box.x + box.w - 2;
     parts.push({
       type: 'label',
       text: name,
-      x: sx + 12,
-      y: sy - 12,
+      x: flip ? sx - 12 : sx + 12,
+      y: Math.max(sy - 12, box.y + LABEL_PX),
       px: LABEL_PX,
       color: 'red',
-      align: 'left',
+      align: flip ? 'right' : 'left',
     });
   }
 
@@ -173,7 +196,7 @@ export function compilePlot(action, { box }) {
     const ly = clampTo(end[1] - 14, box.y + LABEL_PX, box.y + box.h - 8);
     parts.push({
       type: 'label',
-      text,
+      text: fitText(text, LABEL_PX, lx - box.x - 2, measure),
       x: lx,
       y: ly,
       px: LABEL_PX,
@@ -183,7 +206,7 @@ export function compilePlot(action, { box }) {
   });
 
   if (action.xlabel) {
-    const text = action.xlabel;
+    const text = fitText(action.xlabel, LABEL_PX, frame.right - box.x - 2, measure);
     parts.push({
       type: 'label',
       text,
@@ -195,7 +218,7 @@ export function compilePlot(action, { box }) {
     });
   }
   if (action.ylabel) {
-    const text = action.ylabel;
+    const text = fitText(action.ylabel, LABEL_PX, box.x + box.w - axisX - 14, measure);
     parts.push({
       type: 'label',
       text,

@@ -15,7 +15,7 @@ const GAP = 30;
 /**
  * The box a visual is drawn in: its own `at` [x, y, w, h], or the next free slot
  * on the stage. `state.stageY` is where the next slot starts; it wraps to the top
- * when the stage is full.
+ * when the stage is full, and sets `state.wrapped` so the old drawing can be erased.
  */
 export function placeVisual(action, state) {
   if (Array.isArray(action.at) && action.at.length === 4) {
@@ -23,7 +23,9 @@ export function placeVisual(action, state) {
     return { x, y, w, h };
   }
   const h = Math.min(DEFAULT_HEIGHT[action.type] ?? 380, STAGE.h);
-  if (state.stageY + h > STAGE.y + STAGE.h) state.stageY = STAGE.y;
+  // A full stage starts again at the top; the player rubs that slot out first.
+  state.wrapped = state.stageY + h > STAGE.y + STAGE.h;
+  if (state.wrapped) state.stageY = STAGE.y;
   const box = { x: STAGE.x, y: state.stageY, w: STAGE.w, h };
   state.stageY += h + GAP;
   return box;

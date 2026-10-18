@@ -39,21 +39,29 @@ export function compileNumberLine(action, { box }) {
 
   const interval = action.interval;
   if (interval && Number.isFinite(interval.from) && Number.isFinite(interval.to)) {
-    const [a, b] = [interval.from, interval.to].map((value) =>
-      x(Math.min(Math.max(value, range[0]), range[1]))
-    );
+    const [low, high] = range;
     const open = interval.open ?? [false, false];
-    parts.push({
-      type: 'path',
-      points: [
-        [a, y],
-        [b, y],
-      ],
-      color: accent,
-      width: 8,
-    });
-    parts.push({ type: 'dot', x: a, y, r: 9, color: accent, hollow: Boolean(open[0]) });
-    parts.push({ type: 'dot', x: b, y, r: 9, color: accent, hollow: Boolean(open[1]) });
+    // An end at or past the edge of the line means "and beyond": draw a ray, not a dot.
+    const unboundedLeft = interval.from <= low;
+    const unboundedRight = interval.to >= high;
+    const a = unboundedLeft ? left + 6 : x(interval.from);
+    const b = unboundedRight ? right - 6 : x(interval.to);
+    const shade = { color: accent, width: 8 };
+    if (unboundedRight) parts.push({ type: 'arrow', from: [a, y], to: [b, y], ...shade });
+    else if (unboundedLeft) parts.push({ type: 'arrow', from: [b, y], to: [a, y], ...shade });
+    else
+      parts.push({
+        type: 'path',
+        points: [
+          [a, y],
+          [b, y],
+        ],
+        ...shade,
+      });
+    if (!unboundedLeft)
+      parts.push({ type: 'dot', x: a, y, r: 9, color: accent, hollow: Boolean(open[0]) });
+    if (!unboundedRight)
+      parts.push({ type: 'dot', x: b, y, r: 9, color: accent, hollow: Boolean(open[1]) });
   }
 
   const inRange = (value) => Number.isFinite(value) && value >= range[0] && value <= range[1];
