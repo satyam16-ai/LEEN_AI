@@ -101,3 +101,7 @@ def test_prompt_includes_student_context():
     assert "Class 9" in prompt and "CBSE" in prompt and "Hinglish" in prompt
     assert "<doubt>\nWhy is (x+y)^2 ...?\n</doubt>" in prompt
     assert "Class" not in build_user_prompt("q?", None, None).split("\n")[0].split(":")[1]
+
+
+def test_system_prompt_explains_braced_subscripts():
+    assert "F_{net}" in build_system_prompt("Physics")

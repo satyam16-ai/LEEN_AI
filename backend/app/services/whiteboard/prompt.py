@@ -39,7 +39,8 @@ Use it instead of clear when you move to a new part.
 {"type":"focus","at":[x,y,w,h]} Zoom in on a region; {"type":"focus"} zooms back out.
 {"type":"pause","ms":800} {"type":"clear"}
 Colours: ink (default), blue, red, green, orange, purple. Keep one colour per idea.
-Maths text: x^2, a^{n+1}, x_1, H_2O render as real super/subscripts. Write symbols directly: \
+Maths text: x^2, a^{n+1}, x_1, H_2O render as real super/subscripts; brace longer ones: \
+F_{net}, v_{avg}. Write symbols directly: \
 × ÷ − √ π ± → ⇌ ≠ ≤ ≥ °.
 
 CHOOSE THE VISUAL that shows the idea best: a relation y = f(x) -> plot; an inequality -> \
