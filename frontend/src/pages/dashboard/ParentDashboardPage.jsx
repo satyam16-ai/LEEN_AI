@@ -10,22 +10,22 @@ const FEATURES = [
   {
     icon: FileText,
     title: 'Progress reports',
-    description: 'Weekly summaries of what your child studied, quiz scores and time spent.',
-    phase: 7,
+    description: 'Weekly summaries of what your child studied, test scores and time spent.',
+    phase: 11,
     tone: 'primary',
   },
   {
     icon: TrendingDown,
     title: 'Weak-topic alerts',
     description: 'Know early when a topic needs more attention — and what the plan is.',
-    phase: 6,
+    phase: 11,
     tone: 'warning',
   },
   {
     icon: BellRing,
     title: 'Notifications',
-    description: 'Gentle nudges about missed study sessions and upcoming assessments.',
-    phase: 7,
+    description: 'Gentle nudges about missed classes and upcoming tests.',
+    phase: 11,
     tone: 'accent',
   },
 ];

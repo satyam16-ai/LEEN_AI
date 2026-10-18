@@ -1,0 +1,1066 @@
+<!doctype html>
+<!--
+  LEEN AI master plan: source of docs/LEEN_AI_Master_Plan.pdf.
+  After editing, regenerate the PDF from the repository root:
+
+    google-chrome --headless=new --no-pdf-header-footer \
+      --print-to-pdf=docs/LEEN_AI_Master_Plan.pdf \
+      docs/master-plan/LEEN_AI_Master_Plan.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LEEN AI Master Plan</title>
+<style>
+  :root {
+    --ink: #1c1f2b;
+    --muted: #5b6072;
+    --line: #dcdfe8;
+    --soft: #f4f5fa;
+    --primary: oklch(0.52 0.215 272);
+    --primary-soft: oklch(0.95 0.03 272);
+    --primary-ink: oklch(0.42 0.2 272);
+    --accent: oklch(0.58 0.12 185);
+    --accent-soft: oklch(0.95 0.035 185);
+    --done: oklch(0.55 0.14 150);
+    --done-soft: oklch(0.95 0.04 150);
+    --warn-soft: oklch(0.96 0.05 85);
+    --warn-ink: oklch(0.45 0.1 70);
+  }
+
+  @page {
+    size: A4;
+    margin: 16mm 16mm 18mm;
+    @bottom-left { content: "LEEN AI Master Plan · v1.0 · 18 Oct 2026"; font: 8pt "Ubuntu Sans", "DejaVu Sans", sans-serif; color: #8a8fa0; }
+    @bottom-right { content: counter(page) " / " counter(pages); font: 8pt "Ubuntu Sans", "DejaVu Sans", sans-serif; color: #8a8fa0; }
+  }
+  @page cover {
+    margin: 0;
+    @bottom-left { content: none; }
+    @bottom-right { content: none; }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    background: #fff;
+    color: var(--ink);
+    font: 10pt/1.5 "Ubuntu Sans", "Liberation Sans", "DejaVu Sans", sans-serif;
+  }
+  code, .mono { font-family: "Ubuntu Sans Mono", "DejaVu Sans Mono", monospace; font-size: 0.88em; }
+  code { background: var(--soft); border-radius: 3px; padding: 0 3px; }
+  pre {
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font: 8.5pt/1.45 "Ubuntu Sans Mono", "DejaVu Sans Mono", monospace;
+    white-space: pre-wrap;
+    break-inside: avoid;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  /* Cover */
+  .cover {
+    page: cover;
+    height: 297mm;
+    padding: 34mm 22mm 24mm;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(160deg, oklch(0.97 0.02 272) 0%, #fff 55%, oklch(0.97 0.025 185) 100%);
+  }
+  .cover .tag { color: var(--primary-ink); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: 9pt; }
+  .cover h1 { font-size: 34pt; line-height: 1.1; margin: 10mm 0 6mm; color: var(--ink); }
+  .cover h1 span { color: var(--primary); }
+  .cover .lede { font-size: 13pt; color: var(--muted); max-width: 140mm; }
+  .cover .meta { margin-top: auto; border-top: 2px solid var(--primary); padding-top: 6mm; display: grid; grid-template-columns: 38mm 1fr; gap: 2mm 6mm; font-size: 10pt; }
+  .cover .meta dt { color: var(--muted); }
+  .cover .meta dd { margin: 0; }
+
+  /* Chapters */
+  .chapter { break-before: page; }
+  h1.ch {
+    font-size: 20pt;
+    margin: 0 0 4mm;
+    padding-bottom: 2.5mm;
+    border-bottom: 2px solid var(--primary);
+    break-after: avoid;
+  }
+  h1.ch .num { color: var(--primary); margin-right: 3mm; }
+  h2 { font-size: 13.5pt; margin: 7mm 0 2mm; color: var(--primary-ink); break-after: avoid; }
+  h3 { font-size: 11pt; margin: 5mm 0 1.5mm; break-after: avoid; }
+  h4 { font-size: 10pt; margin: 3mm 0 1mm; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; break-after: avoid; }
+  p { margin: 0 0 2.5mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin: 0.6mm 0; }
+  li > ul, li > ol { margin: 0.5mm 0 1mm; }
+  .muted { color: var(--muted); }
+  .small { font-size: 8.8pt; }
+
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 8.8pt; line-height: 1.4; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th { background: var(--primary-soft); color: var(--primary-ink); text-align: left; font-weight: 700; }
+  th, td { border: 1px solid var(--line); padding: 1.25mm 2.2mm; vertical-align: top; }
+  td.n, th.n { white-space: nowrap; width: 1%; }
+
+  .callout { border-left: 3px solid var(--primary); background: var(--primary-soft); padding: 3mm 4mm; border-radius: 0 6px 6px 0; margin: 3mm 0 4mm; break-inside: avoid; }
+  .callout.accent { border-color: var(--accent); background: var(--accent-soft); }
+  .callout.warn { border-color: oklch(0.7 0.13 75); background: var(--warn-soft); }
+  .callout p:last-child, .callout ul:last-child { margin-bottom: 0; }
+
+  .pill { display: inline-block; padding: 0.2mm 2mm; border-radius: 99px; font-size: 7.8pt; font-weight: 700; white-space: nowrap; }
+  .pill.done { background: var(--done-soft); color: var(--done); }
+  .pill.next { background: var(--primary-soft); color: var(--primary-ink); }
+  .pill.planned { background: var(--soft); color: var(--muted); }
+
+  .toc { list-style: none; padding: 0; margin: 4mm 0; columns: 1; }
+  .toc li { display: flex; gap: 4mm; padding: 2mm 0; border-bottom: 1px dashed var(--line); font-size: 11pt; }
+  .toc .num { color: var(--primary); font-weight: 700; width: 8mm; }
+  .toc .desc { color: var(--muted); font-size: 9pt; margin-left: auto; text-align: right; }
+
+  .phase { break-inside: avoid-page; border: 1px solid var(--line); border-radius: 8px; padding: 3mm 4mm 1mm; margin: 0 0 4mm; }
+  .phase h3 { margin-top: 0; display: flex; align-items: baseline; gap: 3mm; }
+  .phase h3 .num { color: var(--primary); }
+  .phase .goal { color: var(--muted); font-style: italic; margin-bottom: 2mm; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 6mm; }
+
+  figure { margin: 3mm 0 5mm; break-inside: avoid; }
+  figure svg { width: 100%; height: auto; display: block; }
+  figcaption { font-size: 8.5pt; color: var(--muted); margin-top: 1.5mm; text-align: center; }
+
+  .decision { display: grid; grid-template-columns: 24mm 1fr; gap: 0 4mm; }
+  .keep { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ============================== COVER ============================== -->
+<section class="cover">
+  <div class="tag">LEEN AI · Master Plan</div>
+  <h1>The AI tuition teacher<br>on a <span>2D canvas</span></h1>
+  <p class="lede">The single reference for what LEEN AI is, how its core engine works, and how it will be built: product loop, engine design and a phase-by-phase roadmap from today to production.</p>
+  <dl class="meta">
+    <dt>Project</dt><dd>LEEN AI: AI Personal Teacher System (major project, United College of Engineering and Research, Prayagraj)</dd>
+    <dt>Version</dt><dd>1.0, 18 October 2026</dd>
+    <dt>Based on</dt><dd><em>AI Personal Teacher SaaS: Comprehensive Product Plan</em> (docs/Utility_Docs), the project synopsis, and the codebase as of commit 36fd7f3</dd>
+    <dt>Source file</dt><dd><code>docs/master-plan/LEEN_AI_Master_Plan.html</code> (edit this, then regenerate the PDF)</dd>
+  </dl>
+</section>
+
+<!-- ============================== CONTENTS ============================== -->
+<section class="chapter">
+  <h1 class="ch">Contents</h1>
+  <ol class="toc">
+    <li><span class="num">1</span><span>Purpose and how to use this document</span></li>
+    <li><span class="num">2</span><span>Vision</span><span class="desc">the product plan in brief</span></li>
+    <li><span class="num">3</span><span>Decisions log</span><span class="desc">everything already decided</span></li>
+    <li><span class="num">4</span><span>Current system snapshot</span><span class="desc">what exists today</span></li>
+    <li><span class="num">5</span><span>The daily tuition loop</span><span class="desc">what a student lives every day</span></li>
+    <li><span class="num">6</span><span>Core engine design</span><span class="desc">the AI-powered 2D canvas</span></li>
+    <li><span class="num">7</span><span>Roadmap</span><span class="desc">13 phases, PDF coverage</span></li>
+    <li><span class="num">8</span><span>Phase-by-phase detail</span><span class="desc">goal, backend, frontend, done when</span></li>
+    <li><span class="num">9</span><span>Data model and API outline</span></li>
+    <li><span class="num">10</span><span>Risks and spikes</span></li>
+    <li><span class="num">11</span><span>Demo script</span><span class="desc">definition of done for the core loop</span></li>
+    <li><span class="num">12</span><span>Design calls and open items</span></li>
+    <li><span class="num">13</span><span>Working agreement</span><span class="desc">how each phase gets built</span></li>
+  </ol>
+
+</section>
+
+<section class="chapter">
+  <h1 class="ch"><span class="num">1</span>Purpose and how to use this document</h1>
+  <p>This document holds everything needed to keep building LEEN AI without re-deciding things: the product idea, every decision made so far, how the core engine works, and what each future phase delivers.</p>
+  <ul>
+    <li><strong>Starting a new phase?</strong> Read chapter 8 for that phase, then the matching parts of chapter 6 (engine) and chapter 9 (tables and endpoints).</li>
+    <li><strong>Wondering why something is the way it is?</strong> Chapter 3 (decisions) and chapter 12 (design calls).</li>
+    <li><strong>Explaining the project to someone?</strong> Chapters 2, 5 and the two diagrams in chapters 5 and 6.</li>
+    <li><strong>Plan changed?</strong> Edit the HTML source and regenerate this PDF (command in chapter 13). The repository copies of the roadmap (<code>docs/ROADMAP.md</code>) and engine design (<code>docs/architecture/CANVAS_ENGINE.md</code>) must stay in step with it.</li>
+  </ul>
+  <div class="callout">
+    <p><strong>The one-sentence version.</strong> LEEN AI reads a student's syllabus once, plans one hour of study every day, and teaches that hour on an AI-powered 2D canvas like a real tuition teacher: it draws and explains, asks questions, lets the student answer on the same board, checks their work in red pen, and adapts tomorrow's class to what it learned about them.</p>
+  </div>
+</section>
+
+<!-- ============================== 2. VISION ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">2</span>Vision</h1>
+  <p>Summarised from <em>AI Personal Teacher SaaS: Comprehensive Product Plan</em>. LEEN AI is meant to be a full-time teacher, not a doubt-solving tool: it teaches, guides, evaluates and improves a student continuously, and it understands each student's strengths and weaknesses.</p>
+
+  <h2>Problems it solves</h2>
+  <table>
+    <thead><tr><th>Problem</th><th>How LEEN AI answers it</th></tr></thead>
+    <tbody>
+      <tr><td>Lack of personalisation: every student gets the same content</td><td>A student model (mastery, pace, misconceptions, styles that work) shapes every explanation and every plan</td></tr>
+      <tr><td>Limited teacher availability</td><td>The canvas teacher is available any time, for classes and for doubts</td></tr>
+      <tr><td>Poor performance tracking: marks don't show understanding</td><td>Per-topic mastery from every answer, not just test scores</td></tr>
+      <tr><td>Static content: books and videos don't adapt</td><td>Every explanation is generated live, at the student's level, and re-explained a different way when needed</td></tr>
+      <tr><td>Lack of discipline: no structured routine</td><td>A daily one-hour class, planned automatically, with parents able to see attendance</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Users</h2>
+  <ul>
+    <li><strong>Students</strong>: primary users. School students, competitive-exam students (JEE, NEET) and self-learners.</li>
+    <li><strong>Parents</strong>: monitor progress, receive reports and alerts.</li>
+    <li><strong>Admin</strong>: manages the system.</li>
+    <li><strong>Teachers</strong> (added by this project): run classes, share a class syllabus, assign tests, see class analytics.</li>
+  </ul>
+
+  <h2 style="break-before: page; margin-top: 0">Features in the product plan (§7)</h2>
+  <table>
+    <thead><tr><th class="n">§</th><th>Feature</th><th>In one line</th></tr></thead>
+    <tbody>
+      <tr><td class="n">7.1</td><td>Student profile and setup</td><td>Class, subjects, goals, learning preferences</td></tr>
+      <tr><td class="n">7.2</td><td>Content upload</td><td>Books (PDF), notes, images, understood by the AI</td></tr>
+      <tr><td class="n">7.3</td><td>AI teaching system <strong>(core)</strong></td><td>Teaches from scratch, step by step, with examples, re-explaining in different ways</td></tr>
+      <tr><td class="n">7.4</td><td>Doubt solving</td><td>Text, voice and image questions, answered instantly</td></tr>
+      <tr><td class="n">7.5</td><td>Visual learning</td><td>Diagrams, infographics, visual explanations; the AI picks the best format</td></tr>
+      <tr><td class="n">7.6</td><td>Video and voice teaching</td><td>Audio and video explanations; talk to the AI</td></tr>
+      <tr><td class="n">7.7</td><td>Personalised learning plan</td><td>Daily plan: topics, practice, revision; updates with performance</td></tr>
+      <tr><td class="n">7.8</td><td>Homework generator</td><td>Assignments at the student's level</td></tr>
+      <tr><td class="n">7.9</td><td>Tests and evaluation</td><td>Auto-generated, auto-evaluated, with scores, feedback and suggestions</td></tr>
+      <tr><td class="n">7.10</td><td>Performance tracking</td><td>Scores, time spent, weak areas, reports and insights</td></tr>
+      <tr><td class="n">7.11</td><td>Parent dashboard</td><td>Progress reports, performance analysis, alerts</td></tr>
+      <tr><td class="n">7.12</td><td>Multi-language</td><td>Learn in different languages</td></tr>
+      <tr><td class="n">7.13</td><td>Multi-agent system</td><td>Separate intelligent components for teaching, planning, testing, analysis</td></tr>
+      <tr><td class="n">7.14</td><td>Continuous improvement</td><td>Learns from interactions and improves over time</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">The product plan also describes a business model (§9: subscriptions, premium and institutional plans). It is <strong>out of scope</strong> for this project (decision of 18 Oct 2026). Its own four-step roadmap (§10) is replaced by the 13-phase roadmap in chapter 7, which covers every §7 feature.</p>
+</section>
+
+<!-- ============================== 3. DECISIONS ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">3</span>Decisions log</h1>
+  <p>These are settled. Don't re-open them without a reason; change this log if they change.</p>
+
+  <h2>Foundations (12–13 October 2026)</h2>
+  <table>
+    <thead><tr><th>Area</th><th>Decision</th></tr></thead>
+    <tbody>
+      <tr><td>Delivery</td><td>Plan every phase up front, then build <strong>one phase per session</strong>, each fully working (backend + frontend + tests)</td></tr>
+      <tr><td>Accounts</td><td>Students and parents self-register. Admins create teachers. The first admin comes from <code>python -m app.cli create-admin</code></td></tr>
+      <tr><td>Look and feel</td><td>Light theme by default, with a dark toggle</td></tr>
+      <tr><td>Frontend language</td><td>Plain JavaScript, no TypeScript</td></tr>
+      <tr><td>Email</td><td>Used for password reset only; email verification comes in the final phase</td></tr>
+      <tr><td>AI model access</td><td>Claude Code running on the developer's machine, reached through the <strong>Claude Code bridge</strong>. No API key</td></tr>
+      <tr><td>Narration voice</td><td>Neural Indian-English voices (Neerja, Prabhat) through edge-tts, with the browser voice as fallback. A licensed TTS is the production swap</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Core engine and re-plan (18 October 2026)</h2>
+  <table>
+    <thead><tr><th>Area</th><th>Decision</th></tr></thead>
+    <tbody>
+      <tr><td>Core engine</td><td>The <strong>AI-powered 2D canvas</strong> is the core engine. Every teaching feature runs through it</td></tr>
+      <tr><td>What the engine does</td><td>"See the student's syllabus, plan their daily topic for one hour like a tuition teacher, teach like a full human teacher, give questions to solve, check them, and do everything"</td></tr>
+      <tr><td>Build first</td><td><strong>Richer visuals</strong> and a <strong>two-way board</strong> (the student answers on the canvas)</td></tr>
+      <tr><td>Lesson style</td><td><strong>Interactive class</strong>: checkpoint questions, plus "raise hand" at any time to interrupt with a doubt</td></tr>
+      <tr><td>Syllabus</td><td>A <strong>one-time upload per subject</strong>: the table of contents of any book, or the syllabus ("Physics has these chapters; each chapter has these topics")</td></tr>
+      <tr><td>Subjects per day</td><td><strong>One class a day on one subject.</strong> The AI rotates subjects; the student can switch</td></tr>
+      <tr><td>RAG</td><td>Kept <strong>early</strong> (Phase 6) as the synopsis promises, on <strong>pgvector</strong> inside Postgres instead of Qdrant</td></tr>
+      <tr><td>Business model</td><td><strong>Left out</strong> of the build</td></tr>
+      <tr><td>Pace</td><td>No near deadline: every phase is built fully, in order</td></tr>
+      <tr><td>Reference</td><td>This master plan is the single reference document</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================== 4. SNAPSHOT ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">4</span>Current system snapshot</h1>
+  <p>What exists on 18 October 2026 (branch <code>feature/phase-3-whiteboard</code>, stacked on phases 1 and 2; none merged into <code>main</code> yet).</p>
+  <table>
+    <thead><tr><th style="width:24%">Area</th><th>What exists</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Stack</strong></td><td>React 19, Vite 8, Tailwind v4 (plain JS, pnpm). FastAPI on Python 3.12. Postgres 16, Redis 7, Celery worker with beat embedded. Nginx at <code>localhost:8081</code>, Mailpit at <code>:8025</code>. Docker Compose</td></tr>
+      <tr><td><strong>Backend layering</strong></td><td><code>api/v1/endpoints</code> → <code>services</code> (module functions; they own the commit) → <code>repositories</code> (flush only). Every response uses the <code>ok()</code> envelope <code>{success, message, data}</code>. Roles via <code>require_roles</code>; CSRF header check; Redis fixed-window rate limits</td></tr>
+      <tr><td><strong>Database tables</strong></td><td><code>users</code>, <code>refresh_tokens</code>, <code>password_reset_tokens</code> (migration 0001). <code>student_profiles</code> (grade, board, subjects[], learning_level, preferred_language), <code>parent_student_links</code>, <code>classrooms</code>, <code>class_enrollments</code> (0002). <code>whiteboard_doubts</code> with actions as JSONB (0003)</td></tr>
+      <tr><td><strong>AI access</strong></td><td>The Claude Code bridge (<code>infrastructure/claude-bridge/claude_bridge.py</code>) on <code>127.0.0.1:8765</code>: runs <code>claude -p</code> with no tools, streams NDJSON, at most 2 runs at once, 300 s limit. The API calls it through <code>app/services/llm/claude_bridge.stream_text()</code>. Single turn, text only</td></tr>
+      <tr><td><strong>Whiteboard tutor</strong></td><td>Prompt in <code>app/services/whiteboard/prompt.py</code>. Output validated line by line by <code>ActionStreamParser</code> against a pydantic union of 15 action types (at most 150 per answer). Streamed over SSE from <code>POST /student/doubts</code>. History and replay. Narration via edge-tts (Neerja/Prabhat), cached in Redis for 7 days</td></tr>
+      <tr><td><strong>Frontend</strong></td><td>Feature folders <code>features/&lt;name&gt;/</code>. React Query <code>['auth','me']</code> as auth state. Axios with single-flight token refresh. <code>utils/sse.js</code> stream parser. Canvas engine in <code>features/whiteboard/engine/</code>: BoardPlayer, strokes, mathText, scene, motion, sprites, narrator</td></tr>
+      <tr><td><strong>Tests</strong></td><td>pytest against a real <code>leen_ai_test</code> database; the AI is mocked by replacing <code>claude_bridge.stream_text</code>. Vitest + Testing Library on the frontend. Bridge tests run on their own</td></tr>
+      <tr><td><strong>Not yet built</strong></td><td>RAG, embeddings, pgvector, agents, conversation memory, quizzes, plans, mastery tracking, image input</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================== 5. LOOP ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">5</span>The daily tuition loop</h1>
+  <p>This is the product. Everything in the roadmap exists to make this loop work and to report on it.</p>
+
+  <figure>
+    <svg viewBox="0 0 660 300" xmlns="http://www.w3.org/2000/svg" font-family="Ubuntu Sans, DejaVu Sans, sans-serif" role="img" aria-label="The daily tuition loop">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6072"/></marker>
+        <marker id="a1p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c2410c"/></marker>
+        <marker id="a1t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0f9488"/></marker>
+      </defs>
+      <!-- 1 setup -->
+      <rect x="8" y="20" width="150" height="64" rx="9" fill="#eef0fb" stroke="#4f46e5"/>
+      <text x="83" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="#1c1f2b">1 · One-time setup</text>
+      <text x="83" y="59" text-anchor="middle" font-size="10" fill="#5b6072">Syllabus / contents page</text>
+      <text x="83" y="73" text-anchor="middle" font-size="10" fill="#5b6072">per subject (+ books)</text>
+      <line x1="158" y1="52" x2="180" y2="52" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a1)"/>
+      <!-- 2 plan -->
+      <rect x="182" y="20" width="146" height="64" rx="9" fill="#eef0fb" stroke="#4f46e5"/>
+      <text x="255" y="42" text-anchor="middle" font-size="12" font-weight="700" fill="#1c1f2b">2 · Today's plan</text>
+      <text x="255" y="59" text-anchor="middle" font-size="10" fill="#5b6072">Planner picks subject,</text>
+      <text x="255" y="73" text-anchor="middle" font-size="10" fill="#5b6072">topic and agenda</text>
+      <line x1="328" y1="52" x2="352" y2="52" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a1)"/>
+      <!-- 3 class frame -->
+      <rect x="354" y="8" width="298" height="284" rx="12" fill="#f7f8fc" stroke="#4f46e5" stroke-width="1.5"/>
+      <text x="503" y="28" text-anchor="middle" font-size="12" font-weight="700" fill="#4338ca">3 · The one-hour class (canvas)</text>
+      <g font-size="10.5" fill="#1c1f2b" text-anchor="middle">
+        <rect x="392" y="42" width="136" height="32" rx="7" fill="#fff" stroke="#9aa0b4"/>
+        <text x="460" y="62">Warm-up · ~5 min</text>
+        <rect x="392" y="94" width="136" height="32" rx="7" fill="#fff" stroke="#9aa0b4"/>
+        <text x="460" y="114">Teach a scene</text>
+        <rect x="392" y="146" width="136" height="32" rx="7" fill="#e8f6f4" stroke="#0f9488"/>
+        <text x="460" y="166">Checkpoint question</text>
+        <rect x="392" y="198" width="136" height="32" rx="7" fill="#fff" stroke="#9aa0b4"/>
+        <text x="460" y="218">Practice · ~20 min</text>
+        <rect x="392" y="250" width="136" height="32" rx="7" fill="#fff" stroke="#9aa0b4"/>
+        <text x="460" y="270">Wrap-up + homework</text>
+      </g>
+      <g stroke="#5b6072" stroke-width="1.4" fill="none">
+        <line x1="460" y1="74" x2="460" y2="92" marker-end="url(#a1)"/>
+        <line x1="460" y1="126" x2="460" y2="144" marker-end="url(#a1)"/>
+        <line x1="460" y1="178" x2="460" y2="196" marker-end="url(#a1)"/>
+        <line x1="460" y1="230" x2="460" y2="248" marker-end="url(#a1)"/>
+        <path d="M392,162 C374,162 374,110 390,110" marker-end="url(#a1)"/>
+      </g>
+      <text x="368" y="136" font-size="8.5" fill="#5b6072" transform="rotate(-90 368 136)" text-anchor="middle">next scene</text>
+      <!-- raise hand -->
+      <rect x="540" y="42" width="106" height="44" rx="7" fill="#fff" stroke="#4f46e5" stroke-dasharray="4 3"/>
+      <text x="593" y="60" text-anchor="middle" font-size="9.5" fill="#4338ca">Raise hand any time</text>
+      <text x="593" y="75" text-anchor="middle" font-size="9.5" fill="#4338ca">doubt, then resume</text>
+      <!-- reteach -->
+      <rect x="540" y="142" width="106" height="40" rx="7" fill="#fff4ed" stroke="#c2410c"/>
+      <text x="593" y="159" text-anchor="middle" font-size="9.5" fill="#9a3412">Wrong? Reteach</text>
+      <text x="593" y="173" text-anchor="middle" font-size="9.5" fill="#9a3412">a different way</text>
+      <path d="M528,162 L538,162" stroke="#c2410c" stroke-width="1.4" marker-end="url(#a1p)" fill="none"/>
+      <path d="M593,142 C593,116 562,110 530,110" stroke="#c2410c" stroke-width="1.4" marker-end="url(#a1p)" fill="none"/>
+      <!-- answers note -->
+      <text x="593" y="212" text-anchor="middle" font-size="9" fill="#0f766e">Student answers on</text>
+      <text x="593" y="224" text-anchor="middle" font-size="9" fill="#0f766e">the board; the AI</text>
+      <text x="593" y="236" text-anchor="middle" font-size="9" fill="#0f766e">marks it in red pen</text>
+      <!-- 4 adapt -->
+      <rect x="182" y="210" width="146" height="64" rx="9" fill="#e8f6f4" stroke="#0f9488"/>
+      <text x="255" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="#1c1f2b">4 · Check and adapt</text>
+      <text x="255" y="249" text-anchor="middle" font-size="10" fill="#5b6072">After every answer:</text>
+      <text x="255" y="263" text-anchor="middle" font-size="10" fill="#5b6072">mastery, pace, mistakes</text>
+      <line x1="354" y1="242" x2="330" y2="242" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a1)"/>
+      <line x1="255" y1="210" x2="255" y2="86" stroke="#0f9488" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#a1t)"/>
+      <text x="262" y="150" font-size="9" fill="#0f766e">shapes the next plan</text>
+      <!-- 5 reports -->
+      <rect x="8" y="210" width="150" height="64" rx="9" fill="#f4f5fa" stroke="#9aa0b4"/>
+      <text x="83" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="#1c1f2b">5 · Homework, tests,</text>
+      <text x="83" y="248" text-anchor="middle" font-size="12" font-weight="700" fill="#1c1f2b">progress, parents</text>
+      <text x="83" y="264" text-anchor="middle" font-size="10" fill="#5b6072">all read the same data</text>
+      <line x1="182" y1="242" x2="160" y2="242" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a1)"/>
+    </svg>
+    <figcaption>Figure 1. The daily tuition loop. Setup happens once; steps 2 to 4 repeat every day.</figcaption>
+  </figure>
+
+  <h2>1. One-time setup</h2>
+  <ul>
+    <li>Onboarding (already built) asks for class, board, subjects, level and language. It gains: <strong>daily study minutes</strong> (default 60), <strong>study days</strong>, and an optional <strong>target exam and date</strong> (Boards, JEE, NEET).</li>
+    <li><strong>Per subject, the syllabus or a book's contents page is uploaded once</strong>, as a photo or PDF, by the student or parent. The AI extracts <em>Subject → Chapters → Topics</em>. The student reviews it (rename, reorder, delete, add, mark "already done") and confirms. It stays editable.</li>
+    <li>Optionally, books and notes are uploaded too. They ground teaching through RAG, with page citations.</li>
+    <li>A teacher can share their class syllabus once; students in that class import it instead of uploading.</li>
+  </ul>
+
+  <h2>2. Today's class</h2>
+  <ul>
+    <li><strong>One class a day on one subject.</strong> The Planner rotates subjects, favouring weak subjects, near exams, and subjects not studied for a while.</li>
+    <li>The plan shows the subject, the topic(s), an agenda with minutes per part, and <em>why</em> (new topic, due for revision, unfinished last time).</li>
+    <li>The student can switch today's subject or topic.</li>
+    <li>It is prepared when the student first opens Today (with a "preparing your class" state), or overnight when the stack is running.</li>
+  </ul>
+
+  <h2>3. The class: one hour on the canvas</h2>
+  <table>
+    <thead><tr><th class="n">Part</th><th class="n">Default</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td class="n">Warm-up</td><td class="n">~5 min</td><td>2–3 quick questions on revision-due topics of today's subject, including the last class's topic if it was this subject</td></tr>
+      <tr><td class="n">Teach</td><td class="n">~25–30 min</td><td>The topic is taught in <strong>scenes</strong> (board pages). Each scene goes idea → visual → worked example, then a <strong>checkpoint</strong> question</td></tr>
+      <tr><td class="n">Practice</td><td class="n">~20 min</td><td>Questions from easy to hard, solved <strong>on the board</strong>. The AI checks each step, gives hints on request, and shows the full solution on the canvas when an answer is wrong</td></tr>
+      <tr><td class="n">Wrap-up</td><td class="n">~5 min</td><td>A summary board, homework (3–5 questions), and a preview of the next class</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li><strong>The split adapts</strong>: a new topic is teach-heavy, a revision day is practice-heavy, a struggling student gets more examples.</li>
+    <li><strong>Raise hand</strong> at any time: the AI answers on a doubt board, then resumes where it was.</li>
+    <li><strong>A failed checkpoint</strong> makes the AI re-explain <em>a different way</em> (another visual or analogy), at most twice; then it moves on and flags the topic as weak.</li>
+    <li><strong>Pause and resume</strong> the same day: the class remembers where it was.</li>
+  </ul>
+
+  <h2>4. Check and adapt</h2>
+  <p>Every answer is graded and updates the <strong>student model</strong>: mastery per topic, misconceptions, pace, and which explanation styles work. The next plan reads it.</p>
+
+  <h2>5. Homework, tests, progress and parents</h2>
+  <ul>
+    <li><strong>Homework</strong>: submitted as a photo or board work, graded in the background, returned with red-pen marks on the student's own work.</li>
+    <li><strong>Tests</strong>: weekly and per chapter, timed and auto-graded; every mistake is explained on the canvas.</li>
+    <li><strong>Progress</strong>: mastery, time spent, weak areas. <strong>Parents</strong>: daily attendance, minutes, topics, scores, alerts, class replays, and a weekly email.</li>
+  </ul>
+
+  <div class="callout warn">
+    <p><strong>Anti-goals.</strong> The design has failed, even if it technically works, if:</p>
+    <ul>
+      <li>the canvas turns into a slideshow of static text;</li>
+      <li>the tutor can't be interrupted;</li>
+      <li>teaching drifts outside the student's uploaded syllabus;</li>
+      <li>grading says "wrong" without showing <em>where</em>.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================== 6. ENGINE ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">6</span>Core engine design</h1>
+  <p>The core engine is the AI-powered 2D canvas and everything behind it. Figure 2 shows its layers.</p>
+
+  <figure>
+    <svg viewBox="0 0 660 430" xmlns="http://www.w3.org/2000/svg" font-family="Ubuntu Sans, DejaVu Sans, sans-serif" role="img" aria-label="Core engine layers">
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6072"/></marker>
+      </defs>
+      <!-- browser -->
+      <rect x="36" y="6" width="616" height="84" rx="10" fill="#eef0fb" stroke="#4f46e5"/>
+      <text x="48" y="26" font-size="11.5" font-weight="700" fill="#4338ca">Browser · features/canvas (Layers 1–2)</text>
+      <g font-size="10" fill="#1c1f2b" text-anchor="middle">
+        <rect x="48" y="36" width="190" height="42" rx="7" fill="#fff" stroke="#9aa0b4"/>
+        <text x="143" y="54">Board player</text><text x="143" y="68" fill="#5b6072">renderer registry · scenes · camera</text>
+        <rect x="249" y="36" width="190" height="42" rx="7" fill="#fff" stroke="#9aa0b4"/>
+        <text x="344" y="54">Student input layer</text><text x="344" y="68" fill="#5b6072">pen · typed maths · photo</text>
+        <rect x="450" y="36" width="190" height="42" rx="7" fill="#fff" stroke="#9aa0b4"/>
+        <text x="545" y="54">Answer widgets · raise hand</text><text x="545" y="68" fill="#5b6072">narration · replay · export</text>
+      </g>
+      <!-- transport arrows -->
+      <line x1="300" y1="92" x2="300" y2="126" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text x="294" y="112" font-size="9" fill="#5b6072" text-anchor="end">POST: answer, raise hand, next</text>
+      <line x1="388" y1="126" x2="388" y2="92" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text x="394" y="112" font-size="9" fill="#5b6072">SSE: validated board actions</text>
+      <!-- orchestrator -->
+      <rect x="36" y="128" width="616" height="46" rx="10" fill="#fff" stroke="#4f46e5" stroke-width="1.5"/>
+      <text x="344" y="148" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c1f2b">Class orchestrator (Layer 3): a deterministic state machine</text>
+      <text x="344" y="164" text-anchor="middle" font-size="9.5" fill="#5b6072">warm-up → teach ⇄ checkpoint → practice → wrap-up · raise hand · reteach · time budget · Planner (code)</text>
+      <line x1="344" y1="174" x2="344" y2="196" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
+      <!-- agents -->
+      <rect x="36" y="198" width="616" height="84" rx="10" fill="#f7f8fc" stroke="#9aa0b4"/>
+      <text x="48" y="217" font-size="11.5" font-weight="700" fill="#1c1f2b">Agents: prompt + output schema + model setting</text>
+      <g font-size="9.5" text-anchor="middle" fill="#1c1f2b">
+        <rect x="46" y="226" width="96" height="46" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="94" y="245">Syllabus</text><text x="94" y="259">Reader</text>
+        <rect x="147" y="226" width="96" height="46" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="195" y="245">Lesson</text><text x="195" y="259">Designer</text>
+        <rect x="248" y="226" width="96" height="46" rx="7" fill="#eef0fb" stroke="#4f46e5"/><text x="296" y="245">Board</text><text x="296" y="259">Teacher</text>
+        <rect x="349" y="226" width="96" height="46" rx="7" fill="#e8f6f4" stroke="#0f9488"/><text x="397" y="245">Examiner</text><text x="397" y="259" fill="#5b6072">write · grade</text>
+        <rect x="450" y="226" width="96" height="46" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="498" y="245">Doubt</text><text x="498" y="259">Solver</text>
+        <rect x="551" y="226" width="92" height="46" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="597" y="245">Coach</text><text x="597" y="259" fill="#5b6072">summaries</text>
+      </g>
+      <line x1="344" y1="282" x2="344" y2="304" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
+      <!-- gateway -->
+      <rect x="36" y="306" width="250" height="44" rx="10" fill="#fff" stroke="#4f46e5" stroke-width="1.5"/>
+      <text x="161" y="325" text-anchor="middle" font-size="11" font-weight="700" fill="#1c1f2b">LLM gateway (Layer 6)</text>
+      <text x="161" y="340" text-anchor="middle" font-size="9" fill="#5b6072">provider switch · per-agent config · llm_calls log</text>
+      <path d="M286,328 L318,328" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
+      <rect x="320" y="306" width="160" height="44" rx="10" fill="#fff" stroke="#9aa0b4"/>
+      <text x="400" y="325" text-anchor="middle" font-size="10.5" fill="#1c1f2b">Claude Code bridge</text>
+      <text x="400" y="340" text-anchor="middle" font-size="9" fill="#5b6072">default · developer machine</text>
+      <rect x="492" y="306" width="160" height="44" rx="10" fill="#fff" stroke="#9aa0b4" stroke-dasharray="4 3"/>
+      <text x="572" y="325" text-anchor="middle" font-size="10.5" fill="#1c1f2b">Anthropic API</text>
+      <text x="572" y="340" text-anchor="middle" font-size="9" fill="#5b6072">later · for deployment</text>
+      <!-- data -->
+      <rect x="36" y="366" width="616" height="58" rx="10" fill="#f4f5fa" stroke="#9aa0b4"/>
+      <text x="48" y="383" font-size="10.5" font-weight="700" fill="#1c1f2b">Postgres + pgvector</text>
+      <g font-size="9.5" text-anchor="middle" fill="#1c1f2b">
+        <rect x="48" y="390" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="119" y="407">Event log (sessions)</text>
+        <rect x="198" y="390" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="269" y="407">Student model (L4)</text>
+        <rect x="348" y="390" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="419" y="407">Syllabus + books (L5)</text>
+        <rect x="498" y="390" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="569" y="407">Question bank</text>
+      </g>
+      <!-- read/write bracket -->
+      <path d="M30,151 L14,151 L14,395 L30,395" stroke="#0f9488" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
+      <text x="10" y="273" font-size="9" fill="#0f766e" transform="rotate(-90 10 273)" text-anchor="middle">reads and writes</text>
+    </svg>
+    <figcaption>Figure 2. Engine layers. The browser draws and collects answers; the orchestrator decides what happens next; agents write the content; the gateway reaches the model.</figcaption>
+  </figure>
+
+  <h2>Principles</h2>
+  <ul>
+    <li><strong>The AI says <em>what</em>; the engine decides <em>how it looks</em>.</strong> The model emits semantic actions such as <code>plot y = x^2 from -3 to 3</code> or <code>triangle A(0,0) B(4,0) C(0,3)</code>. The engine computes geometry, layout and animation, so the model never computes pixels.</li>
+    <li><strong>Plain data from the model.</strong> Every model output is validated against a pydantic schema before it reaches the browser or the database, as <code>app/services/whiteboard/parser.py</code> does today. A prompt-injected input can only change what gets drawn.</li>
+    <li><strong>Deterministic control, AI content.</strong> Code runs the class state machine, scheduling, subject rotation, spaced revision, and grading of MCQ and numeric answers. The model writes explanations and questions and judges free-form work. This keeps the loop testable, cheap and predictable.</li>
+    <li><strong>Short streamed steps.</strong> Each AI call covers one scene, one checkpoint or one grading. That fits the bridge's per-call limit, lets the class adapt between steps, and starts drawing within seconds.</li>
+    <li><strong>Every session is an append-only event log.</strong> Replay, time spent, analytics, the parent view and continuous improvement (§7.14) all read it.</li>
+  </ul>
+
+  <h2>Layer 1 · Board Protocol v2</h2>
+  <p>The shared language between the AI and the canvas: one JSON action per line, streamed. The 15 v1 actions stay unchanged (caption, write, underline, box, erase, line, arrow, rect, circle, clear, pause, object, animate, stop, remove). v2 adds:</p>
+  <table>
+    <thead><tr><th style="width:18%">Group</th><th style="width:30%">Actions</th><th>What they do</th></tr></thead>
+    <tbody>
+      <tr><td>Structure</td><td><code>scene</code>, <code>focus</code>, <code>column</code></td><td><code>scene {title}</code> starts a new board page; earlier pages stay in a thumbnail strip. <code>focus {x,y,w,h}</code> zooms or pans the camera. A <code>write</code> without x/y flows down the active column (auto-layout); <code>column left|right|full</code> switches it</td></tr>
+      <tr><td>Graphs</td><td><code>axes</code>, <code>plot</code></td><td>Function graphs from a safe expression evaluator, with points, shaded regions and labels</td></tr>
+      <tr><td>Geometry</td><td><code>point</code>, <code>segment</code>, <code>polygon</code>, <code>angle</code>, <code>arc</code></td><td>In math units mapped to the board, with angle arcs, equal-length ticks and dimension labels, drawn step by step</td></tr>
+      <tr><td>Tables</td><td><code>table</code></td><td>Rows revealed one at a time</td></tr>
+      <tr><td>Diagrams</td><td><code>diagram {template, params, labels[]}</code></td><td>A template library with leader-line labels. Starter set: circuit, ray optics, free-body, atom/Bohr, cell, simple apparatus</td></tr>
+      <tr><td>Infographics</td><td><code>flow</code>, <code>chart</code>, <code>numberline</code></td><td>Flowcharts and mind maps with automatic layout; bar, pie and line charts; number lines</td></tr>
+      <tr><td>Chemistry</td><td>via <code>write</code></td><td>Chemical equations through the existing <code>mathText</code> (subscripts, →, ⇌)</td></tr>
+      <tr><td>Media</td><td><code>image</code></td><td>Shows an uploaded photo, such as the student's question</td></tr>
+      <tr><td>Interaction</td><td><code>ask</code>, <code>mark</code>, <code>hint</code></td><td><code>ask {id, kind: mcq|numeric|short|board, prompt, options?, region?}</code> pauses the player and opens an answer widget or a writing area. <code>mark {target_line, kind: tick|cross|circle|note}</code> is the red pen. <code>hint</code> is revealed on request</td></tr>
+      <tr><td>Grounding</td><td><code>cite {source, page}</code></td><td>A chip pointing to the page of the student's uploaded book</td></tr>
+    </tbody>
+  </table>
+  <p>Everything draws stroke by stroke, like the existing pencil. <strong>Adding a primitive</strong> means adding exactly three things: a pydantic model (backend), a renderer in the frontend registry (<code>type → render(ctx, action, clock)</code>), and a short section in the prompt's command reference.</p>
+
+  <h2>Layer 2 · Two-way board</h2>
+  <p><strong>Three first-class ways to answer</strong>, so the board works with a mouse, touch, stylus or phone:</p>
+  <ol>
+    <li>Handwriting on the board (pen, eraser; strokes stored as vectors).</li>
+    <li>A typed answer in the <code>mathText</code> syntax (<code>x^2</code>, <code>a_{n}</code>).</li>
+    <li>A photo of working on paper.</li>
+  </ol>
+  <p><strong>Grading.</strong> MCQ and numeric answers are graded <strong>in code</strong>, instantly, with a tolerance and unit variants. Free-form answers go to the Examiner:</p>
+  <ol>
+    <li>The browser groups the student's strokes into numbered <strong>lines</strong> by clustering on height.</li>
+    <li>It sends an image of the answer area with the line numbers drawn on (a photo goes as is; typed answers go as text).</li>
+    <li>The Examiner returns a verdict per line, a score and feedback.</li>
+    <li><code>mark</code> actions point at line numbers, so the engine places ticks and crosses exactly. This avoids relying on vision models for pixel positions, which they are weak at.</li>
+  </ol>
+  <p>Before classes exist (Phase 5), the two-way board lives inside <strong>Ask a doubt</strong>: <em>"Now you try"</em> sets a similar question after each explanation, and <em>"Check my working"</em> marks a photo of the student's own solution.</p>
+
+  <h2>Layer 3 · Class orchestrator and agents</h2>
+  <p>The orchestrator is a <strong>deterministic state machine</strong>, not an AI deciding what to do next:</p>
+<pre><code>planned → warmup → teach(scene i) ⇄ checkpoint → practice(question j) → wrapup → completed
+            ↘ raise_hand → doubt → (resume)
+                                 checkpoint failed once or twice → reteach (a different way)</code></pre>
+  <p>A time-budget tracker trims extra practice when the class runs long. Each agent is a prompt, an output schema and a model/effort setting, and all of them call the model through the LLM gateway.</p>
+  <table>
+    <thead><tr><th style="width:17%">Agent</th><th style="width:28%">When it runs</th><th>What it produces</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Syllabus Reader</strong></td><td>A syllabus or contents page is uploaded</td><td>A JSON tree of chapters and topics, with order and page numbers when present</td></tr>
+      <tr><td><strong>Lesson Designer</strong></td><td>When today's plan is made</td><td>A lesson outline: scenes (goal, chosen visual format, examples), checkpoints, a practice skeleton. Uses the student's books (RAG) when uploaded</td></tr>
+      <tr><td><strong>Board Teacher</strong></td><td>Each scene, reteach and wrap-up</td><td>Streamed Protocol v2 actions with captions. Today's whiteboard prompt, evolved</td></tr>
+      <tr><td><strong>Examiner</strong></td><td>Writing questions; grading</td><td>Questions with answer key, rubric, difficulty and topic tag; grades for free-form and photo answers</td></tr>
+      <tr><td><strong>Doubt Solver</strong></td><td>Raise hand; standalone doubts</td><td>Board actions, aware of the class and the student's books. Today's doubt flow becomes this agent</td></tr>
+      <tr><td><strong>Coach</strong></td><td>End of class; weekly</td><td>Mastery and misconception updates, a student summary and a parent summary</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li><strong>The Planner is code, not an agent.</strong> It picks the subject first (rotation weighted by weakness, exam date and days since last studied), then topics, from syllabus order, mastery, revisions due (simplified SM-2 spaced repetition), unfinished topics and daily minutes.</li>
+    <li><strong>Answer-key self-check.</strong> The Examiner solves each generated question a second time, independently. If the answers disagree, the question is discarded.</li>
+    <li><strong>Step streaming.</strong> Each <code>POST /student/classes/{id}/advance</code> carries the student's input (an answer, raise-hand text, "next" or "hint") and streams the next step over SSE, ending at an <code>ask</code> or at the end of a segment. Same SSE events, 15-second keep-alive pings and save-on-disconnect as today's doubt stream.</li>
+    <li><strong>Prefetch.</strong> While the student answers a checkpoint, the next scene is generated in the background.</li>
+  </ul>
+
+  <h2>Layer 4 · Student model (memory)</h2>
+  <ul>
+    <li><strong>Topic mastery</strong> (per student and topic): score 0–1, confidence, attempts, correct answers, last practised, next review date, and a status (not started, learning, practising, mastered). Updated after every graded answer with a simple weighted (Elo-like) rule.</li>
+    <li><strong>Learner profile</strong>: pace, explanation styles that worked, recent misconceptions, language mix. Maintained by the Coach.</li>
+    <li><strong>Student card</strong>: every prompt gets a compact card (under 300 tokens) with class, board, level, language, mastery of the current topic and its prerequisites, top misconceptions, and styles that work.</li>
+  </ul>
+
+  <h2>Layer 5 · Syllabus and knowledge base (RAG)</h2>
+  <ul>
+    <li><strong>Syllabus.</strong> A contents-page or syllabus photo or PDF goes to the Syllabus Reader; the student confirms the topic tree. It is the backbone for plans, mastery and tests.</li>
+    <li><strong>Books and notes</strong> are ingested in the background (Celery): text extracted from PDFs, scanned pages read through the gateway's vision call, split into chunks by page and heading, embedded with a <strong>free local multilingual embedding model</strong> (no API key; works for Hindi), and stored in <strong>pgvector</strong> (Postgres image <code>pgvector/pgvector:pg16</code>).</li>
+    <li><strong>Retrieval</strong> per topic feeds the Lesson Designer and Board Teacher; per doubt, the Doubt Solver. Boards cite pages with <code>cite</code> chips. Without books, the AI teaches from its own knowledge, kept to the syllabus topic and the student's board and class.</li>
+    <li><strong>Synopsis alignment.</strong> This is the RAG pipeline the project synopsis promises; pgvector fills the vector-store role the synopsis names as Qdrant.</li>
+  </ul>
+
+  <h2>Layer 6 · LLM gateway</h2>
+  <ul>
+    <li><code>app/services/llm/</code> becomes the single way to call a model: <code>stream_text(agent, system, prompt, images=[])</code> and <code>complete_json(agent, system, prompt, schema, images=[])</code>.</li>
+    <li>The provider is chosen by <code>LLM_PROVIDER</code>: <code>claude_bridge</code> (default) or <code>anthropic_api</code> (for deployment).</li>
+    <li>Model and effort are set per agent: the Board Teacher runs fast (sonnet, low effort); the Syllabus Reader and Examiner grading use more effort.</li>
+    <li>Every call is logged in <code>llm_calls</code> (agent, duration, cost reported by the bridge, status).</li>
+    <li><strong>Image input</strong> through the bridge is tested first thing in Phase 5, trying in order: (1) <code>claude -p --input-format stream-json</code> with image blocks; (2) the bridge saves the image in the run's empty folder and enables <em>only</em> Claude Code's Read tool for that run; (3) the Anthropic API for vision calls only, if Satyam agrees to an API key.</li>
+  </ul>
+
+  <h2>Frontend shape</h2>
+  <ul>
+    <li>The engine moves from <code>features/whiteboard/engine/</code> into <strong><code>features/canvas/</code></strong>: player, renderer registry, scenes and camera, student input layer, answer widgets, raise hand, timeline and replay, narrator.</li>
+    <li>Doubts, classes, homework review, test review and the parent's replay view all mount the same <code>&lt;Canvas&gt;</code>.</li>
+    <li>Reused as is: <code>BoardPlayer.js</code>, <code>strokes.js</code>, <code>mathText.js</code>, <code>motion.js</code>, <code>scene.js</code>, <code>sprites.js</code>, <code>narrator.js</code>, <code>utils/sse.js</code>, and the streaming fetch with refresh-and-retry in <code>doubtService.stream()</code>.</li>
+  </ul>
+</section>
+
+<!-- ============================== 7. ROADMAP ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">7</span>Roadmap</h1>
+  <p>Ordered by dependency. Each phase ships working backend and frontend features together.</p>
+  <table>
+    <thead><tr><th class="n">#</th><th style="width:22%">Phase</th><th class="n">PDF §</th><th class="n">Status</th><th>What ships</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1</td><td>Auth, RBAC, design system, app shell</td><td class="n">§6</td><td class="n"><span class="pill done">Done</span></td><td>Cookie JWT with rotating refresh, roles, design system, landing, sign-in/up, password flows, role dashboards, admin user list</td></tr>
+      <tr><td class="n">2</td><td>Profiles &amp; relationships</td><td class="n">7.1</td><td class="n"><span class="pill done">Done</span></td><td>Profiles and avatars, student onboarding, parent–child link codes, teacher classes with join codes, admin user management</td></tr>
+      <tr><td class="n">3</td><td><strong>Canvas engine v1: AI whiteboard doubts</strong></td><td class="n">7.4</td><td class="n"><span class="pill done">Done</span></td><td>Claude Code bridge, live pencil, 2D animation, neural narration, history and replay</td></tr>
+      <tr><td class="n">4</td><td><strong>Canvas engine v2: richer visuals</strong></td><td class="n">7.5, 7.13</td><td class="n"><span class="pill next">Next</span></td><td>LLM gateway; Board Protocol v2 with renderer registry; scenes, camera, auto-layout; plots, geometry, tables, diagram templates, flowcharts, charts, number line, chemical equations; board sessions and events (doubts migrated); follow-up questions on the same board; "explain another way"</td></tr>
+      <tr><td class="n">5</td><td><strong>Two-way board</strong></td><td class="n">7.4, 7.9</td><td class="n"><span class="pill planned">Planned</span></td><td>Image-input spike; student input (handwriting, typed maths, photo); answer widgets; ask / mark / hint; Examiner grading with line-numbered red pen; question bank; "Now you try" and "Check my working"; doubts by photo</td></tr>
+      <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill planned">Planned</span></td><td>One-time syllabus/contents upload per subject → editable topic tree; teacher-shared class syllabus; books and notes ingestion, OCR, local embeddings, pgvector; cited retrieval in doubts</td></tr>
+      <tr><td class="n">7</td><td><strong>Student model &amp; daily planner</strong></td><td class="n">7.7, 7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td>Daily minutes, study days, exam and date; topic mastery and learner profile; student card in every prompt; Planner with subject rotation and spaced revision; Today page; topic practice that moves mastery</td></tr>
+      <tr><td class="n">8</td><td><strong>Daily tuition class</strong> (core loop)</td><td class="n">7.3, 7.8</td><td class="n"><span class="pill planned">Planned</span></td><td>Lesson Designer; class orchestrator (warm-up → teach + checkpoints → practice → wrap-up); raise hand; reteach a different way; pause and resume; prefetch; homework set; class player; Coach summaries; replay</td></tr>
+      <tr><td class="n">9</td><td><strong>Homework &amp; tests</strong></td><td class="n">7.8, 7.9</td><td class="n"><span class="pill planned">Planned</span></td><td>Homework grading with red-pen review; weekly and chapter tests, timed and auto-graded, mistakes explained on the canvas; teachers assign tests to classes</td></tr>
+      <tr><td class="n">10</td><td><strong>Progress &amp; analytics</strong></td><td class="n">7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td>Mastery map, time spent, streaks, weak areas, insights; teacher class analytics; admin platform and AI-usage stats</td></tr>
+      <tr><td class="n">11</td><td><strong>Parent dashboard &amp; notifications</strong></td><td class="n">7.11</td><td class="n"><span class="pill planned">Planned</span></td><td>Per-child class status, scores, weak areas, alerts, class replays; notification centre; weekly email report</td></tr>
+      <tr><td class="n">12</td><td><strong>Voice, video &amp; Hindi</strong></td><td class="n">7.6, 7.12</td><td class="n"><span class="pill planned">Planned</span></td><td>Voice input and raise hand by voice; Hindi/Hinglish board and Hindi neural voices; class video export; Hindi interface</td></tr>
+      <tr><td class="n">13</td><td><strong>Production &amp; polish</strong></td><td class="n">—</td><td class="n"><span class="pill planned">Planned</span></td><td>Anthropic API provider for deployment, HTTPS, CI, monitoring, PWA, accessibility, end-to-end tests, email verification, licensed TTS</td></tr>
+    </tbody>
+  </table>
+
+  <div class="cols">
+    <div>
+      <h2>PDF coverage</h2>
+      <table>
+        <thead><tr><th class="n">§</th><th>Feature</th><th class="n">Phase(s)</th></tr></thead>
+        <tbody>
+          <tr><td class="n">7.1</td><td>Profile and setup</td><td class="n">2, 6, 7</td></tr>
+          <tr><td class="n">7.2</td><td>Content upload</td><td class="n">6</td></tr>
+          <tr><td class="n">7.3</td><td>Teaching</td><td class="n">8</td></tr>
+          <tr><td class="n">7.4</td><td>Doubts</td><td class="n">3, 4, 5</td></tr>
+          <tr><td class="n">7.5</td><td>Visuals</td><td class="n">4</td></tr>
+          <tr><td class="n">7.6</td><td>Voice and video</td><td class="n">12</td></tr>
+          <tr><td class="n">7.7</td><td>Learning plan</td><td class="n">7</td></tr>
+          <tr><td class="n">7.8</td><td>Homework</td><td class="n">8, 9</td></tr>
+          <tr><td class="n">7.9</td><td>Tests</td><td class="n">5, 9</td></tr>
+          <tr><td class="n">7.10</td><td>Tracking</td><td class="n">7, 10</td></tr>
+          <tr><td class="n">7.11</td><td>Parents</td><td class="n">11</td></tr>
+          <tr><td class="n">7.12</td><td>Languages</td><td class="n">12</td></tr>
+          <tr><td class="n">7.13</td><td>Multi-agent</td><td class="n">4–8</td></tr>
+          <tr><td class="n">7.14</td><td>Improvement</td><td class="n">7, 10</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <h2>What changed from the old roadmap</h2>
+      <ul>
+        <li>The canvas is now the core engine that every teaching feature runs through.</li>
+        <li>Standalone "streaming chat" is dropped; follow-up questions happen on the board.</li>
+        <li>RAG stays early (Phase 6, on pgvector) and grounds the lessons.</li>
+        <li>Quizzes became homework and tests on the two-way board.</li>
+        <li>The study planner became the daily tuition class.</li>
+        <li>Phase numbers changed: the old 8 phases are now 13.</li>
+        <li>The business model (§9) is out of scope.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 8. PHASES ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">8</span>Phase-by-phase detail</h1>
+  <p>Each phase lists its goal, the backend and frontend work, and the checks that mean it is done.</p>
+
+  <div class="phase">
+    <h3><span class="num">Phase 4</span>Canvas engine v2: richer visuals</h3>
+    <p class="goal">The AI can draw any common school visual cleanly, and a doubt becomes a multi-turn board session.</p>
+    <div class="cols">
+      <div>
+        <h4>Backend</h4>
+        <ul>
+          <li>LLM gateway in <code>app/services/llm/</code>: provider switch, per-agent model, effort and timeout, <code>llm_calls</code> log. The existing <code>claude_bridge.stream_text</code> becomes the bridge provider.</li>
+          <li>Protocol v2 schemas split out of <code>whiteboard.py</code> into a <code>board</code> schema package; <code>ActionStreamParser</code> reused.</li>
+          <li>Migration 0004: <code>board_sessions</code> and <code>board_events</code>, with existing doubts copied in. Doubt URLs stay the same.</li>
+          <li>Follow-ups: <code>POST /student/doubts/{id}/follow-up</code> (SSE); the prompt includes a summary of the board so far.</li>
+          <li>"Explain another way": re-run with a different-approach instruction.</li>
+          <li>Prompt command reference covers v2, with guidance on choosing a visual format.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend</h4>
+        <ul>
+          <li>Engine extracted to <code>features/canvas/</code>.</li>
+          <li>Renderer registry, scenes with a thumbnail strip, camera <code>focus</code>, auto-layout cursor.</li>
+          <li>Renderers for axes and plot (small safe expression parser, never <code>eval</code>), geometry, table, diagram templates, flow (layered layout), chart, number line, image.</li>
+          <li>Doubts page: follow-up box and "Explain another way" button.</li>
+        </ul>
+        <h4>Done when</h4>
+        <ul>
+          <li>A developer-only gallery renders every primitive.</li>
+          <li>Sample doubts in maths, physics, chemistry and biology each pick and draw a fitting visual.</li>
+          <li>Unit tests cover the expression parser, layout and schema validation.</li>
+          <li>Old doubts replay unchanged.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3><span class="num">Phase 5</span>Two-way board</h3>
+    <p class="goal">The student answers on the board, and the AI marks exactly where they went wrong.</p>
+    <div class="cols">
+      <div>
+        <h4>Backend</h4>
+        <ul>
+          <li>Opens with the image-input spike (three-step fallback, chapter 6). Bridge requests gain <code>images[]</code>.</li>
+          <li>Examiner agent: writes questions (key, rubric, difficulty) with the self-check; grades MCQ and numeric answers in code, free-form answers by vision using line numbers.</li>
+          <li><code>question_items</code> table. Answers stored as board events; images re-encoded with Pillow under <code>media/answers/</code>.</li>
+          <li>SSE endpoints: "Now you try" on a doubt; answer submission (strokes image, photo or typed text) returning marks; "Check my working" photo upload.</li>
+          <li>Rate limits for grading.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend</h4>
+        <ul>
+          <li>Student input layer: pen, eraser, typed maths, photo.</li>
+          <li>Line grouping and answer-area snapshot.</li>
+          <li><code>ask</code> widgets; <code>mark</code> and <code>hint</code> renderers.</li>
+        </ul>
+        <h4>Done when</h4>
+        <ul>
+          <li>All three answer modes get marks on the right lines.</li>
+          <li>MCQ and numeric answers are graded instantly.</li>
+          <li>Tests cover a mocked gateway and the line grouping.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3><span class="num">Phase 6</span>Syllabus &amp; knowledge base (RAG)</h3>
+    <p class="goal">The AI knows each student's syllabus and can teach from their own books.</p>
+    <div class="cols">
+      <div>
+        <h4>Backend</h4>
+        <ul>
+          <li>Syllabus upload (photo or PDF) → Celery → Syllabus Reader (vision) → draft tree → student confirms.</li>
+          <li><code>syllabus_*</code> tables. Teachers can share a class syllabus; students import it.</li>
+          <li>Books and notes: <code>documents</code> upload with size limits; Celery extracts PDF text, reads scanned pages by vision, splits into ~500-token chunks with page references, embeds with a small local multilingual model (chosen at build time), stores in pgvector with an HNSW index.</li>
+          <li><code>retrieve(student, query, subject/topic)</code> searches only the student's own documents. Doubts use it, with <code>cite</code>.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend</h4>
+        <ul>
+          <li>Syllabus page: upload, review the tree (edit, reorder, mark done), confirm.</li>
+          <li>Documents list with ingestion status.</li>
+          <li><code>cite</code> chip that opens the page.</li>
+        </ul>
+        <h4>Done when</h4>
+        <ul>
+          <li>A contents-page photo becomes a correct tree.</li>
+          <li>A doubt cites the right textbook page.</li>
+          <li>Tests cover the chunker, and retrieval with fake embeddings.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3><span class="num">Phase 7</span>Student model &amp; daily planner</h3>
+    <p class="goal">The AI knows what the student has mastered and plans each day's class.</p>
+    <div class="cols">
+      <div>
+        <h4>Backend</h4>
+        <ul>
+          <li>Onboarding fields: daily minutes, study days, exam and date.</li>
+          <li><code>topic_mastery</code> updated from graded answers (now tagged with a topic); <code>learner_profiles</code>; student-card builder.</li>
+          <li>Planner as pure, unit-tested functions: subject rotation score, topic choice, spaced revision, agenda minutes.</li>
+          <li><code>daily_plans</code>; <code>GET /student/today</code> (makes the plan if missing); <code>POST /student/today/switch</code>; overnight pre-generation by Celery beat at 02:00 IST.</li>
+          <li>"Practice this topic": a short two-way session that moves mastery, so the phase is useful before classes exist.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend</h4>
+        <ul>
+          <li>New onboarding step.</li>
+          <li>Today page: agenda, why this topic, switch, practice.</li>
+          <li>Mastery chips on the Syllabus page.</li>
+        </ul>
+        <h4>Done when</h4>
+        <ul>
+          <li>The Planner picks the expected subject and topic on seeded data (unit tests).</li>
+          <li>Practice moves mastery.</li>
+          <li>Today shows the plan.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3><span class="num">Phase 8</span>Daily tuition class (the core loop)</h3>
+    <p class="goal">The full one-hour interactive class works end to end.</p>
+    <div class="cols">
+      <div>
+        <h4>Backend</h4>
+        <ul>
+          <li>Lesson Designer → <code>lesson_outlines</code>, made together with the plan.</li>
+          <li>Class orchestrator: state stored on the board session; steps warm-up, teach, checkpoint, reteach, practice, wrap-up, doubt; time budget; next scene prefetched and cached in Redis.</li>
+          <li>Endpoints: start or resume, <code>advance</code> (SSE), pause, replay.</li>
+          <li>Raise hand: stop the current stream, open a doubt scene, resume.</li>
+          <li>Wrap-up creates a homework row in <code>assignments</code>.</li>
+          <li>Coach summary: mastery and profile updates, plus the summary parents will see.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend</h4>
+        <ul>
+          <li>Class player at <code>/student/class/:id</code>: agenda progress, timer, raise hand, answer widgets, scene strip, end-of-class summary.</li>
+        </ul>
+        <h4>Done when</h4>
+        <ul>
+          <li>The demo script (chapter 11) passes end to end on the live bridge.</li>
+          <li>The state machine is unit-tested with fake agents.</li>
+          <li>A class resumes after a page reload.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3><span class="num">Phase 9</span>Homework &amp; tests</h3>
+    <p class="goal">Homework and tests are checked by the AI, and every mistake is explained.</p>
+    <div class="cols">
+      <div>
+        <h4>Backend</h4>
+        <ul>
+          <li><code>submissions</code>, <code>submission_grades</code>; background grading in Celery.</li>
+          <li>Weekly tests created automatically each Sunday from the week's topics; chapter tests on demand; timed attempts with autosave.</li>
+          <li>Teachers create, review, edit and assign tests to a class.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend</h4>
+        <ul>
+          <li>Homework list; answering on the canvas in all three modes.</li>
+          <li>Red-pen review with "show me on the board" per mistake.</li>
+          <li>Timed test player and results; teacher test builder and submissions view.</li>
+        </ul>
+        <h4>Done when</h4>
+        <ul>
+          <li>A homework photo comes back marked.</li>
+          <li>A test is taken, auto-graded and reviewed.</li>
+          <li>A teacher assigns a test to a class.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3><span class="num">Phase 10</span>Progress &amp; analytics</h3>
+    <p class="goal">The student, teacher and admin can see how learning is going.</p>
+    <div class="cols">
+      <div>
+        <h4>Backend</h4>
+        <ul>
+          <li>Aggregates from topic mastery, board events (time spent) and grades.</li>
+          <li>Weekly Coach insights.</li>
+          <li>Admin AI usage from <code>llm_calls</code>.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend</h4>
+        <ul>
+          <li>Student: mastery map (subject → chapter → topic), time, streak, score trends, weak areas, recommended next topics.</li>
+          <li>Teacher: class heatmap, struggling students. Admin: platform and AI-usage stats.</li>
+        </ul>
+        <h4>Done when</h4>
+        <ul><li>The numbers match seeded data in tests.</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3><span class="num">Phase 11</span>Parent dashboard &amp; notifications</h3>
+    <p class="goal">Parents see each child's progress, get alerts, and receive a weekly report.</p>
+    <div class="cols">
+      <div>
+        <h4>Backend</h4>
+        <ul>
+          <li><code>notifications</code> table.</li>
+          <li>Triggers: two missed classes, a falling score, a test completed, the weekly report ready.</li>
+          <li>Weekly email report (Celery beat, Sunday evening IST) through the existing email task.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend</h4>
+        <ul>
+          <li>Per-child view: today's class, minutes, topics, scores, weak areas, alerts, read-only class replays.</li>
+          <li>Notification bell and centre.</li>
+        </ul>
+        <h4>Done when</h4>
+        <ul><li>Triggers fire in tests and the weekly email arrives in Mailpit.</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3><span class="num">Phase 12</span>Voice, video &amp; Hindi</h3>
+    <p class="goal">Students can learn by voice, export a class as a video, and learn in Hindi.</p>
+    <div class="cols">
+      <div>
+        <h4>Backend</h4>
+        <ul>
+          <li>Hindi voices (<code>hi-IN-SwaraNeural</code>, <code>hi-IN-MadhurNeural</code>) through edge-tts.</li>
+          <li>Hindi and Hinglish board-language modes in the prompts.</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend</h4>
+        <ul>
+          <li>Voice input (browser speech recognition, en-IN and hi-IN), push-to-talk, raise hand by voice.</li>
+          <li>Hindi interface text.</li>
+          <li>Class video export: canvas layers and narration recorded to WebM.</li>
+        </ul>
+        <h4>Done when</h4>
+        <ul><li>A full class runs in Hindi, a spoken doubt works, and an exported video plays.</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase">
+    <h3><span class="num">Phase 13</span>Production &amp; polish</h3>
+    <p class="goal">The product is ready to deploy safely.</p>
+    <ul>
+      <li>Anthropic API provider implemented and tested.</li>
+      <li>HTTPS, secure cookies, Content Security Policy review.</li>
+      <li>CI on GitHub Actions: ruff, pytest, eslint, vitest, build.</li>
+      <li>Monitoring, backups, installable app (PWA), accessibility audit, code splitting.</li>
+      <li>End-to-end tests (Playwright) of the core loop.</li>
+      <li>Email verification; licensed TTS; documentation refresh.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================== 9. DATA + API ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">9</span>Data model and API outline</h1>
+  <h2>New tables by phase</h2>
+  <table>
+    <thead><tr><th class="n">Phase</th><th>Tables and columns</th></tr></thead>
+    <tbody>
+      <tr><td class="n">4</td><td><code>board_sessions</code> (kind: doubt, class, homework, test review; student; subject; topic; status; protocol version; minutes) and <code>board_events</code> (session, sequence number, kind, payload as JSONB). Existing <code>whiteboard_doubts</code> rows are migrated in. <code>llm_calls</code></td></tr>
+      <tr><td class="n">5</td><td><code>question_items</code> (subject, topic text or topic, kind, prompt, options, answer key, rubric, difficulty, source). Answer images under <code>media/answers/</code></td></tr>
+      <tr><td class="n">6</td><td><code>syllabus_uploads</code>; <code>syllabus_subjects</code>, <code>syllabus_chapters</code>, <code>syllabus_topics</code> (per student, plus teacher-shared copies per classroom); <code>documents</code>; <code>document_chunks</code> (pgvector embedding)</td></tr>
+      <tr><td class="n">7</td><td><code>student_profiles</code> gains daily_minutes, study_days, target_exam, exam_date. <code>topic_mastery</code>; <code>learner_profiles</code>; <code>daily_plans</code> (student, date, subject, agenda as JSONB, status)</td></tr>
+      <tr><td class="n">8</td><td><code>lesson_outlines</code> (topic, student, outline as JSONB); <code>assignments</code> (homework or test; student or classroom; items; due date; time limit). The class wrap-up creates homework</td></tr>
+      <tr><td class="n">9</td><td><code>submissions</code>, <code>submission_grades</code></td></tr>
+      <tr><td class="n">11</td><td><code>notifications</code>; weekly report snapshots</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">All IDs follow the existing convention (36-character UUID strings). Every migration must be reversible.</p>
+
+  <h2>API outline</h2>
+  <p class="small muted">Student scope unless noted. All JSON responses use the <code>{success, message, data}</code> envelope; streams use SSE.</p>
+  <table>
+    <thead><tr><th style="width:20%">Area</th><th>Endpoints</th></tr></thead>
+    <tbody>
+      <tr><td>Syllabus and books</td><td><code>POST /student/syllabus/uploads</code> · <code>GET</code> and <code>PUT /student/syllabus/{subject}</code> · <code>POST /student/syllabus/import/{classroom_id}</code> · <code>POST /student/documents</code> · teacher: <code>POST /teacher/classes/{id}/syllabus</code></td></tr>
+      <tr><td>Today</td><td><code>GET /student/today</code> (makes the plan if missing) · <code>POST /student/today/switch</code></td></tr>
+      <tr><td>Class</td><td><code>POST /student/classes</code> (start or resume) · <code>POST /student/classes/{id}/advance</code> (SSE) · <code>GET /student/classes/{id}</code> (replay) · <code>POST /student/classes/{id}/pause</code></td></tr>
+      <tr><td>Doubts</td><td>Existing <code>/student/doubts</code>, plus follow-ups, "Now you try", photo input and "Check my working"</td></tr>
+      <tr><td>Homework and tests</td><td><code>GET /student/assignments</code> · <code>POST /student/assignments/{id}/submit</code> · review endpoints · teacher assigns to a class</td></tr>
+      <tr><td>Progress</td><td><code>GET /student/progress</code> · <code>GET /parent/children/{id}/progress</code> · teacher class analytics</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================== 10. RISKS ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">10</span>Risks and spikes</h1>
+  <table>
+    <thead><tr><th class="n">#</th><th style="width:22%">Risk</th><th>Why it matters</th><th style="width:36%">Plan</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1</td><td><strong>Image input through the bridge</strong></td><td>Grading handwriting, reading syllabus photos and marking homework photos all need the model to see images. The bridge is text-only today</td><td>A spike opens Phase 5 with a three-step fallback: stream-json image blocks → Read tool limited to the run's folder → Anthropic API for vision only (only with Satyam's agreement)</td></tr>
+      <tr><td class="n">2</td><td><strong>Latency</strong></td><td>A step takes 5–20 seconds of model time; a class must not feel stalled</td><td>Plans prepared ahead (or on first open, with a progress state); drawing starts on the first streamed action; the next scene is prefetched during checkpoints</td></tr>
+      <tr><td class="n">3</td><td><strong>Bridge capacity</strong></td><td>At most 2 runs at once</td><td>Fine for a demo with 1–2 students; raise <code style="white-space:nowrap">--max-concurrent</code> when needed; the API provider is the path for real users</td></tr>
+      <tr><td class="n">4</td><td><strong>Board clutter</strong></td><td>AI-placed content can overlap</td><td>Auto-layout cursor, columns, scenes and camera focus</td></tr>
+      <tr><td class="n">5</td><td><strong>Wrong answer keys</strong></td><td>A wrong key marks a right answer wrong and destroys trust</td><td>Independent re-solve, numeric tolerance, and a "report this question" button</td></tr>
+      <tr><td class="n">6</td><td><strong>Cost per class</strong></td><td>About 15–30 model calls per hour-long class</td><td>Visible per agent in <code>llm_calls</code>; cheap settings for the Board Teacher</td></tr>
+      <tr><td class="n">7</td><td><strong>Embedding model size</strong></td><td>A local model adds a few hundred MB to the images</td><td>Loaded once per process; ingestion runs only in Celery</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================== 11. DEMO ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">11</span>Demo script</h1>
+  <p>The definition of done for the core loop, at the end of Phase 8. It is also the script for showing the project to evaluators.</p>
+  <ol>
+    <li>The student uploads a photo of their physics book's contents page once, and confirms the topic tree. They upload the textbook PDF too.</li>
+    <li><strong>Today's class</strong> shows a 60-minute Physics plan for "Motion in a straight line", chosen by subject rotation.</li>
+    <li>In class, the AI draws a velocity–time graph and cites the textbook page.</li>
+    <li>It asks a checkpoint question. The student writes the answer on the board; line 2 gets a red-pen cross, and the AI re-explains with a different picture.</li>
+    <li>The student raises their hand mid-scene, asks a doubt, gets the answer, and the class resumes.</li>
+    <li>Practice is solved on the board and marked. Homework is set. The mastery bar for that topic moves.</li>
+  </ol>
+  <div class="callout accent">
+    <p>Later phases extend the demo: the homework photo comes back marked (Phase 9), the progress page shows the mastery change (Phase 10), and the parent sees today's class and the weekly report (Phase 11).</p>
+  </div>
+
+</section>
+
+<section class="chapter">
+  <h1 class="ch"><span class="num">12</span>Design calls and open items</h1>
+  <h2>Design calls</h2>
+  <p>Made while planning; each can be overridden.</p>
+  <ul>
+    <li>The engine stays on the <strong>Claude Code bridge</strong> behind a provider switch. The image fallback enables only the Read tool; a paid API key is used only with Satyam's agreement.</li>
+    <li>A <strong>free local embedding model</strong> feeds pgvector, so no API key is needed.</li>
+    <li><strong>Today's plan</strong> is made on the first open of the day, and overnight too when the stack is running.</li>
+    <li><strong>Daily minutes default to 60.</strong> Minutes and study days are per student, not per subject.</li>
+    <li>The <strong>Planner and class flow are code</strong>; the AI writes the content.</li>
+    <li><strong>Class split</strong>: warm-up 5, teach 25–30, practice 20, wrap-up 5 minutes, adapting per day. At most <strong>two reteaches</strong> per checkpoint.</li>
+    <li><strong>Three ways to answer</strong> (handwriting, typed maths, photo), all first-class.</li>
+    <li><strong>Phase 5 lives inside Ask a doubt</strong>, so it ships something usable before classes exist.</li>
+    <li><strong>Teachers stay in the product</strong> (class syllabus, tests, class analytics), although the product plan lists only students, parents and admins.</li>
+    <li><strong>Standalone chat is dropped</strong> in favour of follow-up questions on the canvas.</li>
+    <li>The engine design lives in <code>docs/architecture/CANVAS_ENGINE.md</code>, next to <code>ARCHITECTURE.md</code>.</li>
+  </ul>
+  <h2>Open items</h2>
+  <ul>
+    <li>Result of the image-input spike (start of Phase 5).</li>
+    <li>Which local embedding model (Phase 6): small, multilingual, 384-dimensional.</li>
+    <li>Chart library for analytics (Phase 10).</li>
+    <li>Licensed TTS vendor for production (Phase 13).</li>
+    <li>Phases 1–3 are on stacked branches and not yet merged into <code>main</code>; merge them before the stack grows much taller.</li>
+  </ul>
+</section>
+
+<!-- ============================== 13. WORKING AGREEMENT ============================== -->
+<section class="chapter">
+  <h1 class="ch"><span class="num">13</span>Working agreement</h1>
+  <ul>
+    <li><strong>One phase per session.</strong> Branch <code>feature/phase-N-&lt;slug&gt;</code>, stacked on the previous phase until merged.</li>
+    <li><strong>Each phase delivers backend and frontend together, with tests</strong>: pytest with a mocked LLM gateway; vitest for engine maths and layout.</li>
+    <li><strong>Follow the existing patterns</strong>: feature folders on the frontend; endpoints → services → repositories on the backend; the response envelope; <code>require_roles</code>; reversible migrations.</li>
+    <li><strong>When a phase ends</strong>:
+      <ul>
+        <li>update the status in <code>docs/ROADMAP.md</code>;</li>
+        <li>update <code>CANVAS_ENGINE.md</code> and <code>ARCHITECTURE.md</code> if the design moved;</li>
+        <li>update the "Soon" labels in <code>frontend/src/config/navigation.js</code> and the dashboards;</li>
+        <li>regenerate this PDF if the plan changed.</li>
+      </ul>
+    </li>
+    <li><strong>Commits</strong> follow Conventional Commits (<code>feat(backend):</code>, <code>feat(frontend):</code>, <code>docs:</code>). Nothing is pushed unless asked.</li>
+  </ul>
+
+  <h2>Regenerating this PDF</h2>
+  <p>Edit <code>docs/master-plan/LEEN_AI_Master_Plan.html</code>, then run from the repository root:</p>
+<pre><code>google-chrome --headless=new --no-pdf-header-footer \
+  --print-to-pdf=docs/LEEN_AI_Master_Plan.pdf \
+  docs/master-plan/LEEN_AI_Master_Plan.html</code></pre>
+
+  <h2>Related documents</h2>
+  <table>
+    <thead><tr><th style="width:42%">File</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td><code>docs/ROADMAP.md</code></td><td>The phase table, kept in step with chapter 7</td></tr>
+      <tr><td><code>docs/architecture/CANVAS_ENGINE.md</code></td><td>The engine design, kept in step with chapter 6</td></tr>
+      <tr><td><code>docs/architecture/ARCHITECTURE.md</code></td><td>The system as built: topology, auth, endpoints, the whiteboard</td></tr>
+      <tr><td><code>docs/setup/SETUP.md</code></td><td>Running the stack and the Claude Code bridge</td></tr>
+      <tr><td><code>docs/standards/</code></td><td>Contributing, coding standards, development guide</td></tr>
+      <tr><td><code>docs/Utility_Docs/</code></td><td>The original product plan PDF</td></tr>
+    </tbody>
+  </table>
+</section>
+
+</body>
+</html>

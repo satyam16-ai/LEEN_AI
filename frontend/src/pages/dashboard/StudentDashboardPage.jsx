@@ -27,24 +27,24 @@ const TOOLS = [
     tone: 'primary',
   },
   {
-    icon: ClipboardCheck,
-    title: 'Practice quizzes',
-    description: 'Auto-generated quizzes on your syllabus, graded instantly with explanations.',
-    phase: 4,
+    icon: CalendarCheck,
+    title: "Today's class",
+    description: 'A one-hour class each day, planned from your syllabus and taught on the board.',
+    phase: 7,
     tone: 'accent',
   },
   {
-    icon: CalendarCheck,
-    title: 'Adaptive study plan',
-    description: 'A weekly plan that reshuffles itself around your exams and weak topics.',
-    phase: 5,
+    icon: ClipboardCheck,
+    title: 'Homework & tests',
+    description: 'Checked by your AI teacher, with every mistake explained on the board.',
+    phase: 9,
     tone: 'warning',
   },
   {
     icon: BarChart3,
     title: 'Progress insights',
     description: 'See your strengths, weak topics and how you are improving over time.',
-    phase: 6,
+    phase: 10,
     tone: 'success',
   },
 ];
@@ -126,11 +126,11 @@ export function StudentDashboardPage() {
           hint={solvedCount ? undefined : 'Ask your first doubt'}
         />
         <StatCard
-          label="Quizzes taken"
+          label="Tests taken"
           value={0}
           icon={ClipboardCheck}
           tone="success"
-          hint="Coming in Phase 4"
+          hint="Coming in Phase 9"
         />
       </section>
 

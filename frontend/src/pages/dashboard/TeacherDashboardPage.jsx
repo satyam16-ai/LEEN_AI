@@ -18,22 +18,22 @@ const TOOLS = [
   {
     icon: BookOpenText,
     title: 'Syllabus library',
-    description: 'Upload notes and chapters so the AI answers from your curriculum.',
-    phase: 3,
+    description: "Share your class syllabus once so every student's daily classes follow it.",
+    phase: 6,
     tone: 'accent',
   },
   {
     icon: ClipboardCheck,
-    title: 'Quiz builder',
-    description: 'Review AI-generated questions, then assign quizzes to a class.',
-    phase: 4,
+    title: 'Test builder',
+    description: 'Review AI-generated questions, then assign tests to a class.',
+    phase: 9,
     tone: 'warning',
   },
   {
     icon: BarChart3,
     title: 'Class analytics',
     description: 'Spot topics the whole class struggles with and who needs help.',
-    phase: 6,
+    phase: 10,
     tone: 'success',
   },
 ];
@@ -81,11 +81,11 @@ export function TeacherDashboardPage() {
           loading={isPending}
         />
         <StatCard
-          label="Quizzes assigned"
+          label="Tests assigned"
           value={0}
           icon={ClipboardCheck}
           tone="success"
-          hint="Coming in Phase 4"
+          hint="Coming in Phase 9"
         />
       </section>
 
