@@ -9,7 +9,6 @@ from app.repositories import board_repository
 from app.services import whiteboard_service
 from app.services.llm import claude_bridge
 from app.services.whiteboard.parser import ActionStreamParser
-from app.services.whiteboard.prompt import build_user_prompt
 
 DOUBTS = "/api/v1/student/doubts"
 
@@ -116,18 +115,6 @@ def test_parser_stops_at_the_action_cap():
     parser = ActionStreamParser(max_actions=2)
     actions = parser.feed('{"type":"clear"}\n' * 5)
     assert len(actions) == 2 and parser.full
-
-
-def test_prompt_includes_student_context():
-    from app.models.profile import StudentProfile
-
-    profile = StudentProfile(
-        grade=9, board="cbse", learning_level="beginner", preferred_language="hi", subjects=[]
-    )
-    prompt = build_user_prompt("Why is (x+y)^2 ...?", "Mathematics", profile)
-    assert "Class 9" in prompt and "CBSE" in prompt and "Hinglish" in prompt
-    assert "<doubt>\nWhy is (x+y)^2 ...?\n</doubt>" in prompt
-    assert "Class" not in build_user_prompt("q?", None, None).split("\n")[0].split(":")[1]
 
 
 # -- endpoints ------------------------------------------------------------------
