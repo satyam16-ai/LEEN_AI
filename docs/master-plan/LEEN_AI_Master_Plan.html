@@ -503,21 +503,22 @@
     <li><strong>Every session is an append-only event log.</strong> Replay, time spent, analytics, the parent view and continuous improvement (§7.14) all read it.</li>
   </ul>
 
-  <h2>Layer 1 · Board Protocol v2</h2>
-  <p>The shared language between the AI and the canvas: one JSON action per line, streamed. The 15 v1 actions stay unchanged (caption, write, underline, box, erase, line, arrow, rect, circle, clear, pause, object, animate, stop, remove). v2 adds:</p>
+  <h2>Layer 1 · Board Protocol v2 <span class="pill done">Built in Phase 4</span></h2>
+  <p>The shared language between the AI and the canvas: one JSON action per line, streamed. The 15 v1 actions stay unchanged (caption, write, underline, box, erase, line, arrow, rect, circle, clear, pause, object, animate, stop, remove). Every visual also takes <code>at: [x, y, w, h]</code> and <code>color</code>; without <code>at</code> it stacks down the stage on the right (x 920–1540).</p>
   <table>
-    <thead><tr><th style="width:18%">Group</th><th style="width:30%">Actions</th><th>What they do</th></tr></thead>
+    <thead><tr><th style="width:13%">Action</th><th style="width:47%">Fields the AI sends</th><th>What the board computes</th></tr></thead>
     <tbody>
-      <tr><td>Structure</td><td><code>scene</code>, <code>focus</code>, <code>column</code></td><td><code>scene {title}</code> starts a new board page; earlier pages stay in a thumbnail strip. <code>focus {x,y,w,h}</code> zooms or pans the camera. A <code>write</code> without x/y flows down the active column (auto-layout); <code>column left|right|full</code> switches it</td></tr>
-      <tr><td>Graphs</td><td><code>axes</code>, <code>plot</code></td><td>Function graphs from a safe expression evaluator, with points, shaded regions and labels</td></tr>
-      <tr><td>Geometry</td><td><code>point</code>, <code>segment</code>, <code>polygon</code>, <code>angle</code>, <code>arc</code></td><td>In math units mapped to the board, with angle arcs, equal-length ticks and dimension labels, drawn step by step</td></tr>
-      <tr><td>Tables</td><td><code>table</code></td><td>Rows revealed one at a time</td></tr>
-      <tr><td>Diagrams</td><td><code>diagram {template, params, labels[]}</code></td><td>A template library with leader-line labels. Starter set: circuit, ray optics, free-body, atom/Bohr, cell, simple apparatus</td></tr>
-      <tr><td>Infographics</td><td><code>flow</code>, <code>chart</code>, <code>numberline</code></td><td>Flowcharts and mind maps with automatic layout; bar, pie and line charts; number lines</td></tr>
-      <tr><td>Chemistry</td><td>via <code>write</code></td><td>Chemical equations through the existing <code>mathText</code> (subscripts, →, ⇌)</td></tr>
-      <tr><td>Media</td><td><code>image</code></td><td>Shows an uploaded photo, such as the student's question</td></tr>
-      <tr><td>Interaction</td><td><code>ask</code>, <code>mark</code>, <code>hint</code></td><td><code>ask {id, kind: mcq|numeric|short|board, prompt, options?, region?}</code> pauses the player and opens an answer widget or a writing area. <code>mark {target_line, kind: tick|cross|circle|note}</code> is the red pen. <code>hint</code> is revealed on request</td></tr>
-      <tr><td>Grounding</td><td><code>cite {source, page}</code></td><td>A chip pointing to the page of the student's uploaded book</td></tr>
+      <tr><td><code>scene</code></td><td><code>title</code></td><td>Keeps the page as a thumbnail, wipes the board, writes the title</td></tr>
+      <tr><td><code>focus</code></td><td><code>at</code> (none = zoom back out)</td><td>A smooth zoom, at most 2.5×</td></tr>
+      <tr><td><code>column</code></td><td><code>side</code>: left | right | full</td><td>Where writes without x/y flow; each column keeps its place</td></tr>
+      <tr><td><code>plot</code></td><td><code>fns</code> (≤4, functions of x), <code>x</code> [lo, hi], <code>y</code>?, <code>points</code> {A: [x, y]}, <code>labels</code>, <code>shade</code> {fn, from, to}, <code>xlabel</code>, <code>ylabel</code></td><td>Curves (mathjs, split at asymptotes), axes and ticks (d3-scale), shading</td></tr>
+      <tr><td><code>numberline</code></td><td><code>range</code>, <code>marks</code>, <code>labels</code>, <code>interval</code> {from, to, open}</td><td>Ticks, dots, open/closed ends</td></tr>
+      <tr><td><code>geo</code></td><td><code>pts</code> {A: [x, y]}, <code>shapes</code> ("AB", "ABC"), <code>angles</code>, <code>right</code>, <code>sides</code>, <code>circles</code></td><td>Fit to the box, angle values, label positions</td></tr>
+      <tr><td><code>table</code></td><td><code>head</code> + <code>rows</code>, or <code>fn</code> + <code>xs</code></td><td>The values, column widths, text size</td></tr>
+      <tr><td><code>chart</code></td><td><code>kind</code> bar | pie | line, <code>labels</code>, <code>values</code>, <code>title</code>, <code>unit</code></td><td>Scales, bars, slices, axes</td></tr>
+      <tr><td><code>flow</code></td><td><code>nodes</code>, <code>edges</code> [[i, j]] (none = chain), <code>kind</code> chart | mind, <code>dir</code></td><td>Layout (dagre) or a radial mind map</td></tr>
+      <tr><td><code>diagram</code></td><td><code>kind</code>: circuit (<code>parts</code>, <code>layout</code>), lens / mirror (<code>shape</code>, <code>f</code>, <code>u</code>, <code>h</code>), fbd (<code>forces</code>), atom (<code>z</code>, <code>symbol</code>), cell (<code>cell</code>, <code>labels</code>), apparatus (<code>items</code>)</td><td>The image by the lens or mirror formula, Bohr shells, symbol and label placement</td></tr>
+      <tr><td colspan="3" class="muted">Still to come: <code>ask</code>, <code>mark</code>, <code>hint</code> and <code>image</code> (Phase 5, two-way board); <code>cite</code> (Phase 6, books).</td></tr>
     </tbody>
   </table>
   <p>Everything draws stroke by stroke, like the existing pencil. <strong>Adding a primitive</strong> means adding exactly three things: a pydantic model (backend), a renderer in the frontend registry (<code>type → render(ctx, action, clock)</code>), and a short section in the prompt's command reference.</p>
@@ -558,7 +559,7 @@
   <ul>
     <li><strong>The Planner is code, not an agent.</strong> It picks the subject first (rotation weighted by weakness, exam date and days since last studied), then topics, from syllabus order, mastery, revisions due (simplified SM-2 spaced repetition), unfinished topics and daily minutes.</li>
     <li><strong>Answer-key self-check.</strong> The Examiner solves each generated question a second time, independently. If the answers disagree, the question is discarded.</li>
-    <li><strong>Step streaming.</strong> Each <code>POST /student/classes/{id}/advance</code> carries the student's input (an answer, raise-hand text, "next" or "hint") and streams the next step over SSE, ending at an <code>ask</code> or at the end of a segment. Same SSE events, 15-second keep-alive pings and save-on-disconnect as today's doubt stream.</li>
+    <li><strong>Step streaming.</strong> Each <code>POST /student/lessons/{id}/advance</code> carries the student's input (an answer, raise-hand text, "next" or "hint") and streams the next step over SSE, ending at an <code>ask</code> or at the end of a segment. Same SSE events, 15-second keep-alive pings and save-on-disconnect as today's doubt stream.</li>
     <li><strong>Prefetch.</strong> While the student answers a checkpoint, the next scene is generated in the background.</li>
   </ul>
 
@@ -636,8 +637,8 @@
       <tr><td class="n">1</td><td>Auth, RBAC, design system, app shell</td><td class="n">§6</td><td class="n"><span class="pill done">Done</span></td><td>Cookie JWT with rotating refresh, roles, design system, landing, sign-in/up, password flows, role dashboards, admin user list</td></tr>
       <tr><td class="n">2</td><td>Profiles &amp; relationships</td><td class="n">7.1</td><td class="n"><span class="pill done">Done</span></td><td>Profiles and avatars, student onboarding, parent–child link codes, teacher classes with join codes, admin user management</td></tr>
       <tr><td class="n">3</td><td><strong>Canvas engine v1: AI whiteboard doubts</strong></td><td class="n">7.4</td><td class="n"><span class="pill done">Done</span></td><td>Claude Code bridge, live pencil, 2D animation, neural narration, history and replay</td></tr>
-      <tr><td class="n">4</td><td><strong>Canvas engine v2: richer visuals</strong></td><td class="n">7.5, 7.13</td><td class="n"><span class="pill next">Next</span></td><td>LLM gateway with token logging; Board Protocol v2 computed by a math engine, so the AI sends short commands; renderer registry; scenes, camera, auto-layout; plots, geometry, tables, diagram templates, flowcharts, charts, number line, chemical equations; board sessions and events (doubts migrated); follow-up questions on the same board; "explain another way"</td></tr>
-      <tr><td class="n">5</td><td><strong>Two-way board</strong></td><td class="n">7.4, 7.9</td><td class="n"><span class="pill planned">Planned</span></td><td>Image-input spike; student input (handwriting, typed maths, photo); answer widgets; ask / mark / hint; Examiner grading (SymPy for computable answers) with line-numbered red pen; question bank; "Now you try" and "Check my working"; doubts by photo</td></tr>
+      <tr><td class="n">4</td><td><strong>Canvas engine v2: richer visuals</strong></td><td class="n">7.5, 7.13</td><td class="n"><span class="pill done">Done</span></td><td>LLM gateway with token logging; Board Protocol v2 computed by a math engine, so the AI sends short commands; renderer registry; scenes, camera, auto-layout; plots, geometry, tables, diagram templates, flowcharts, charts, number line, chemical equations; board sessions and events (doubts migrated); follow-up questions on the same board; "explain another way"</td></tr>
+      <tr><td class="n">5</td><td><strong>Two-way board</strong></td><td class="n">7.4, 7.9</td><td class="n"><span class="pill next">Next</span></td><td>Image-input spike; student input (handwriting, typed maths, photo); answer widgets; ask / mark / hint; Examiner grading (SymPy for computable answers) with line-numbered red pen; question bank; "Now you try" and "Check my working"; doubts by photo</td></tr>
       <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill planned">Planned</span></td><td>One-time syllabus/contents upload per subject → editable topic tree; teacher-shared class syllabus; books and notes ingestion, OCR, local embeddings, pgvector; cited retrieval in doubts</td></tr>
       <tr><td class="n">7</td><td><strong>Student model &amp; daily planner</strong></td><td class="n">7.7, 7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td>Daily minutes, study days, exam and date; topic mastery and learner profile; student card in every prompt; Planner with subject rotation and spaced revision; Today page; topic practice that moves mastery</td></tr>
       <tr><td class="n">8</td><td><strong>Daily tuition class</strong> (core loop)</td><td class="n">7.3, 7.8</td><td class="n"><span class="pill planned">Planned</span></td><td>Lesson Designer; class orchestrator (warm-up → teach + checkpoints → practice → wrap-up); raise hand; reteach a different way; pause and resume; prefetch; homework set; class player; Coach summaries; replay</td></tr>
@@ -693,17 +694,19 @@
   <p>Each phase lists its goal, the backend and frontend work, and the checks that mean it is done.</p>
 
   <div class="phase">
-    <h3><span class="num">Phase 4</span>Canvas engine v2: richer visuals</h3>
+    <h3><span class="num">Phase 4</span>Canvas engine v2: richer visuals <span class="pill done">Done</span></h3>
     <p class="goal">The AI can draw any common school visual cleanly, and a doubt becomes a multi-turn board session.</p>
+    <div class="callout accent"><p><strong>Result.</strong> On the 8 sample doubts the AI now uses about <strong>60% fewer output tokens</strong> (median 593 vs 1,494.5) and half the commands (17.5 vs 33.5), while choosing plots, diagrams, tables, geometry and flowcharts on its own. Identical doubts are served from a cache with no AI call (68 ms in the live check).</p></div>
     <div class="cols">
       <div>
         <h4>Backend</h4>
         <ul>
           <li>LLM gateway in <code>app/services/llm/</code>: provider switch, per-agent model, effort and timeout, <code>llm_calls</code> log. The existing <code>claude_bridge.stream_text</code> becomes the bridge provider.</li>
           <li>Protocol v2 schemas split out of <code>whiteboard.py</code> into a <code>board</code> schema package; <code>ActionStreamParser</code> reused.</li>
-          <li>Migration 0004: <code>board_sessions</code> and <code>board_events</code>, with existing doubts copied in. Doubt URLs stay the same.</li>
-          <li>Follow-ups: <code>POST /student/doubts/{id}/follow-up</code> (SSE); the prompt includes a summary of the board so far.</li>
-          <li>"Explain another way": re-run with a different-approach instruction.</li>
+          <li>Migrations 0004 (<code>llm_calls</code>) and 0005 (<code>board_sessions</code>, <code>board_events</code>, with existing doubts moved in; reversible). Doubt URLs stay the same.</li>
+          <li>Follow-ups and "explain another way": <code>POST /student/doubts/{id}/turns</code> (SSE) with a short board summary; 6 turns per board.</li>
+          <li>Identical doubts (same question and profile) are served from earlier boards with no AI call.</li>
+          <li><code>board-eval</code> CLI: sample doubts, token report, fails if the median output grows.</li>
           <li>Prompt command reference covers v2, with guidance on choosing a visual format, split by subject so each prompt carries only what it needs.</li>
           <li>Token usage (input, output, cached) read from the bridge's result event into <code>llm_calls</code>; a baseline measured from v1 doubts.</li>
         </ul>
@@ -713,7 +716,7 @@
         <ul>
           <li>Engine extracted to <code>features/canvas/</code>.</li>
           <li>Renderer registry, scenes with a thumbnail strip, camera <code>focus</code>, auto-layout cursor.</li>
-          <li>Renderers computed by the math engine: mathjs for plots and tables of values (never <code>eval</code>), d3-scale/d3-shape for axes and charts, dagre for flowcharts, in-house geometry helpers; plus diagram templates, number line and image.</li>
+          <li>Renderers computed by the math engine: mathjs for plots and tables of values (never <code>eval</code>), d3-scale/d3-shape for axes and charts, dagre for flowcharts, in-house geometry helpers; plus diagram templates and the number line. (The <code>image</code> action moved to Phase 5, with photo input.)</li>
           <li>Doubts page: follow-up box and "Explain another way" button.</li>
         </ul>
         <h4>Done when</h4>
@@ -838,7 +841,7 @@
       <div>
         <h4>Frontend</h4>
         <ul>
-          <li>Class player at <code>/student/class/:id</code>: agenda progress, timer, raise hand, answer widgets, scene strip, end-of-class summary.</li>
+          <li>Class player at <code>/student/lesson/:id</code>: agenda progress, timer, raise hand, answer widgets, scene strip, end-of-class summary.</li>
         </ul>
         <h4>Done when</h4>
         <ul>
@@ -990,7 +993,7 @@
     <tbody>
       <tr><td>Syllabus and books</td><td><code>POST /student/syllabus/uploads</code> · <code>GET</code> and <code>PUT /student/syllabus/{subject}</code> · <code>POST /student/syllabus/import/{classroom_id}</code> · <code>POST /student/documents</code> · teacher: <code>POST /teacher/classes/{id}/syllabus</code></td></tr>
       <tr><td>Today</td><td><code>GET /student/today</code> (makes the plan if missing) · <code>POST /student/today/switch</code></td></tr>
-      <tr><td>Class</td><td><code>POST /student/classes</code> (start or resume) · <code>POST /student/classes/{id}/advance</code> (SSE) · <code>GET /student/classes/{id}</code> (replay) · <code>POST /student/classes/{id}/pause</code></td></tr>
+      <tr><td>Lesson (daily class)</td><td><code>POST /student/lessons</code> (start or resume) · <code>POST /student/lessons/{id}/advance</code> (SSE) · <code>GET /student/lessons/{id}</code> (replay) · <code>POST /student/lessons/{id}/pause</code>. Named lessons because <code>/student/classes</code> is already the classroom API</td></tr>
       <tr><td>Doubts</td><td>Existing <code>/student/doubts</code>, plus follow-ups, "Now you try", photo input and "Check my working"</td></tr>
       <tr><td>Homework and tests</td><td><code>GET /student/assignments</code> · <code>POST /student/assignments/{id}/submit</code> · review endpoints · teacher assigns to a class</td></tr>
       <tr><td>Progress</td><td><code>GET /student/progress</code> · <code>GET /parent/children/{id}/progress</code> · teacher class analytics</td></tr>
