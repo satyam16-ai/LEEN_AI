@@ -204,6 +204,14 @@ export class BoardPlayer {
     this._wake();
   }
 
+  /** Keep drawing onto the current board: a follow-up turn streams more actions. */
+  extend() {
+    this.streaming = true;
+    this.started = true;
+    this._emit();
+    this._wake();
+  }
+
   endStream() {
     this.streaming = false;
     this._emit();
