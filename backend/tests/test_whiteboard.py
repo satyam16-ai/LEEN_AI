@@ -6,9 +6,9 @@ from app.database import SessionLocal
 from app.models.board import BoardEvent, BoardSession
 from app.models.user import User, UserRole
 from app.repositories import board_repository
+from app.services import whiteboard_service
 from app.services.llm import claude_bridge
 from app.services.whiteboard.parser import ActionStreamParser
-from app.services import whiteboard_service
 from app.services.whiteboard.prompt import build_user_prompt
 
 DOUBTS = "/api/v1/student/doubts"

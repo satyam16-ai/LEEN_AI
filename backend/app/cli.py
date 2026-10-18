@@ -54,7 +54,8 @@ def board_eval(args: argparse.Namespace) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
 
-    print(f"{'subject':<12} {'actions':>7} {'dropped':>7} {'in':>6} {'out':>6} {'cached':>7}  question")
+    header = ("subject", "actions", "dropped", "in", "out", "cached")
+    print("{:<12} {:>7} {:>7} {:>6} {:>6} {:>7}  question".format(*header))
     for run in report["runs"]:
         status = f"  ERROR {run['error']}" if run["error"] else ""
         print(
