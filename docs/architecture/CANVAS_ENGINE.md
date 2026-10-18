@@ -10,7 +10,7 @@ The as-built details are in [ARCHITECTURE.md](ARCHITECTURE.md#ai-whiteboard-tuto
 
 ## The daily tuition loop
 
-1. **One-time setup.** Onboarding adds daily minutes (default 60), study days and an optional target exam and date. **Per subject, the syllabus or a book's contents page is uploaded once** (photo or PDF). The AI extracts *Subject → Chapters → Topics*, and the student reviews and confirms it. Books and notes can be uploaded too, for RAG. A teacher can share a class syllabus, and students import it.
+1. **One-time setup.** Onboarding adds daily minutes (default 60), study days and an optional target exam and date. **Per subject, the syllabus or a book's contents page is uploaded once** (photo or PDF). The AI extracts *Subject → Chapters → Topics*, and the student reviews and confirms it. Books and notes can be uploaded too, for RAG.
 2. **Today's class.** There is one class a day on one subject. The Planner rotates subjects, favouring weak subjects, near exams and subjects not studied for a while. The plan shows the topic(s), an agenda and why it chose them. The student can switch. The plan is made on the first open of the day, or overnight by Celery beat.
 3. **The class, about one hour on the canvas.**
 
@@ -218,7 +218,7 @@ Tokens are the main running cost and the main source of delay. The rule: **if it
 | ----- | ------------------ |
 | 4     | `board_sessions` (kind doubt\|class\|homework\|test_review, student, subject, topic, status, protocol version, minutes), `board_events` (session, seq, kind, payload JSONB); `whiteboard_doubts` rows migrated in; `llm_calls` |
 | 5     | No new tables: an `ask` lives in its board turn, answers are `board_events` of kind `answer`, and turns gain `cut_at` |
-| 6     | `syllabus_uploads`, `syllabus_subjects`, `syllabus_chapters`, `syllabus_topics` (per student, plus teacher-shared copies); `documents`, `document_chunks` (pgvector) |
+| 6     | `syllabus_uploads`, `syllabus_subjects`, `syllabus_chapters`, `syllabus_topics` (per student); `documents`, `document_chunks` (pgvector) |
 | 7     | `student_profiles` + daily_minutes, study_days, target_exam, exam_date; `question_items` (moved from Phase 5: questions get topics here); `topic_mastery`; `learner_profiles`; `daily_plans` |
 | 8     | `lesson_outlines`; `assignments` (homework or test; the class wrap-up creates homework) |
 | 9     | `submissions`, `submission_grades` |
@@ -228,12 +228,12 @@ Tokens are the main running cost and the main source of delay. The rule: **if it
 
 | Area | Endpoints |
 | ---- | --------- |
-| Syllabus and books | `POST /student/syllabus/uploads`, `GET`/`PUT /student/syllabus/{subject}`, `POST /student/syllabus/import/{classroom_id}`, `POST /student/documents`, teacher `POST /teacher/classes/{id}/syllabus` |
+| Syllabus and books | `POST /student/syllabus/uploads`, `GET`/`PUT /student/syllabus/{subject}`, `POST /student/documents` |
 | Today | `GET /student/today` (makes the plan if missing), `POST /student/today/switch` |
 | Lesson (the daily class) | `POST /student/lessons` (start or resume), `POST /student/lessons/{id}/advance` (SSE), `GET /student/lessons/{id}` (replay), `POST /student/lessons/{id}/pause`. These are not `/student/classes`, which is the existing classroom API. |
 | Doubts | Existing `/student/doubts`; `POST /student/doubts/{id}/turns` (follow-up, reply mid-explanation, another way, check, "Now you try"); `POST /student/doubts/{id}/answers`; photo doubts in Phase 6 |
-| Homework and tests | `GET /student/assignments`, `POST /student/assignments/{id}/submit`, review endpoints, teacher assignment to classes |
-| Progress | `GET /student/progress`, `GET /parent/children/{id}/progress`, teacher class analytics |
+| Homework and tests | `GET /student/assignments`, `POST /student/assignments/{id}/submit`, review endpoints |
+| Progress | `GET /student/progress`, `GET /parent/children/{id}/progress` |
 
 ## Risks
 

@@ -1,42 +1,10 @@
-import {
-  ArrowRight,
-  BarChart3,
-  BookOpenText,
-  ClipboardCheck,
-  Plus,
-  School,
-  Users,
-} from 'lucide-react';
+import { ArrowRight, Plus, School, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { FeatureCard, StatCard, WelcomeBanner } from '@/components/dashboard';
+import { StatCard, WelcomeBanner } from '@/components/dashboard';
 import { Button, EmptyState, Spinner } from '@/components/ui';
 import { useSession } from '@/features/auth';
 import { ClassFormDialog, TeacherClassCard, useTeachingClasses } from '@/features/classes';
-
-const TOOLS = [
-  {
-    icon: BookOpenText,
-    title: 'Syllabus library',
-    description: "Share your class syllabus once so every student's daily classes follow it.",
-    phase: 6,
-    tone: 'accent',
-  },
-  {
-    icon: ClipboardCheck,
-    title: 'Test builder',
-    description: 'Review AI-generated questions, then assign tests to a class.',
-    phase: 9,
-    tone: 'warning',
-  },
-  {
-    icon: BarChart3,
-    title: 'Class analytics',
-    description: 'Spot topics the whole class struggles with and who needs help.',
-    phase: 10,
-    tone: 'success',
-  },
-];
 
 export function TeacherDashboardPage() {
   const { user } = useSession();
@@ -65,7 +33,7 @@ export function TeacherDashboardPage() {
         {createButton}
       </WelcomeBanner>
 
-      <section aria-label="Overview" className="mb-8 grid gap-4 sm:grid-cols-3">
+      <section aria-label="Overview" className="mb-8 grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Classes"
           value={classes?.length ?? 0}
@@ -80,16 +48,9 @@ export function TeacherDashboardPage() {
           tone="accent"
           loading={isPending}
         />
-        <StatCard
-          label="Tests assigned"
-          value={0}
-          icon={ClipboardCheck}
-          tone="success"
-          hint="Coming in Phase 9"
-        />
       </section>
 
-      <section aria-labelledby="classes-heading" className="mb-8">
+      <section aria-labelledby="classes-heading">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 id="classes-heading" className="text-lg font-bold">
             Your classes
@@ -120,17 +81,6 @@ export function TeacherDashboardPage() {
             description="Create a class to get a join code you can share with students."
           />
         )}
-      </section>
-
-      <section aria-labelledby="teacher-tools">
-        <h2 id="teacher-tools" className="mb-4 text-lg font-bold">
-          Coming to your toolkit
-        </h2>
-        <div className="grid gap-4 md:grid-cols-3">
-          {TOOLS.map((tool) => (
-            <FeatureCard key={tool.title} {...tool} />
-          ))}
-        </div>
       </section>
     </>
   );

@@ -207,7 +207,7 @@
     <li><strong>Students</strong>: primary users. School students, competitive-exam students (JEE, NEET) and self-learners.</li>
     <li><strong>Parents</strong>: monitor progress, receive reports and alerts.</li>
     <li><strong>Admin</strong>: manages the system.</li>
-    <li><strong>Teachers</strong> (added by this project): run classes, share a class syllabus, assign tests, see class analytics.</li>
+    <li><strong>Teachers</strong> (added by this project): create classes that students join with a code. Nothing more is planned for now.</li>
   </ul>
 
   <h2 style="break-before: page; margin-top: 0">Features in the product plan (§7)</h2>
@@ -277,6 +277,7 @@
       <tr><td>Student input</td><td>The student <strong>never writes on the board</strong>; only the AI does. The student talks to it by <strong>voice</strong> (push to talk) or a <strong>text box</strong></td></tr>
       <tr><td>Interruptions</td><td>Student input <strong>never cuts the AI off</strong>. The AI finishes its current step, then works the input into the explanation and carries on, like a real teacher</td></tr>
       <tr><td>Moved</td><td>English voice input from Phase 12 to Phase 5. The image-input spike and doubts by photo to Phase 6, where the syllabus photo needs them</td></tr>
+      <tr><td>Teachers</td><td><strong>No new teacher features for now.</strong> What Phase 2 built stays (teachers create classes; students join with a code). Teacher-shared syllabus, test assignment and class analytics are left out</td></tr>
     </tbody>
   </table>
   <p class="small muted">These replace "the student answers on the canvas" and "raise hand to interrupt" above.</p>
@@ -385,7 +386,6 @@
     <li>Onboarding (already built) asks for class, board, subjects, level and language. It gains: <strong>daily study minutes</strong> (default 60), <strong>study days</strong>, and an optional <strong>target exam and date</strong> (Boards, JEE, NEET).</li>
     <li><strong>Per subject, the syllabus or a book's contents page is uploaded once</strong>, as a photo or PDF, by the student or parent. The AI extracts <em>Subject → Chapters → Topics</em>. The student reviews it (rename, reorder, delete, add, mark "already done") and confirms. It stays editable.</li>
     <li>Optionally, books and notes are uploaded too. They ground teaching through RAG, with page citations.</li>
-    <li>A teacher can share their class syllabus once; students in that class import it instead of uploading.</li>
   </ul>
 
   <h2>2. Today's class</h2>
@@ -648,11 +648,11 @@
       <tr><td class="n">3</td><td><strong>Canvas engine v1: AI whiteboard doubts</strong></td><td class="n">7.4</td><td class="n"><span class="pill done">Done</span></td><td>Claude Code bridge, live pencil, 2D animation, neural narration, history and replay</td></tr>
       <tr><td class="n">4</td><td><strong>Canvas engine v2: richer visuals</strong></td><td class="n">7.5, 7.13</td><td class="n"><span class="pill done">Done</span></td><td>LLM gateway with token logging; Board Protocol v2 computed by a math engine, so the AI sends short commands; renderer registry; scenes, camera, auto-layout; plots, geometry, tables, diagram templates, flowcharts, charts, number line, chemical equations; board sessions and events (doubts migrated); follow-up questions on the same board; "explain another way"</td></tr>
       <tr><td class="n">5</td><td><strong>Talk to the board</strong></td><td class="n">7.4, 7.6, 7.9</td><td class="n"><span class="pill next">Next</span></td><td>The student talks to the board by voice or a text box at any time, and the AI works it in without stopping; ask / mark / verdict; choice, number and expression answers checked in code; written answers copied onto the board and marked by the AI; "Now you try"</td></tr>
-      <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill planned">Planned</span></td><td>Image-input spike; one-time syllabus/contents upload per subject → editable topic tree; teacher-shared class syllabus; books and notes ingestion, OCR, local embeddings, pgvector; cited retrieval in doubts; doubts by photo</td></tr>
+      <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill planned">Planned</span></td><td>Image-input spike; one-time syllabus/contents upload per subject → editable topic tree; books and notes ingestion, OCR, local embeddings, pgvector; cited retrieval in doubts; doubts by photo</td></tr>
       <tr><td class="n">7</td><td><strong>Student model &amp; daily planner</strong></td><td class="n">7.7, 7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td>Daily minutes, study days, exam and date; topic mastery and learner profile; student card in every prompt; Planner with subject rotation and spaced revision; Today page; topic practice that moves mastery</td></tr>
       <tr><td class="n">8</td><td><strong>Daily tuition class</strong> (core loop)</td><td class="n">7.3, 7.8</td><td class="n"><span class="pill planned">Planned</span></td><td>Lesson Designer; class orchestrator (warm-up → teach + checkpoints → practice → wrap-up); talk at any time; reteach a different way; pause and resume; prefetch; homework set; class player; Coach summaries; replay</td></tr>
-      <tr><td class="n">9</td><td><strong>Homework &amp; tests</strong></td><td class="n">7.8, 7.9</td><td class="n"><span class="pill planned">Planned</span></td><td>Homework grading with red-pen review; weekly and chapter tests, timed and auto-graded, mistakes explained on the canvas; teachers assign tests to classes</td></tr>
-      <tr><td class="n">10</td><td><strong>Progress &amp; analytics</strong></td><td class="n">7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td>Mastery map, time spent, streaks, weak areas, insights; teacher class analytics; admin platform and AI-usage stats</td></tr>
+      <tr><td class="n">9</td><td><strong>Homework &amp; tests</strong></td><td class="n">7.8, 7.9</td><td class="n"><span class="pill planned">Planned</span></td><td>Homework grading with red-pen review; weekly and chapter tests, timed and auto-graded, mistakes explained on the canvas</td></tr>
+      <tr><td class="n">10</td><td><strong>Progress &amp; analytics</strong></td><td class="n">7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td>Mastery map, time spent, streaks, weak areas, insights; admin platform and AI-usage stats</td></tr>
       <tr><td class="n">11</td><td><strong>Parent dashboard &amp; notifications</strong></td><td class="n">7.11</td><td class="n"><span class="pill planned">Planned</span></td><td>Per-child class status, scores, weak areas, alerts, class replays; notification centre; weekly email report</td></tr>
       <tr><td class="n">12</td><td><strong>Voice, video &amp; Hindi</strong></td><td class="n">7.6, 7.12</td><td class="n"><span class="pill planned">Planned</span></td><td>Hindi voice input; Hindi/Hinglish board and Hindi neural voices; class video export; Hindi interface</td></tr>
       <tr><td class="n">13</td><td><strong>Production &amp; polish</strong></td><td class="n">—</td><td class="n"><span class="pill planned">Planned</span></td><td>Anthropic API provider for deployment, HTTPS, CI, monitoring, PWA, accessibility, end-to-end tests, email verification, licensed TTS</td></tr>
@@ -781,7 +781,7 @@
         <h4>Backend</h4>
         <ul>
           <li>Syllabus upload (photo or PDF) → Celery → Syllabus Reader (vision) → draft tree → student confirms.</li>
-          <li><code>syllabus_*</code> tables. Teachers can share a class syllabus; students import it.</li>
+          <li><code>syllabus_*</code> tables, one tree per student and subject.</li>
           <li>Books and notes: <code>documents</code> upload with size limits; Celery extracts PDF text, reads scanned pages by vision, splits into ~500-token chunks with page references, embeds with a small local multilingual model (chosen at build time), stores in pgvector with an HNSW index.</li>
           <li><code>retrieve(student, query, subject/topic)</code> searches only the student's own documents. Doubts use it, with <code>cite</code>.</li>
         </ul>
@@ -874,7 +874,6 @@
         <ul>
           <li><code>submissions</code>, <code>submission_grades</code>; background grading in Celery.</li>
           <li>Weekly tests created automatically each Sunday from the week's topics; chapter tests on demand; timed attempts with autosave.</li>
-          <li>Teachers create, review, edit and assign tests to a class.</li>
         </ul>
       </div>
       <div>
@@ -882,13 +881,12 @@
         <ul>
           <li>Homework list; answers typed, spoken or photographed.</li>
           <li>Red-pen review with "show me on the board" per mistake.</li>
-          <li>Timed test player and results; teacher test builder and submissions view.</li>
+          <li>Timed test player and results.</li>
         </ul>
         <h4>Done when</h4>
         <ul>
           <li>A homework photo comes back marked.</li>
           <li>A test is taken, auto-graded and reviewed.</li>
-          <li>A teacher assigns a test to a class.</li>
         </ul>
       </div>
     </div>
@@ -896,7 +894,7 @@
 
   <div class="phase">
     <h3><span class="num">Phase 10</span>Progress &amp; analytics</h3>
-    <p class="goal">The student, teacher and admin can see how learning is going.</p>
+    <p class="goal">The student and admin can see how learning is going.</p>
     <div class="cols">
       <div>
         <h4>Backend</h4>
@@ -910,7 +908,7 @@
         <h4>Frontend</h4>
         <ul>
           <li>Student: mastery map (subject → chapter → topic), time, streak, score trends, weak areas, recommended next topics.</li>
-          <li>Teacher: class heatmap, struggling students. Admin: platform and AI-usage stats.</li>
+          <li>Admin: platform and AI-usage stats.</li>
         </ul>
         <h4>Done when</h4>
         <ul><li>The numbers match seeded data in tests.</li></ul>
@@ -989,9 +987,9 @@
     <tbody>
       <tr><td class="n">4</td><td><code>board_sessions</code> (kind: doubt, class, homework, test review; student; subject; topic; status; protocol version; minutes) and <code>board_events</code> (session, sequence number, kind, payload as JSONB). Existing <code>whiteboard_doubts</code> rows are migrated in. <code>llm_calls</code></td></tr>
       <tr><td class="n">5</td><td>No new tables: an <code>ask</code> lives in its board turn, answers are <code>board_events</code> of kind <code>answer</code>, and turns gain <code>cut_at</code></td></tr>
-      <tr><td class="n">6</td><td><code>syllabus_uploads</code>; <code>syllabus_subjects</code>, <code>syllabus_chapters</code>, <code>syllabus_topics</code> (per student, plus teacher-shared copies per classroom); <code>documents</code>; <code>document_chunks</code> (pgvector embedding)</td></tr>
+      <tr><td class="n">6</td><td><code>syllabus_uploads</code>; <code>syllabus_subjects</code>, <code>syllabus_chapters</code>, <code>syllabus_topics</code> (per student); <code>documents</code>; <code>document_chunks</code> (pgvector embedding)</td></tr>
       <tr><td class="n">7</td><td><code>student_profiles</code> gains daily_minutes, study_days, target_exam, exam_date. <code>question_items</code> (subject, topic, kind, prompt, options, answer key, rubric, difficulty, source; moved from Phase 5). <code>topic_mastery</code>; <code>learner_profiles</code>; <code>daily_plans</code> (student, date, subject, agenda as JSONB, status)</td></tr>
-      <tr><td class="n">8</td><td><code>lesson_outlines</code> (topic, student, outline as JSONB); <code>assignments</code> (homework or test; student or classroom; items; due date; time limit). The class wrap-up creates homework</td></tr>
+      <tr><td class="n">8</td><td><code>lesson_outlines</code> (topic, student, outline as JSONB); <code>assignments</code> (homework or test; student; items; due date; time limit). The class wrap-up creates homework</td></tr>
       <tr><td class="n">9</td><td><code>submissions</code>, <code>submission_grades</code></td></tr>
       <tr><td class="n">11</td><td><code>notifications</code>; weekly report snapshots</td></tr>
     </tbody>
@@ -1003,12 +1001,12 @@
   <table>
     <thead><tr><th style="width:20%">Area</th><th>Endpoints</th></tr></thead>
     <tbody>
-      <tr><td>Syllabus and books</td><td><code>POST /student/syllabus/uploads</code> · <code>GET</code> and <code>PUT /student/syllabus/{subject}</code> · <code>POST /student/syllabus/import/{classroom_id}</code> · <code>POST /student/documents</code> · teacher: <code>POST /teacher/classes/{id}/syllabus</code></td></tr>
+      <tr><td>Syllabus and books</td><td><code>POST /student/syllabus/uploads</code> · <code>GET</code> and <code>PUT /student/syllabus/{subject}</code> · <code>POST /student/documents</code></td></tr>
       <tr><td>Today</td><td><code>GET /student/today</code> (makes the plan if missing) · <code>POST /student/today/switch</code></td></tr>
       <tr><td>Lesson (daily class)</td><td><code>POST /student/lessons</code> (start or resume) · <code>POST /student/lessons/{id}/advance</code> (SSE) · <code>GET /student/lessons/{id}</code> (replay) · <code>POST /student/lessons/{id}/pause</code>. Named lessons because <code>/student/classes</code> is already the classroom API</td></tr>
       <tr><td>Doubts</td><td>Existing <code>/student/doubts</code> · <code>POST /student/doubts/{id}/turns</code> (follow-up, reply mid-explanation, another way, check, "Now you try") · <code>POST /student/doubts/{id}/answers</code> · photo doubts in Phase 6</td></tr>
-      <tr><td>Homework and tests</td><td><code>GET /student/assignments</code> · <code>POST /student/assignments/{id}/submit</code> · review endpoints · teacher assigns to a class</td></tr>
-      <tr><td>Progress</td><td><code>GET /student/progress</code> · <code>GET /parent/children/{id}/progress</code> · teacher class analytics</td></tr>
+      <tr><td>Homework and tests</td><td><code>GET /student/assignments</code> · <code>POST /student/assignments/{id}/submit</code> · review endpoints</td></tr>
+      <tr><td>Progress</td><td><code>GET /student/progress</code> · <code>GET /parent/children/{id}/progress</code></td></tr>
     </tbody>
   </table>
 </section>
@@ -1064,7 +1062,7 @@
     <li><strong>Two ways to talk to the board</strong>: voice and text, never writing on it. A spoken message is sent when the student stops speaking.</li>
     <li><strong>Two tries</strong> for a code-checked answer; after that the AI explains the mistake on the board.</li>
     <li><strong>Phase 5 lives inside Ask a doubt</strong>, so it ships something usable before classes exist.</li>
-    <li><strong>Teachers stay in the product</strong> (class syllabus, tests, class analytics), although the product plan lists only students, parents and admins.</li>
+    <li><strong>Teachers keep what Phase 2 built</strong> (classes with join codes); no further teacher features are planned for now (Satyam, 18 Oct 2026).</li>
     <li><strong>Standalone chat is dropped</strong> in favour of follow-up questions on the canvas.</li>
     <li>The engine design lives in <code>docs/architecture/CANVAS_ENGINE.md</code>, next to <code>ARCHITECTURE.md</code>.</li>
   </ul>

@@ -23,6 +23,7 @@ export const NAVIGATION = {
     { label: 'My classes', to: '/student/classes', icon: School },
     { label: 'Parent access', to: '/student/parent-access', icon: KeyRound },
     { label: 'Ask a doubt', to: '/student/doubts', icon: MessageCircleQuestion },
+    { label: 'Syllabus', icon: BookOpenText, phase: 6 },
     { label: "Today's class", icon: CalendarCheck, phase: 7 },
     { label: 'Homework & tests', icon: ClipboardCheck, phase: 9 },
     { label: 'Progress', icon: BarChart3, phase: 10 },
@@ -36,9 +37,6 @@ export const NAVIGATION = {
   teacher: [
     { label: 'Dashboard', to: '/teacher', icon: LayoutDashboard, end: true },
     { label: 'Classes', to: '/teacher/classes', icon: School },
-    { label: 'Syllabus', icon: BookOpenText, phase: 6 },
-    { label: 'Tests', icon: ClipboardCheck, phase: 9 },
-    { label: 'Class analytics', icon: BarChart3, phase: 10 },
   ],
   admin: [
     { label: 'Dashboard', to: '/admin', icon: LayoutDashboard, end: true },
