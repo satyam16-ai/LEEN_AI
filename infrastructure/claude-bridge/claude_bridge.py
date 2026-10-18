@@ -84,10 +84,17 @@ def extract_event(line):
         if event.get("is_error") or event.get("subtype") != "success":
             message = event.get("result") or event.get("subtype") or "Claude Code run failed"
             return {"type": "error", "message": str(message)[:500]}
+        usage = event.get("usage") or {}
         return {
             "type": "done",
             "duration_ms": event.get("duration_ms"),
             "cost_usd": event.get("total_cost_usd"),
+            "usage": {
+                "input_tokens": usage.get("input_tokens") or 0,
+                "output_tokens": usage.get("output_tokens") or 0,
+                "cache_read_tokens": usage.get("cache_read_input_tokens") or 0,
+                "cache_write_tokens": usage.get("cache_creation_input_tokens") or 0,
+            },
         }
 
     return None
