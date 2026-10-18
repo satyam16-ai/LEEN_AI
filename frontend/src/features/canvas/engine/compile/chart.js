@@ -58,12 +58,11 @@ function bars(action, frame, labels, values) {
 }
 
 function slices(action, frame, labels, values) {
+  // A pie has no category axis, so it can use the full height below the title.
+  const bottom = frame.bottom + PAD.bottom - 16;
   const cx = (frame.left + frame.right) / 2;
-  const cy = (frame.top + frame.bottom) / 2;
-  const radius = Math.max(
-    10,
-    Math.min(frame.right - frame.left, frame.bottom - frame.top) / 2 - 30
-  );
+  const cy = (frame.top + bottom) / 2;
+  const radius = Math.max(10, Math.min(frame.right - frame.left, bottom - frame.top) / 2 - 20);
   const at = (angle, r) => [cx + r * Math.sin(angle), cy - r * Math.cos(angle)];
   const parts = [];
   pie()
@@ -93,9 +92,10 @@ function slices(action, frame, labels, values) {
 }
 
 function line(action, frame, labels, values) {
+  const axisX = frame.left + 44;
   const x = scalePoint()
     .domain(labels.map((_, i) => i))
-    .range([frame.left + 20, frame.right - 20]);
+    .range([axisX + 20, frame.right - 20]);
   const y = scaleLinear()
     .domain([Math.min(0, ...values), Math.max(...values, 1)])
     .nice()
@@ -103,14 +103,15 @@ function line(action, frame, labels, values) {
   const color = action.color ?? 'blue';
   const points = values.map((value, i) => [x(i), y(value)]);
   const parts = [
-    {
-      type: 'line',
-      from: [frame.left, frame.bottom],
-      to: [frame.right, frame.bottom],
-      color: 'ink',
-    },
-    { type: 'path', points, color },
+    { type: 'line', from: [axisX, frame.bottom], to: [frame.right, frame.bottom], color: 'ink' },
+    { type: 'line', from: [axisX, frame.bottom], to: [axisX, frame.top + 6], color: 'ink' },
   ];
+  for (const tick of y.ticks(5)) {
+    const at = y(tick);
+    parts.push({ type: 'line', from: [axisX - 5, at], to: [axisX + 5, at], color: 'ink' });
+    parts.push(label(formatNumber(tick), axisX - 10, at + 8, 'ink', 'right'));
+  }
+  parts.push({ type: 'path', points, color });
   points.forEach(([px, py], i) => {
     parts.push({ type: 'dot', x: px, y: py, r: 6, color });
     parts.push(label(labels[i], px, frame.bottom + 30));

@@ -61,6 +61,14 @@ function chart(action, box, measure) {
   return parts;
 }
 
+/** Where the segment from the centre of a w×h box towards `to` leaves the box. */
+function exitPoint([x0, y0], [x1, y1], w, h) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const t = Math.min(1, w / 2 / Math.abs(dx || 1e-9), h / 2 / Math.abs(dy || 1e-9));
+  return [x0 + dx * t, y0 + dy * t];
+}
+
 /** Mind map: node 0 in the middle, the others spaced evenly on an ellipse around it. */
 function mind(action, box, measure) {
   const color = action.color ?? 'ink';
@@ -88,7 +96,10 @@ function mind(action, box, measure) {
       cx + Math.cos(angle) * box.w * 0.4,
       cy + Math.sin(angle) * box.h * 0.38
     );
-    parts.push({ type: 'line', from: [centre.x, centre.y], to: [node.x, node.y], color: 'blue' });
+    // Spokes run between the box edges, so they never cross a label.
+    const from = exitPoint([centre.x, centre.y], [node.x, node.y], centre.w + 6, centre.h + 6);
+    const to = exitPoint([node.x, node.y], [centre.x, centre.y], node.w + 6, node.h + 6);
+    parts.push({ type: 'line', from, to, color: 'blue' });
     parts.push({
       type: 'rect',
       x: node.x - node.w / 2,

@@ -33,9 +33,12 @@ export function compileFbd(action, { box }) {
     const end = [start[0] + ux * length, start[1] + uy * length];
     parts.push({ type: 'arrow', from: start, to: end, color: 'red' });
     if (force.label) {
-      parts.push(
-        label(force.label, end[0] + ux * 20, end[1] + uy * 20 + LABEL_PX / 3, { color: 'red' })
-      );
+      // Sideways forces: the text starts just past the tip; up/down: centred above/below it.
+      const sideways = Math.abs(ux) > 0.5;
+      const align = sideways ? (ux > 0 ? 'left' : 'right') : 'center';
+      const gap = sideways ? 10 : 20;
+      const at = [end[0] + ux * gap, end[1] + uy * gap + LABEL_PX / 3];
+      parts.push(label(force.label, at[0], at[1], { color: 'red', align }));
     }
   }
   return parts;

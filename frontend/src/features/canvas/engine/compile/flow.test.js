@@ -49,6 +49,20 @@ describe('compileFlow', () => {
     assertInBox(parts, STAGE_BOX);
   });
 
+  it('mind map spokes stop at the node borders', () => {
+    const parts = compileFlow(
+      { type: 'flow', kind: 'mind', nodes: ['Plant', 'Sunlight', 'Water', 'CO2', 'Minerals'] },
+      ctx
+    );
+    const boxes = parts.filter((part) => part.type === 'rect');
+    const inside = ([x, y]) =>
+      boxes.some((r) => x > r.x + 1 && x < r.x + r.w - 1 && y > r.y + 1 && y < r.y + r.h - 1);
+    for (const spoke of parts.filter((part) => part.type === 'line')) {
+      expect(inside(spoke.from)).toBe(false);
+      expect(inside(spoke.to)).toBe(false);
+    }
+  });
+
   it('long node text still fits the box', () => {
     const nodes = Array.from({ length: 10 }, (_, i) => `A rather long step number ${i}`);
     for (const dir of ['TB', 'LR']) {

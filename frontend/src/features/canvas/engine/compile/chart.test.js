@@ -40,6 +40,26 @@ describe('compileChart', () => {
     assertInBox(parts, STAGE_BOX);
   });
 
+  it('line chart has a value axis with ticks', () => {
+    const parts = compileChart(
+      { type: 'chart', kind: 'line', labels: ['0', '2', '4'], values: [0, 10, 20] },
+      ctx
+    );
+    const texts = parts.filter((part) => part.type === 'label').map((part) => part.text);
+    expect(texts).toEqual(expect.arrayContaining(['10', '20']));
+    assertInBox(parts, STAGE_BOX);
+  });
+
+  it('pie uses most of the box', () => {
+    const parts = compileChart(
+      { type: 'chart', kind: 'pie', labels: ['a', 'b'], values: [1, 1] },
+      ctx
+    );
+    const rims = parts.filter((part) => part.type === 'path').flatMap((p) => p.points.slice(1));
+    const xs = rims.map(([x]) => x);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(STAGE_BOX.h * 0.75);
+  });
+
   it('charts with no values draw nothing', () => {
     expect(compileChart({ type: 'chart', labels: [], values: [] }, ctx)).toEqual([]);
     expect(compileChart({ type: 'chart' }, ctx)).toEqual([]);

@@ -87,6 +87,27 @@ describe('compileDiagram', () => {
     assertInBox(parts, box);
   });
 
+  it('fbd labels sideways forces beyond the arrow tip', () => {
+    const parts = compileDiagram(
+      {
+        type: 'diagram',
+        kind: 'fbd',
+        forces: [
+          { dir: 'right', label: 'engine' },
+          { dir: 'left', label: 'friction' },
+        ],
+      },
+      ctx
+    );
+    const arrows = parts.filter((part) => part.type === 'arrow');
+    const engine = parts.find((part) => part.text === 'engine');
+    const friction = parts.find((part) => part.text === 'friction');
+    expect(engine.align).toBe('left');
+    expect(engine.x).toBeGreaterThan(arrows[0].to[0]);
+    expect(friction.align).toBe('right');
+    expect(friction.x).toBeLessThan(arrows[1].to[0]);
+  });
+
   it('atom puts one electron per proton', () => {
     const parts = compileDiagram({ type: 'diagram', kind: 'atom', z: 11, symbol: 'Na' }, ctx);
     expect(parts.filter((part) => part.type === 'dot')).toHaveLength(11);
