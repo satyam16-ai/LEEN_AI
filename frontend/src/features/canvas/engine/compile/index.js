@@ -8,9 +8,12 @@
  * (action, {box, measure}) so they can be tested without a canvas.
  */
 
+import { compileNumberLine } from './numberline';
+import { compilePlot } from './plot';
+
 export const COMPILERS = {
-  plot: () => [],
-  numberline: () => [],
+  plot: compilePlot,
+  numberline: compileNumberLine,
   geo: () => [],
   table: () => [],
   chart: () => [],
