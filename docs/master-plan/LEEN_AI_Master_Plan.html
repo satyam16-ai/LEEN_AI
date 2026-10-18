@@ -207,7 +207,7 @@
     <li><strong>Students</strong>: primary users. School students, competitive-exam students (JEE, NEET) and self-learners.</li>
     <li><strong>Parents</strong>: monitor progress, receive reports and alerts.</li>
     <li><strong>Admin</strong>: manages the system.</li>
-    <li><strong>Teachers</strong> (added by this project): create classes that students join with a code. Nothing more is planned for now.</li>
+    <li><strong>Teachers</strong> (added by this project): create classes that students join with a code. More teacher features come in a future phase, after Phase 13.</li>
   </ul>
 
   <h2 style="break-before: page; margin-top: 0">Features in the product plan (§7)</h2>
@@ -270,14 +270,16 @@
     </tbody>
   </table>
 
-  <h2 style="break-before: page; margin-top: 0">Phase 5 redesign (18 October 2026)</h2>
+  <h2 style="break-before: page; margin-top: 0">Phase 5 redesign and a fully AI product (18 October 2026)</h2>
   <table>
     <thead><tr><th>Area</th><th>Decision</th></tr></thead>
     <tbody>
       <tr><td>Student input</td><td>The student <strong>never writes on the board</strong>; only the AI does. The student talks to it by <strong>voice</strong> (push to talk) or a <strong>text box</strong></td></tr>
       <tr><td>Interruptions</td><td>Student input <strong>never cuts the AI off</strong>. The AI finishes its current step, then works the input into the explanation and carries on, like a real teacher</td></tr>
       <tr><td>Moved</td><td>English voice input from Phase 12 to Phase 5. The image-input spike and doubts by photo to Phase 6, where the syllabus photo needs them</td></tr>
-      <tr><td>Teachers</td><td><strong>No new teacher features for now.</strong> What Phase 2 built stays (teachers create classes; students join with a code). Teacher-shared syllabus, test assignment and class analytics are left out</td></tr>
+      <tr><td>Fully AI</td><td>The product is <strong>fully AI</strong>: no human teacher is needed for any part of it</td></tr>
+      <tr><td>AI agents</td><td><strong>Every job has its own AI agent</strong> (chapter 6, Layer 3). Code only routes work between them and does the maths they call on</td></tr>
+      <tr><td>Teachers</td><td>No new teacher features for now; they come in a <strong>future phase, after Phase 13</strong>. What Phase 2 built stays (teachers create classes; students join with a code)</td></tr>
     </tbody>
   </table>
   <p class="small muted">These replace "the student answers on the canvas" and "raise hand to interrupt" above.</p>
@@ -440,7 +442,7 @@
   <p>The core engine is the AI-powered 2D canvas and everything behind it. Figure 2 shows its layers.</p>
 
   <figure>
-    <svg viewBox="0 0 660 430" xmlns="http://www.w3.org/2000/svg" font-family="Ubuntu Sans, DejaVu Sans, sans-serif" role="img" aria-label="Core engine layers">
+    <svg viewBox="0 0 660 474" xmlns="http://www.w3.org/2000/svg" font-family="Ubuntu Sans, DejaVu Sans, sans-serif" role="img" aria-label="Core engine layers">
       <defs>
         <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6072"/></marker>
       </defs>
@@ -462,53 +464,59 @@
       <text x="394" y="112" font-size="9" fill="#5b6072">SSE: validated board actions</text>
       <!-- orchestrator -->
       <rect x="36" y="128" width="616" height="46" rx="10" fill="#fff" stroke="#4f46e5" stroke-width="1.5"/>
-      <text x="344" y="148" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c1f2b">Class orchestrator (Layer 3): a deterministic state machine</text>
-      <text x="344" y="164" text-anchor="middle" font-size="9.5" fill="#5b6072">warm-up → teach ⇄ checkpoint → practice → wrap-up · student messages · reteach · time budget · Planner (code)</text>
+      <text x="344" y="148" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1c1f2b">Class conductor (Layer 3): routes work between the agents</text>
+      <text x="344" y="164" text-anchor="middle" font-size="9.5" fill="#5b6072">warm-up → teach ⇄ checkpoint → practice → wrap-up · student messages · reteach · time budget</text>
       <line x1="344" y1="174" x2="344" y2="196" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
       <!-- agents -->
-      <rect x="36" y="198" width="616" height="84" rx="10" fill="#f7f8fc" stroke="#9aa0b4"/>
-      <text x="48" y="217" font-size="11.5" font-weight="700" fill="#1c1f2b">Agents: prompt + output schema + model setting</text>
+      <rect x="36" y="198" width="616" height="124" rx="10" fill="#f7f8fc" stroke="#9aa0b4"/>
+      <text x="48" y="217" font-size="11.5" font-weight="700" fill="#1c1f2b">AI agents, one per job: prompt + output schema + model setting; code tools for maths</text>
       <g font-size="9.5" text-anchor="middle" fill="#1c1f2b">
-        <rect x="46" y="226" width="96" height="46" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="94" y="245">Syllabus</text><text x="94" y="259">Reader</text>
-        <rect x="147" y="226" width="96" height="46" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="195" y="245">Lesson</text><text x="195" y="259">Designer</text>
-        <rect x="248" y="226" width="96" height="46" rx="7" fill="#eef0fb" stroke="#4f46e5"/><text x="296" y="245">Board</text><text x="296" y="259">Teacher</text>
-        <rect x="349" y="226" width="96" height="46" rx="7" fill="#e8f6f4" stroke="#0f9488"/><text x="397" y="245">Examiner</text><text x="397" y="259" fill="#5b6072">write · grade</text>
-        <rect x="450" y="226" width="96" height="46" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="498" y="245">Doubt</text><text x="498" y="259">Solver</text>
-        <rect x="551" y="226" width="92" height="46" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="597" y="245">Coach</text><text x="597" y="259" fill="#5b6072">summaries</text>
+        <rect x="46" y="226" width="96" height="40" rx="7" fill="#eef0fb" stroke="#4f46e5"/><text x="94" y="243">Doubt Solver</text><text x="94" y="257" fill="#5b6072">Phases 3–5</text>
+        <rect x="147" y="226" width="96" height="40" rx="7" fill="#e8f6f4" stroke="#0f9488"/><text x="195" y="243">Examiner</text><text x="195" y="257" fill="#5b6072">Phase 5</text>
+        <rect x="248" y="226" width="96" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="296" y="243">Syllabus Reader</text><text x="296" y="257" fill="#5b6072">Phase 6</text>
+        <rect x="349" y="226" width="96" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="397" y="243">Librarian</text><text x="397" y="257" fill="#5b6072">Phase 6</text>
+        <rect x="450" y="226" width="96" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="498" y="243">Planner</text><text x="498" y="257" fill="#5b6072">Phase 7</text>
+        <rect x="551" y="226" width="92" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="597" y="243">Coach</text><text x="597" y="257" fill="#5b6072">Phases 7, 10</text>
+        <rect x="46" y="272" width="96" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="94" y="289">Lesson Designer</text><text x="94" y="303" fill="#5b6072">Phase 8</text>
+        <rect x="147" y="272" width="96" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="195" y="289">Board Teacher</text><text x="195" y="303" fill="#5b6072">Phase 8</text>
+        <rect x="248" y="272" width="96" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="296" y="289">Homework Agent</text><text x="296" y="303" fill="#5b6072">Phases 8–9</text>
+        <rect x="349" y="272" width="96" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="397" y="289">Test Maker</text><text x="397" y="303" fill="#5b6072">Phase 9</text>
+        <rect x="450" y="272" width="96" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="498" y="289">Progress Analyst</text><text x="498" y="303" fill="#5b6072">Phase 10</text>
+        <rect x="551" y="272" width="92" height="40" rx="7" fill="#fff" stroke="#9aa0b4"/><text x="597" y="289">Parent Reporter</text><text x="597" y="303" fill="#5b6072">Phase 11</text>
       </g>
-      <line x1="344" y1="282" x2="344" y2="304" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
+      <line x1="344" y1="322" x2="344" y2="346" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
       <!-- gateway -->
-      <rect x="36" y="306" width="250" height="44" rx="10" fill="#fff" stroke="#4f46e5" stroke-width="1.5"/>
-      <text x="161" y="325" text-anchor="middle" font-size="11" font-weight="700" fill="#1c1f2b">LLM gateway (Layer 6)</text>
-      <text x="161" y="340" text-anchor="middle" font-size="9" fill="#5b6072">provider switch · per-agent config · llm_calls log</text>
-      <path d="M286,328 L318,328" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
-      <rect x="320" y="306" width="160" height="44" rx="10" fill="#fff" stroke="#9aa0b4"/>
-      <text x="400" y="325" text-anchor="middle" font-size="10.5" fill="#1c1f2b">Claude Code bridge</text>
-      <text x="400" y="340" text-anchor="middle" font-size="9" fill="#5b6072">default · developer machine</text>
-      <rect x="492" y="306" width="160" height="44" rx="10" fill="#fff" stroke="#9aa0b4" stroke-dasharray="4 3"/>
-      <text x="572" y="325" text-anchor="middle" font-size="10.5" fill="#1c1f2b">Anthropic API</text>
-      <text x="572" y="340" text-anchor="middle" font-size="9" fill="#5b6072">later · for deployment</text>
+      <rect x="36" y="348" width="250" height="44" rx="10" fill="#fff" stroke="#4f46e5" stroke-width="1.5"/>
+      <text x="161" y="367" text-anchor="middle" font-size="11" font-weight="700" fill="#1c1f2b">LLM gateway (Layer 6)</text>
+      <text x="161" y="382" text-anchor="middle" font-size="9" fill="#5b6072">provider switch · per-agent config · llm_calls log</text>
+      <path d="M286,370 L318,370" stroke="#5b6072" stroke-width="1.5" marker-end="url(#a2)"/>
+      <rect x="320" y="348" width="160" height="44" rx="10" fill="#fff" stroke="#9aa0b4"/>
+      <text x="400" y="367" text-anchor="middle" font-size="10.5" fill="#1c1f2b">Claude Code bridge</text>
+      <text x="400" y="382" text-anchor="middle" font-size="9" fill="#5b6072">default · developer machine</text>
+      <rect x="492" y="348" width="160" height="44" rx="10" fill="#fff" stroke="#9aa0b4" stroke-dasharray="4 3"/>
+      <text x="572" y="367" text-anchor="middle" font-size="10.5" fill="#1c1f2b">Anthropic API</text>
+      <text x="572" y="382" text-anchor="middle" font-size="9" fill="#5b6072">later · for deployment</text>
       <!-- data -->
-      <rect x="36" y="366" width="616" height="58" rx="10" fill="#f4f5fa" stroke="#9aa0b4"/>
-      <text x="48" y="383" font-size="10.5" font-weight="700" fill="#1c1f2b">Postgres + pgvector</text>
+      <rect x="36" y="408" width="616" height="58" rx="10" fill="#f4f5fa" stroke="#9aa0b4"/>
+      <text x="48" y="425" font-size="10.5" font-weight="700" fill="#1c1f2b">Postgres + pgvector</text>
       <g font-size="9.5" text-anchor="middle" fill="#1c1f2b">
-        <rect x="48" y="390" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="119" y="407">Event log (sessions)</text>
-        <rect x="198" y="390" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="269" y="407">Student model (L4)</text>
-        <rect x="348" y="390" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="419" y="407">Syllabus + books (L5)</text>
-        <rect x="498" y="390" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="569" y="407">Question bank</text>
+        <rect x="48" y="432" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="119" y="449">Event log (sessions)</text>
+        <rect x="198" y="432" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="269" y="449">Student model (L4)</text>
+        <rect x="348" y="432" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="419" y="449">Syllabus + books (L5)</text>
+        <rect x="498" y="432" width="142" height="26" rx="6" fill="#fff" stroke="#9aa0b4"/><text x="569" y="449">Question bank</text>
       </g>
       <!-- read/write bracket -->
-      <path d="M30,151 L14,151 L14,395 L30,395" stroke="#0f9488" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
-      <text x="10" y="273" font-size="9" fill="#0f766e" transform="rotate(-90 10 273)" text-anchor="middle">reads and writes</text>
+      <path d="M30,151 L14,151 L14,437 L30,437" stroke="#0f9488" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
+      <text x="10" y="294" font-size="9" fill="#0f766e" transform="rotate(-90 10 294)" text-anchor="middle">reads and writes</text>
     </svg>
-    <figcaption>Figure 2. Engine layers. The browser draws and collects answers; the orchestrator decides what happens next; agents write the content; the gateway reaches the model.</figcaption>
+    <figcaption>Figure 2. Engine layers. The browser draws and collects what the student says; the conductor routes the work; an AI agent does every job; the gateway reaches the model.</figcaption>
   </figure>
 
   <h2>Principles</h2>
   <ul>
     <li><strong>The AI says <em>what</em>; the engine decides <em>how it looks</em>.</strong> The model emits semantic actions such as <code>plot y = x^2 from -3 to 3</code> or <code>triangle A(0,0) B(4,0) C(0,3)</code>. The engine computes geometry, layout and animation, so the model never computes pixels.</li>
     <li><strong>Plain data from the model.</strong> Every model output is validated against a pydantic schema before it reaches the browser or the database, as <code>app/services/whiteboard/parser.py</code> does today. A prompt-injected input can only change what gets drawn.</li>
-    <li><strong>Deterministic control, AI content.</strong> Code runs the class state machine, scheduling, subject rotation, spaced revision, and grading of choice, number and expression answers. The model writes explanations and questions and judges free-form work. This keeps the loop testable, cheap and predictable.</li>
+    <li><strong>One AI agent per job.</strong> Every piece of work (reading the syllabus, planning the day, designing and teaching the lesson, answering doubts, setting and checking questions, homework, tests, coaching, progress insights, parent reports) belongs to its own agent, with its own prompt, output schema, model setting and token log. Agents call code tools for anything that can be computed (the math engine, the answer checker, the planner's scores), so they spend tokens only on judgment and words. Code is the plumbing: it routes work between agents, keeps time and stores results.</li>
     <li><strong>Short streamed steps.</strong> Each AI call covers one scene, one checkpoint or one grading. That fits the bridge's per-call limit, lets the class adapt between steps, and starts drawing within seconds.</li>
     <li><strong>Token-efficient by design.</strong> If something can be computed, the engine computes it with a math library; the AI only names it. See "Token efficiency" below.</li>
     <li><strong>Every session is an append-only event log.</strong> Replay, time spent, analytics, the parent view and continuous improvement (§7.14) all read it.</li>
@@ -547,26 +555,32 @@
   <p><strong>Questions and checking.</strong> <code>ask</code> (kind choice, number, expression or text) makes the board write the answer line and wait, and the talk bar becomes the answer box. The answer key never reaches the browser. Choice, number and expression answers are checked <strong>in code</strong>, instantly: a small safe evaluator (Python <code>ast</code>, no <code>eval</code>) reads fractions, roots and π, numbers match within 1%, and expressions match when they agree at several sample values. For number questions the AI sends the sum as <code>calc</code>, and code works out the key. The board writes the student's answer in orange with a tick or cross. A wrong answer gets one more try with the hint; after a second, the AI explains the mistake on the board and carries on. Text answers go to the AI, which copies the student's lines onto the board, marks each with <code>mark</code> (tick or cross) and records a <code>verdict</code>.</p>
   <p>Before classes exist (Phase 5), this lives inside <strong>Ask a doubt</strong>: messages mid-explanation, checkpoint questions the AI chooses to ask, and <em>"Now you try"</em>, a similar question after the explanation. The daily class reuses all of it.</p>
 
-  <h2>Layer 3 · Class orchestrator and agents</h2>
-  <p>The orchestrator is a <strong>deterministic state machine</strong>, not an AI deciding what to do next:</p>
+  <h2>Layer 3 · AI agents and the class conductor</h2>
+  <p><strong>Every job is done by an AI agent.</strong> Each agent is a prompt, an output schema and a model/effort setting; all of them call the model through the LLM gateway, and each call is logged under the agent's name.</p>
+  <table>
+    <thead><tr><th style="width:18%">Agent</th><th>Its job</th><th class="n" style="width:11%">Phase</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Doubt Solver</strong></td><td>Answers doubts on the board, follow-ups, "explain another way", and the student's messages in the middle of an explanation</td><td class="n">3–5</td></tr>
+      <tr><td><strong>Examiner</strong></td><td>Sets questions with answer keys (checkpoints, "Now you try", practice); checks answers, using the answer checker for choice, number and expression answers and judging written ones; explains mistakes on the board</td><td class="n">5</td></tr>
+      <tr><td><strong>Syllabus Reader</strong></td><td>Reads a contents page or syllabus (photo or PDF) into chapters and topics</td><td class="n">6</td></tr>
+      <tr><td><strong>Librarian</strong></td><td>Reads uploaded books and notes (scanned pages by vision), tags pages to syllabus topics, and finds the right pages for a topic or a doubt</td><td class="n">6</td></tr>
+      <tr><td><strong>Planner</strong></td><td>Plans each day: picks the subject and topic from scores computed in code, and writes the agenda and the "why"</td><td class="n">7</td></tr>
+      <tr><td><strong>Coach</strong></td><td>Keeps the student model: mastery notes, misconceptions, pace and the explanation styles that work, after each class and answer</td><td class="n">7</td></tr>
+      <tr><td><strong>Lesson Designer</strong></td><td>Designs the hour: scenes with goals, visuals and examples, checkpoints and practice; uses the student's books when uploaded</td><td class="n">8</td></tr>
+      <tr><td><strong>Board Teacher</strong></td><td>Teaches each scene of the class on the board, reteaches a different way, and runs the wrap-up</td><td class="n">8</td></tr>
+      <tr><td><strong>Homework Agent</strong></td><td>Sets homework at the end of class, and checks submitted homework (photo or typed) in the background with red pen</td><td class="n">8–9</td></tr>
+      <tr><td><strong>Test Maker</strong></td><td>Builds weekly and chapter tests (mixed types, timed) from the topics studied</td><td class="n">9</td></tr>
+      <tr><td><strong>Progress Analyst</strong></td><td>Turns the numbers (computed in code) into insights: weak areas, trends, what to study next</td><td class="n">10</td></tr>
+      <tr><td><strong>Parent Reporter</strong></td><td>Writes the weekly parent report and the alert messages</td><td class="n">11</td></tr>
+    </tbody>
+  </table>
+  <p>A small piece of code, the <strong>class conductor</strong>, routes work between the agents in this order and keeps the time budget (it trims extra practice when the class runs long):</p>
 <pre><code>planned → warmup → teach(scene i) ⇄ checkpoint → practice(question j) → wrapup → completed
             ↘ student message → reply → (carry on)
                                  checkpoint failed once or twice → reteach (a different way)</code></pre>
-  <p>A time-budget tracker trims extra practice when the class runs long. Each agent is a prompt, an output schema and a model/effort setting, and all of them call the model through the LLM gateway.</p>
-  <table>
-    <thead><tr><th style="width:17%">Agent</th><th style="width:28%">When it runs</th><th>What it produces</th></tr></thead>
-    <tbody>
-      <tr><td><strong>Syllabus Reader</strong></td><td>A syllabus or contents page is uploaded</td><td>A JSON tree of chapters and topics, with order and page numbers when present</td></tr>
-      <tr><td><strong>Lesson Designer</strong></td><td>When today's plan is made</td><td>A lesson outline: scenes (goal, chosen visual format, examples), checkpoints, a practice skeleton. Uses the student's books (RAG) when uploaded</td></tr>
-      <tr><td><strong>Board Teacher</strong></td><td>Each scene, reteach and wrap-up</td><td>Streamed Protocol v2 actions with captions. Today's whiteboard prompt, evolved</td></tr>
-      <tr><td><strong>Examiner</strong></td><td>Writing questions; grading</td><td>Questions with answer key, rubric, difficulty and topic tag; grades for written answers (and photo answers in Phase 9)</td></tr>
-      <tr><td><strong>Doubt Solver</strong></td><td>Student messages; standalone doubts</td><td>Board actions, aware of the class and the student's books. Today's doubt flow becomes this agent</td></tr>
-      <tr><td><strong>Coach</strong></td><td>End of class; weekly</td><td>Mastery and misconception updates, a student summary and a parent summary</td></tr>
-    </tbody>
-  </table>
   <ul>
-    <li><strong>The Planner is code, not an agent.</strong> It picks the subject first (rotation weighted by weakness, exam date and days since last studied), then topics, from syllabus order, mastery, revisions due (simplified SM-2 spaced repetition), unfinished topics and daily minutes.</li>
-    <li><strong>Answer-key self-check.</strong> The Examiner solves each generated question a second time, independently. If the answers disagree, the question is discarded.</li>
+    <li><strong>Planner scores.</strong> Code computes each subject's and topic's score: rotation weighted by weakness, exam date and days since last studied; syllabus order; revisions due (simplified SM-2 spaced repetition); unfinished topics; daily minutes. The Planner agent picks from the top candidates and explains its choice in a few lines.</li>
+    <li><strong>Answer keys.</strong> For number questions the Examiner sends the sum (<code>calc</code>) and the answer checker computes the key; written questions carry a model answer. The student can say "I think that's wrong" and the Examiner re-checks.</li>
     <li><strong>Step streaming.</strong> Each <code>POST /student/lessons/{id}/advance</code> carries the student's input (an answer, a message, "next" or "hint") and streams the next step over SSE, ending at an <code>ask</code> or at the end of a segment. Same SSE events, 15-second keep-alive pings and save-on-disconnect as today's doubt stream.</li>
     <li><strong>Prefetch.</strong> While the student answers a checkpoint, the next scene is generated in the background.</li>
   </ul>
@@ -590,7 +604,7 @@
   <ul>
     <li><code>app/services/llm/</code> becomes the single way to call a model: <code>stream_text(agent, system, prompt, images=[])</code> and <code>complete_json(agent, system, prompt, schema, images=[])</code>.</li>
     <li>The provider is chosen by <code>LLM_PROVIDER</code>: <code>claude_bridge</code> (default) or <code>anthropic_api</code> (for deployment).</li>
-    <li>Model and effort are set per agent: the Board Teacher runs fast (sonnet, low effort); the Syllabus Reader and Examiner grading use more effort.</li>
+    <li>Model and effort are set per agent (Layer 3): board agents run fast (Sonnet, low effort); short writing jobs (Planner, Coach, Progress Analyst, Parent Reporter) use Haiku; reading photos and judging written answers use more effort.</li>
     <li>Every call is logged in <code>llm_calls</code>: agent, duration, input, output and cached tokens, cost reported by the bridge, status.</li>
     <li><strong>Image input</strong> through the bridge is tested first thing in Phase 6 (the syllabus photo needs it), trying in order: (1) <code>claude -p --input-format stream-json</code> with image blocks; (2) the bridge saves the image in the run's empty folder and enables <em>only</em> Claude Code's Read tool for that run; (3) the Anthropic API for vision calls only, if Satyam agrees to an API key.</li>
   </ul>
@@ -610,7 +624,7 @@
       <tr><td>Answer keys</td><td>For number questions the AI sends the sum (<code>calc</code>) and code works out the key, instead of a second AI solve</td></tr>
       <tr><td>Student messages</td><td>A reply in the middle of an explanation carries two short summaries (the board so far, the part still to teach), not the action lists. The request goes out while the current step is still playing, so the wait is hidden</td></tr>
       <tr><td>Prompt size</td><td>The command reference is split by subject, so a physics doubt carries only the primitives it needs. Follow-ups get a short board summary (under 200 tokens), not the full action list. The student card stays under 300 tokens. Fixed prompt parts are cached (Claude Code caches automatically; the API provider marks them with <code>cache_control</code>)</td></tr>
-      <tr><td>Model routing</td><td>A small, fast model (Haiku) for summaries, syllabus tidy-up and classification; Sonnet at low effort for the board; more effort only for grading free-form work</td></tr>
+      <tr><td>Model routing</td><td>Each agent gets the smallest model that does its job: Haiku for the Planner, Coach, Progress Analyst and Parent Reporter; Sonnet at low effort for the board agents; more effort only for reading photos and judging written answers</td></tr>
       <tr><td>Reuse</td><td>The same doubt (same normalised question, class, board, level and language) is served from cache at zero tokens. Template diagrams cost nothing to redraw</td></tr>
       <tr><td>Measurement</td><td>Every call logs input, output and cached tokens in <code>llm_calls</code>, read from the bridge's result event. Phase 4 records a baseline from v1 doubts and must stay at or below it, despite the richer visuals</td></tr>
     </tbody>
@@ -647,15 +661,16 @@
       <tr><td class="n">2</td><td>Profiles &amp; relationships</td><td class="n">7.1</td><td class="n"><span class="pill done">Done</span></td><td>Profiles and avatars, student onboarding, parent–child link codes, teacher classes with join codes, admin user management</td></tr>
       <tr><td class="n">3</td><td><strong>Canvas engine v1: AI whiteboard doubts</strong></td><td class="n">7.4</td><td class="n"><span class="pill done">Done</span></td><td>Claude Code bridge, live pencil, 2D animation, neural narration, history and replay</td></tr>
       <tr><td class="n">4</td><td><strong>Canvas engine v2: richer visuals</strong></td><td class="n">7.5, 7.13</td><td class="n"><span class="pill done">Done</span></td><td>LLM gateway with token logging; Board Protocol v2 computed by a math engine, so the AI sends short commands; renderer registry; scenes, camera, auto-layout; plots, geometry, tables, diagram templates, flowcharts, charts, number line, chemical equations; board sessions and events (doubts migrated); follow-up questions on the same board; "explain another way"</td></tr>
-      <tr><td class="n">5</td><td><strong>Talk to the board</strong></td><td class="n">7.4, 7.6, 7.9</td><td class="n"><span class="pill next">Next</span></td><td>The student talks to the board by voice or a text box at any time, and the AI works it in without stopping; ask / mark / verdict; choice, number and expression answers checked in code; written answers copied onto the board and marked by the AI; "Now you try"</td></tr>
-      <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill planned">Planned</span></td><td>Image-input spike; one-time syllabus/contents upload per subject → editable topic tree; books and notes ingestion, OCR, local embeddings, pgvector; cited retrieval in doubts; doubts by photo</td></tr>
-      <tr><td class="n">7</td><td><strong>Student model &amp; daily planner</strong></td><td class="n">7.7, 7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td>Daily minutes, study days, exam and date; topic mastery and learner profile; student card in every prompt; Planner with subject rotation and spaced revision; Today page; topic practice that moves mastery</td></tr>
-      <tr><td class="n">8</td><td><strong>Daily tuition class</strong> (core loop)</td><td class="n">7.3, 7.8</td><td class="n"><span class="pill planned">Planned</span></td><td>Lesson Designer; class orchestrator (warm-up → teach + checkpoints → practice → wrap-up); talk at any time; reteach a different way; pause and resume; prefetch; homework set; class player; Coach summaries; replay</td></tr>
-      <tr><td class="n">9</td><td><strong>Homework &amp; tests</strong></td><td class="n">7.8, 7.9</td><td class="n"><span class="pill planned">Planned</span></td><td>Homework grading with red-pen review; weekly and chapter tests, timed and auto-graded, mistakes explained on the canvas</td></tr>
-      <tr><td class="n">10</td><td><strong>Progress &amp; analytics</strong></td><td class="n">7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td>Mastery map, time spent, streaks, weak areas, insights; admin platform and AI-usage stats</td></tr>
-      <tr><td class="n">11</td><td><strong>Parent dashboard &amp; notifications</strong></td><td class="n">7.11</td><td class="n"><span class="pill planned">Planned</span></td><td>Per-child class status, scores, weak areas, alerts, class replays; notification centre; weekly email report</td></tr>
+      <tr><td class="n">5</td><td><strong>Talk to the board</strong></td><td class="n">7.4, 7.6, 7.9</td><td class="n"><span class="pill next">Next</span></td><td><em>Agents: Doubt Solver, Examiner.</em> The student talks to the board by voice or a text box at any time, and the AI works it in without stopping; ask / mark / verdict; choice, number and expression answers checked in code; written answers copied onto the board and marked by the AI; "Now you try"</td></tr>
+      <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Syllabus Reader, Librarian.</em> Image-input spike; one-time syllabus/contents upload per subject → editable topic tree; books and notes ingestion, OCR, local embeddings, pgvector; cited retrieval in doubts; doubts by photo</td></tr>
+      <tr><td class="n">7</td><td><strong>Student model &amp; daily planner</strong></td><td class="n">7.7, 7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Planner, Coach.</em> Daily minutes, study days, exam and date; topic mastery and learner profile; student card in every prompt; Planner with subject rotation and spaced revision; Today page; topic practice that moves mastery</td></tr>
+      <tr><td class="n">8</td><td><strong>Daily tuition class</strong> (core loop)</td><td class="n">7.3, 7.8</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Lesson Designer, Board Teacher, Homework Agent.</em> Lesson Designer; class orchestrator (warm-up → teach + checkpoints → practice → wrap-up); talk at any time; reteach a different way; pause and resume; prefetch; homework set; class player; Coach summaries; replay</td></tr>
+      <tr><td class="n">9</td><td><strong>Homework &amp; tests</strong></td><td class="n">7.8, 7.9</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Homework Agent, Test Maker.</em> Homework grading with red-pen review; weekly and chapter tests, timed and auto-graded, mistakes explained on the canvas</td></tr>
+      <tr><td class="n">10</td><td><strong>Progress &amp; analytics</strong></td><td class="n">7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Progress Analyst.</em> Mastery map, time spent, streaks, weak areas, insights; admin platform and AI-usage stats</td></tr>
+      <tr><td class="n">11</td><td><strong>Parent dashboard &amp; notifications</strong></td><td class="n">7.11</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Parent Reporter.</em> Per-child class status, scores, weak areas, alerts, class replays; notification centre; weekly email report</td></tr>
       <tr><td class="n">12</td><td><strong>Voice, video &amp; Hindi</strong></td><td class="n">7.6, 7.12</td><td class="n"><span class="pill planned">Planned</span></td><td>Hindi voice input; Hindi/Hinglish board and Hindi neural voices; class video export; Hindi interface</td></tr>
       <tr><td class="n">13</td><td><strong>Production &amp; polish</strong></td><td class="n">—</td><td class="n"><span class="pill planned">Planned</span></td><td>Anthropic API provider for deployment, HTTPS, CI, monitoring, PWA, accessibility, end-to-end tests, email verification, licensed TTS</td></tr>
+      <tr><td class="n">—</td><td><strong>Future: teachers</strong></td><td class="n">—</td><td class="n"><span class="pill planned">Later</span></td><td>After Phase 13: teacher-shared class syllabus, tests assigned to a class, class analytics. Until then the product is fully AI</td></tr>
     </tbody>
   </table>
 
@@ -677,7 +692,7 @@
           <tr><td class="n">7.10</td><td>Tracking</td><td class="n">7, 10</td></tr>
           <tr><td class="n">7.11</td><td>Parents</td><td class="n">11</td></tr>
           <tr><td class="n">7.12</td><td>Languages</td><td class="n">12</td></tr>
-          <tr><td class="n">7.13</td><td>Multi-agent</td><td class="n">4–8</td></tr>
+          <tr><td class="n">7.13</td><td>Multi-agent</td><td class="n">4–11</td></tr>
           <tr><td class="n">7.14</td><td>Improvement</td><td class="n">7, 10</td></tr>
         </tbody>
       </table>
@@ -690,6 +705,7 @@
         <li>RAG stays early (Phase 6, on pgvector) and grounds the lessons.</li>
         <li>Quizzes became homework and tests, answered by voice, text or photo.</li>
         <li>Phase 5 redesign: the student talks to the board instead of writing on it.</li>
+        <li>Fully AI: every job has its own AI agent; teacher features move to a future phase.</li>
         <li>The study planner became the daily tuition class.</li>
         <li>Phase numbers changed: the old 8 phases are now 13.</li>
         <li>The business model (§9) is out of scope.</li>
@@ -748,6 +764,7 @@
       <div>
         <h4>Backend</h4>
         <ul>
+          <li>Agents: the <strong>Doubt Solver</strong> (doubts, follow-ups, replies) and the <strong>Examiner</strong> (practice questions, answer checks), each with its own model setting and token log.</li>
           <li>Board actions <code>ask</code> (choice, number, expression or text; the answer key is stripped before it reaches the browser), <code>mark</code> (a tick or cross on a written line) and <code>verdict</code>.</li>
           <li>Mid-explanation replies: a turn carries the message and <code>keep</code>; the earlier turn records <code>cut_at</code>; the prompt carries summaries of the board so far and of the part still to teach.</li>
           <li>"Check" turns (explain a wrong answer) and "Now you try" turns (a practice question); 12 turns per board.</li>
@@ -780,6 +797,7 @@
       <div>
         <h4>Backend</h4>
         <ul>
+          <li>Agents: the <strong>Syllabus Reader</strong> and the <strong>Librarian</strong>.</li>
           <li>Syllabus upload (photo or PDF) → Celery → Syllabus Reader (vision) → draft tree → student confirms.</li>
           <li><code>syllabus_*</code> tables, one tree per student and subject.</li>
           <li>Books and notes: <code>documents</code> upload with size limits; Celery extracts PDF text, reads scanned pages by vision, splits into ~500-token chunks with page references, embeds with a small local multilingual model (chosen at build time), stores in pgvector with an HNSW index.</li>
@@ -812,7 +830,8 @@
         <ul>
           <li>Onboarding fields: daily minutes, study days, exam and date.</li>
           <li><code>topic_mastery</code> updated from graded answers (now tagged with a topic); <code>learner_profiles</code>; student-card builder.</li>
-          <li>Planner as pure, unit-tested functions: subject rotation score, topic choice, spaced revision, agenda minutes.</li>
+          <li>Agents: the <strong>Planner</strong> and the <strong>Coach</strong>.</li>
+          <li>Planner scores as pure, unit-tested functions (subject rotation, topic choice, spaced revision, agenda minutes); the Planner agent picks from the top candidates and writes the agenda and the "why".</li>
           <li><code>daily_plans</code>; <code>GET /student/today</code> (makes the plan if missing); <code>POST /student/today/switch</code>; overnight pre-generation by Celery beat at 02:00 IST.</li>
           <li><code>question_items</code> (moved from Phase 5), tagged with topics.</li>
           <li>"Practice this topic": a short talk-to-the-board session that moves mastery, so the phase is useful before classes exist.</li>
@@ -827,7 +846,7 @@
         </ul>
         <h4>Done when</h4>
         <ul>
-          <li>The Planner picks the expected subject and topic on seeded data (unit tests).</li>
+          <li>On seeded data the scores rank the expected subject and topic first (unit tests), and the Planner agent's plan uses them (mocked gateway).</li>
           <li>Practice moves mastery.</li>
           <li>Today shows the plan.</li>
         </ul>
@@ -842,11 +861,12 @@
       <div>
         <h4>Backend</h4>
         <ul>
+          <li>Agents: the <strong>Lesson Designer</strong>, the <strong>Board Teacher</strong> and the <strong>Homework Agent</strong>, with the Doubt Solver and Examiner from Phase 5.</li>
           <li>Lesson Designer → <code>lesson_outlines</code>, made together with the plan.</li>
           <li>Class orchestrator: state stored on the board session; steps warm-up, teach, checkpoint, reteach, practice, wrap-up, doubt; time budget; next scene prefetched and cached in Redis.</li>
           <li>Endpoints: start or resume, <code>advance</code> (SSE), pause, replay.</li>
           <li>Student messages work as in Phase 5: the AI finishes its step, answers, and carries on with the lesson.</li>
-          <li>Wrap-up creates a homework row in <code>assignments</code>.</li>
+          <li>Wrap-up: the Homework Agent sets homework (a row in <code>assignments</code>).</li>
           <li>Coach summary: mastery and profile updates, plus the summary parents will see.</li>
         </ul>
       </div>
@@ -872,8 +892,9 @@
       <div>
         <h4>Backend</h4>
         <ul>
-          <li><code>submissions</code>, <code>submission_grades</code>; background grading in Celery.</li>
-          <li>Weekly tests created automatically each Sunday from the week's topics; chapter tests on demand; timed attempts with autosave.</li>
+          <li>Agents: the <strong>Homework Agent</strong> and the <strong>Test Maker</strong>.</li>
+          <li><code>submissions</code>, <code>submission_grades</code>; the Homework Agent checks submissions in the background (Celery).</li>
+          <li>The Test Maker builds weekly tests each Sunday from the week's topics, and chapter tests on demand; timed attempts with autosave.</li>
         </ul>
       </div>
       <div>
@@ -900,7 +921,7 @@
         <h4>Backend</h4>
         <ul>
           <li>Aggregates from topic mastery, board events (time spent) and grades.</li>
-          <li>Weekly Coach insights.</li>
+          <li>The <strong>Progress Analyst</strong> agent turns the numbers (computed in code) into weekly insights.</li>
           <li>Admin AI usage from <code>llm_calls</code>.</li>
         </ul>
       </div>
@@ -925,7 +946,7 @@
         <ul>
           <li><code>notifications</code> table.</li>
           <li>Triggers: two missed classes, a falling score, a test completed, the weekly report ready.</li>
-          <li>Weekly email report (Celery beat, Sunday evening IST) through the existing email task.</li>
+          <li>The <strong>Parent Reporter</strong> agent writes the weekly report and the alert messages; the report is emailed (Celery beat, Sunday evening IST) through the existing email task.</li>
         </ul>
       </div>
       <div>
@@ -1057,12 +1078,12 @@
     <li><strong>Math engine libraries</strong>: mathjs, d3-scale/d3-shape and dagre in the browser; a small safe evaluator for answer checking on the backend.</li>
     <li><strong>Today's plan</strong> is made on the first open of the day, and overnight too when the stack is running.</li>
     <li><strong>Daily minutes default to 60.</strong> Minutes and study days are per student, not per subject.</li>
-    <li>The <strong>Planner and class flow are code</strong>; the AI writes the content.</li>
+    <li><strong>An AI agent for every job</strong>; code only routes work between them and does the maths they call on.</li>
     <li><strong>Class split</strong>: warm-up 5, teach 25–30, practice 20, wrap-up 5 minutes, adapting per day. At most <strong>two reteaches</strong> per checkpoint.</li>
     <li><strong>Two ways to talk to the board</strong>: voice and text, never writing on it. A spoken message is sent when the student stops speaking.</li>
     <li><strong>Two tries</strong> for a code-checked answer; after that the AI explains the mistake on the board.</li>
     <li><strong>Phase 5 lives inside Ask a doubt</strong>, so it ships something usable before classes exist.</li>
-    <li><strong>Teachers keep what Phase 2 built</strong> (classes with join codes); no further teacher features are planned for now (Satyam, 18 Oct 2026).</li>
+    <li><strong>Teachers keep what Phase 2 built</strong> (classes with join codes); more teacher features come in a future phase, after Phase 13 (Satyam, 18 Oct 2026).</li>
     <li><strong>Standalone chat is dropped</strong> in favour of follow-up questions on the canvas.</li>
     <li>The engine design lives in <code>docs/architecture/CANVAS_ENGINE.md</code>, next to <code>ARCHITECTURE.md</code>.</li>
   </ul>

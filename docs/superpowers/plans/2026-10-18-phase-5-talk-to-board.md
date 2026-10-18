@@ -5,6 +5,11 @@
 **Goal:** The student talks to the board by voice or a text box at any time. The AI never gets cut off: it finishes its current step, then works the message into the explanation and carries on. It asks questions and checks the answers, in code where it can.
 
 **Architecture:**
+- **Agents.** Every job has its own AI agent (`CANVAS_ENGINE.md`, Layer 3). This phase splits today's single `board_teacher` into two:
+  - the **Doubt Solver**, for doubts, follow-ups and replies;
+  - the **Examiner**, for practice questions and answer checks.
+
+  Each has its own model setting and token log.
 - **Backend.**
   - Three new board actions: `ask`, `mark` and `verdict`.
   - A small safe evaluator (Python `ast`, no `eval`) checks choice, number and expression answers at zero tokens.
@@ -66,17 +71,17 @@
 
 ## Review Focus
 
-1. **A message sent while the AI is still writing the turn** (SSE not done). It must queue and go out after `done` with a correct `keep`. It must not get a 409, be lost or be sent twice. → `useDoubtSession` test in Task 10.
-2. **A message sent during the last step**, when nothing is left to cut. The AI should reply on the same page with no `<left>` block and must not repeat the explanation. → Task 6 test `test_reply_without_left_wraps_up`; Task 10 `say() during the last step…`.
+1. **A message sent while the AI is still writing the turn** (SSE not done). It must queue and go out after `done` with a correct `keep`. It must not get a 409, be lost or be sent twice. → `useDoubtSession` test in Task 11.
+2. **A message sent during the last step**, when nothing is left to cut. The AI should reply on the same page with no `<left>` block and must not repeat the explanation. → Task 7 test `test_reply_without_left_wraps_up`; Task 11 `say() during the last step…`.
 3. **A broken key from the model.** Examples: a choice answer out of range, a non-numeric number answer, or a `calc` that disagrees with `answer`. The question is downgraded to `text`, or `calc` wins. It must never crash and never mark a wrong answer right. → Task 3 `prepare_ask` tests.
-4. **Student number answers in everyday forms:** "12 cm", "1,000", "3/4", "−3.5", "3√2" and "2π" are read. "twelve" is a 422 that doesn't use up a try. → Task 1 and Task 7 tests.
+4. **Student number answers in everyday forms:** "12 cm", "1,000", "3/4", "−3.5", "3√2" and "2π" are read. "twelve" is a 422 that doesn't use up a try. → Task 1 and Task 8 tests.
 5. **Replays show what the student saw.**
    - The cut part is hidden.
    - Answers come right after their question.
    - Replies get no inserted page break.
    - Phase 4 boards replay unchanged.
 
-   → Task 6 `test_flatten_applies_cuts_and_answers`, existing `test_migrated_v1_session_replays_unchanged`.
+   → Task 7 `test_flatten_applies_cuts_and_answers`, existing `test_migrated_v1_session_replays_unchanged`.
 
 ---
 
@@ -285,7 +290,38 @@
 - [ ] **Step 4: Run** the whole backend suite. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(backend): keep answer keys off the stream, the cache and replays`.
 
-### Task 5: Prompts for replies, checks and practice
+### Task 5: Doubt Solver and Examiner agents
+
+**Files:**
+- Modify: `backend/app/services/llm/gateway.py`: an agent registry
+- Modify: `backend/app/config/settings.py`: `examiner_model = "sonnet"`, `examiner_effort = "low"`
+- Modify: `backend/app/services/whiteboard_service.py`: `TurnStart.agent`; `_produce` and `stream_solution` take the agent
+- Modify: `backend/app/api/v1/endpoints/student.py`: `_board_stream` passes `start.agent`
+- Modify: `backend/app/services/whiteboard/board_eval.py`: the eval uses `doubt_solver`
+- Test: `backend/tests/test_llm.py`, `backend/tests/test_whiteboard.py`
+
+**Interfaces:**
+- Produces:
+  - `AGENTS: dict[str, Callable[[], AgentConfig]]` in `gateway.py` (read from settings when called):
+    - `"doubt_solver"` → (`whiteboard_model`, `whiteboard_effort`);
+    - `"examiner"` → (`examiner_model`, `examiner_effort`);
+    - `"board_teacher"` → kept for Phase 8 lessons.
+  - `agent_config(name)` raises `LlmConfigError` for an unknown name.
+  - `TurnStart` gains `agent: str = "doubt_solver"`.
+  - `stream_solution(doubt, event_id, system, prompt, student_id, agent="doubt_solver")`.
+  - Mode → agent:
+    - `ask`, `follow_up`, `another_way` and `reply` → `doubt_solver`;
+    - `check` and `practice` → `examiner` (wired in Tasks 7–8).
+
+- [ ] **Step 1: Write the failing tests:**
+  - `test_every_doubt_agent_has_a_config`: `doubt_solver`, `examiner` and `board_teacher` return an `AgentConfig`, and `"nobody"` raises `LlmConfigError`.
+  - `test_doubts_are_logged_as_the_doubt_solver`: after asking a doubt, `LlmCall.agent == "doubt_solver"`.
+- [ ] **Step 2: Run** `docker compose exec api pytest tests/test_llm.py tests/test_whiteboard.py -q`. Expected: the new tests FAIL.
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run** the full backend suite. Expected: PASS.
+- [ ] **Step 5: Commit** `feat(backend): give doubts their own Doubt Solver and Examiner agents`.
+
+### Task 6: Prompts for replies, checks and practice
 
 **Files:**
 - Modify: `backend/app/services/whiteboard/prompt.py`
@@ -337,7 +373,7 @@
 - [ ] **Step 4: Run** the tests. Expected: PASS. Run the full backend suite; the existing prompt tests stay green.
 - [ ] **Step 5: Commit** `feat(backend): prompts for mid-explanation replies, answer checks and practice`.
 
-### Task 6: Replies cut the board; practice turns; replay
+### Task 7: Replies cut the board; practice turns; replay
 
 **Files:**
 - Modify: `backend/app/schemas/whiteboard.py`: `TurnCreate`
@@ -351,7 +387,7 @@
 - Test: `backend/tests/test_whiteboard.py`
 
 **Interfaces:**
-- Consumes: `build_prompt` modes, `summarize_plan` and `question_context` (Task 5).
+- Consumes: `build_prompt` modes, `summarize_plan` and `question_context` (Task 6).
 - Produces:
   - `TurnCreate`:
     - `question: Question | None`;
@@ -376,7 +412,7 @@
     - The mode is stored as `"reply"`, with prompt mode `reply`, `message` = the question and `question` = `session.title`.
   - **`follow_up` without `keep`:** as today.
   - **`practice`:** the prompt mode is `practice`, with `question = session.title`.
-  - **`check`:** in Task 7.
+  - **`check`:** in Task 8.
 
 - [ ] **Step 1: Write the failing tests:**
   - `test_reply_cuts_the_board_and_carries_on`:
@@ -386,7 +422,7 @@
     - The saved actions are turn 0's first 2 actions followed by the reply's actions, with no inserted scene.
     - The modes are `["ask","reply"]`.
   - `test_reply_without_left_wraps_up`: `keep` = 4 → no `<left>`.
-  - `test_now_you_try_sets_a_practice_question`: the prompt has "Now you try", and the turn's mode and question are recorded.
+  - `test_now_you_try_sets_a_practice_question`: the prompt has "Now you try", the turn's mode and question are recorded, and the call is logged as the `examiner`.
   - `test_flatten_applies_cuts_and_answers`: a pure unit test with `cut_at` 3 and two answers on q1.
   - Update `test_busy_board_and_turn_limit` to fill 12 turns.
   - `test_turns_have_their_own_rate_limit`: monkeypatch the limit to 1; a second turn gets 429 while a new doubt still works.
@@ -395,7 +431,7 @@
 - [ ] **Step 4: Run** the full backend suite. Expected: PASS, including `test_migrated_v1_session_replays_unchanged` and `test_flatten_turns_*`.
 - [ ] **Step 5: Commit** `feat(backend): reply mid-explanation by cutting the board, and add practice turns`.
 
-### Task 7: Answers endpoint and check turns
+### Task 8: Answers endpoint and check turns
 
 **Files:**
 - Modify: `backend/app/schemas/whiteboard.py`: `AnswerCreate`, `AnswerOut`
@@ -407,7 +443,7 @@
 - Test: `backend/tests/test_whiteboard.py`
 
 **Interfaces:**
-- Consumes: `check_answer` and `display_key` (Task 3); `add_event` and `list_events` (Task 6); `build_prompt(mode="check")` (Task 5).
+- Consumes: `check_answer` and `display_key` (Task 3); `add_event` and `list_events` (Task 7); `build_prompt(mode="check")` (Task 6).
 - Produces:
   - `AnswerCreate {ask: str (1–24), answer: str (1–200, stripped)}`.
   - `AnswerOut {correct: bool | None, attempt: int, final: bool, expected: str | None}`. `expected` is set only when `final` and not correct.
@@ -435,14 +471,15 @@
   - `test_check_turn_explains_a_wrong_answer`:
     - after two wrong answers, `{mode:"check", ask:"q1", keep:3}` streams;
     - the prompt has "14", "15" and "12 cm";
-    - the replay shows both answers right after the ask, then the check turn's actions.
+    - the replay shows both answers right after the ask, then the check turn's actions;
+    - the call is logged as the `examiner`.
   - `test_verdict_marks_a_text_answer`: the check stream prints `{"type":"verdict","ask":"q2","correct":true}`, and the answer event's `correct` becomes true.
 - [ ] **Step 2: Run** `docker compose exec api pytest tests/test_whiteboard.py -q`. Expected: FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** the full backend suite and ruff. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(backend): check answers and explain mistakes on the board`.
 
-### Task 8: Player: steps, cuts, questions, marks and page overflow
+### Task 9: Player: steps, cuts, questions, marks and page overflow
 
 **Files:**
 - Create: `frontend/src/features/canvas/engine/steps.js`
@@ -495,7 +532,7 @@
 - [ ] **Step 4: Run** `pnpm test && pnpm lint`. Expected: PASS. All 211 existing tests stay green.
 - [ ] **Step 5: Commit** `feat(frontend): let the board pause for questions and cut at the end of a step`.
 
-### Task 9: Speech input and narration ducking
+### Task 10: Speech input and narration ducking
 
 **Files:**
 - Modify: `frontend/src/features/canvas/engine/narrator.js`: `setVolume(volume)`
@@ -525,7 +562,7 @@
 - [ ] **Step 4: Run** `pnpm test && pnpm lint`. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(frontend): add tap-to-talk speech input that turns narration down`.
 
-### Task 10: Doubt session: queued messages, answers, checks and practice
+### Task 11: Doubt session: queued messages, answers, checks and practice
 
 **Files:**
 - Modify: `frontend/src/services/doubtService.js`: `answer(doubtId, body)`
@@ -533,7 +570,7 @@
 - Test: `frontend/src/features/whiteboard/hooks/useDoubtSession.test.js`
 
 **Interfaces:**
-- Consumes: player `stepEnd`, `keepCount`, `cut`, `extend`, `answerAsk`, `skipAsk` and `getSnapshot().status/ask` (Task 8); the endpoints (Tasks 6–7).
+- Consumes: player `stepEnd`, `keepCount`, `cut`, `extend`, `answerAsk`, `skipAsk` and `getSnapshot().status/ask` (Task 9); the endpoints (Tasks 7–8).
 - Produces:
   - `doubtService.answer(doubtId, { ask, answer }) -> Promise<AnswerOut>`.
   - `useDoubtSession` returns `{ session, ask, followUp, say, answer, skip, tryOne, stop, reset }`. `session` gains:
@@ -572,7 +609,7 @@
 - [ ] **Step 4: Run** `pnpm test && pnpm lint`. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(frontend): send messages and answers without cutting the AI off`.
 
-### Task 11: Talk bar and doubts page
+### Task 12: Talk bar and doubts page
 
 **Files:**
 - Create: `frontend/src/features/whiteboard/components/TalkBar.jsx` (replaces `FollowUpBar.jsx`, which is deleted along with its test)
@@ -580,7 +617,7 @@
 - Test: `frontend/src/features/whiteboard/components/TalkBar.test.jsx`, `frontend/src/features/whiteboard/status.test.js`
 
 **Interfaces:**
-- Consumes: `useSpeechInput` and `player.duck` (Task 9); `useDoubtSession` (Task 10); `board.ask` and `board.status` from the snapshot.
+- Consumes: `useSpeechInput` and `player.duck` (Task 10); `useDoubtSession` (Task 11); `board.ask` and `board.status` from the snapshot.
 - Produces:
   - `TalkBar` props:
     - `{ ask, playing, busy, full, pending, checking, feedback }`;
@@ -622,7 +659,7 @@
 - [ ] **Step 4: Run** `pnpm test && pnpm lint && pnpm build`. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(frontend): talk to the board by voice or text on the doubts page`.
 
-### Task 12: Live check, token report and docs
+### Task 13: Live check, token report and docs
 
 **Files:**
 - Modify: `frontend/src/features/canvas/samples.js` (a "questions" sample: ask, answer, mark)

@@ -35,7 +35,7 @@ The as-built details are in [ARCHITECTURE.md](ARCHITECTURE.md#ai-whiteboard-tuto
 
 - **The AI says *what*; the engine decides *how it looks*.** The model emits semantic actions (`plot y = x^2 from -3 to 3`, `triangle A(0,0) B(4,0) C(0,3)`). The engine computes geometry, layout and animation.
 - **Plain data from the model.** Every model output is validated against a pydantic schema before it reaches the browser or the database, as `app/services/whiteboard/parser.py` does today.
-- **Deterministic control, AI content.** Code runs the class state machine, scheduling, subject rotation, spaced revision, and MCQ and numeric grading. The model writes explanations and questions and judges free-form work.
+- **One AI agent per job.** Every piece of work belongs to its own agent, with its own prompt, output schema, model setting and token log. Agents call code tools for anything that can be computed (math engine, answer checker, planner scores), so they spend tokens only on judgment and words. Code is the plumbing: it routes work between agents, keeps time and stores results.
 - **Short streamed steps.** One AI call covers one scene, one checkpoint or one grading. This fits the bridge's per-call limit and lets the class adapt between steps.
 - **Every session is an append-only event log.** Replay, time spent, analytics, the parent view and continuous improvement all read it.
 - **Token-efficient by design.** If something can be computed, the engine computes it with a math library; the AI only names it. See [Token efficiency](#token-efficiency).
@@ -100,9 +100,26 @@ Planned for later phases:
 
 The daily class (Phase 8) reuses all of it.
 
-## Layer 3: Class orchestrator and agents
+## Layer 3: AI agents and the class conductor
 
-The orchestrator is a deterministic state machine:
+**Every job is done by an AI agent.** Each agent is a prompt, an output schema and a model/effort setting. All of them call the model through the LLM gateway, and each call is logged under the agent's name.
+
+| Agent | Its job | Phase |
+| ----- | ------- | ----- |
+| **Doubt Solver** | Answers doubts on the board, follow-ups, "explain another way", and the student's messages in the middle of an explanation | 3–5 |
+| **Examiner** | Sets questions with answer keys (checkpoints, "Now you try", practice); checks answers, using the answer checker for choice, number and expression answers and judging written ones; explains mistakes on the board | 5 |
+| **Syllabus Reader** | Reads a contents page or syllabus (photo or PDF) into chapters and topics | 6 |
+| **Librarian** | Reads uploaded books and notes (scanned pages by vision), tags pages to syllabus topics, finds the right pages for a topic or a doubt | 6 |
+| **Planner** | Plans each day: picks the subject and topic from scores computed in code, writes the agenda and the "why" | 7 |
+| **Coach** | Keeps the student model: mastery notes, misconceptions, pace and the explanation styles that work | 7 |
+| **Lesson Designer** | Designs the hour: scenes with goals, visuals and examples, checkpoints and practice; uses the student's books | 8 |
+| **Board Teacher** | Teaches each scene of the class on the board, reteaches a different way, runs the wrap-up | 8 |
+| **Homework Agent** | Sets homework at the end of class; checks submitted homework (photo or typed) in the background with red pen | 8–9 |
+| **Test Maker** | Builds weekly and chapter tests (mixed types, timed) from the topics studied | 9 |
+| **Progress Analyst** | Turns the numbers (computed in code) into insights: weak areas, trends, what to study next | 10 |
+| **Parent Reporter** | Writes the weekly parent report and the alert messages | 11 |
+
+A small piece of code, the **class conductor**, routes work between the agents in this order and keeps the time budget (it trims extra practice when the class runs long):
 
 ```
 planned → warmup → teach(scene i) ⇄ checkpoint → practice(question j) → wrapup → completed
@@ -110,19 +127,8 @@ planned → warmup → teach(scene i) ⇄ checkpoint → practice(question j) �
                                  checkpoint failed once or twice → reteach (a different way)
 ```
 
-A time-budget tracker trims extra practice when the class runs long.
-
-| Agent               | Runs when                       | Produces |
-| ------------------- | ------------------------------- | -------- |
-| **Syllabus Reader** | A syllabus or contents page is uploaded | JSON tree of chapters and topics, with order and page numbers when present |
-| **Lesson Designer** | Today's plan is made            | Outline: scenes (goal, visual format, examples), checkpoints, practice skeleton; uses RAG when books exist |
-| **Board Teacher**   | Each scene, reteach and wrap-up | Streamed Protocol v2 actions with captions (today's whiteboard prompt, evolved) |
-| **Examiner**        | Writing questions; grading      | Questions with key, rubric, difficulty and topic; grades for written answers (and photo answers in Phase 9) |
-| **Doubt Solver**    | Student messages; standalone doubts | Board actions, aware of the class and the student's books |
-| **Coach**           | End of class; weekly            | Mastery and misconception updates, student and parent summaries |
-
-- **Planner** is code, not an agent. It picks the subject (rotation weighted by weakness, exam date and days since last studied), then topics from syllabus order, mastery, revisions due (simplified SM-2), unfinished topics and daily minutes.
-- **Answer-key self-check.** The Examiner solves each generated question a second time, independently. If the answers disagree, the question is discarded.
+- **Planner scores.** Code computes each subject's and topic's score: rotation weighted by weakness, exam date and days since last studied; syllabus order; revisions due (simplified SM-2); unfinished topics; daily minutes. The Planner agent picks from the top candidates and explains its choice in a few lines.
+- **Answer keys.** For number questions the Examiner sends the sum (`calc`) and the answer checker computes the key; written questions carry a model answer. The student can say "I think that's wrong" and the Examiner re-checks.
 - **Step streaming.**
   - Each `POST /student/lessons/{id}/advance` carries the student's input: an answer, a message, "next" or "hint".
   - It streams the next step over SSE, ending at an `ask` or at the end of a segment.
@@ -184,7 +190,7 @@ Tokens are the main running cost and the main source of delay. The rule: **if it
 | Answer keys | For number questions the AI sends the sum (`calc`) and code works out the key, instead of a second AI solve |
 | Student messages | A reply mid-explanation carries two short summaries (the board so far, the part still to teach), not the action lists |
 | Prompt size | Command reference split by subject; follow-ups get a board summary under 200 tokens; student card under 300 tokens; fixed prompt parts cached (`cache_control` on the API provider) |
-| Model routing | Haiku for summaries, syllabus tidy-up and classification; Sonnet at low effort for the board; more effort only for free-form grading |
+| Model routing | Each agent gets the smallest model that does its job: Haiku for the Planner, Coach, Progress Analyst and Parent Reporter; Sonnet at low effort for the board agents; more effort only for reading photos and judging written answers |
 | Reuse | The same doubt (normalised question, class, board, level, language) is served from cache at zero tokens |
 | Measurement | Input, output and cached tokens logged per call. Phase 4 records a v1 baseline and must stay at or below it |
 
