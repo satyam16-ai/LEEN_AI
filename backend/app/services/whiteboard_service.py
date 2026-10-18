@@ -32,6 +32,8 @@ NOT_FOUND = "Doubt not found"
 MAX_TURNS = 6
 BUSY = "Wait for the current explanation to finish."
 FULL = "This board is full. Start a new doubt to keep going."
+INTERRUPTED = "Interrupted before the explanation finished."
+STALE_MARGIN_SECONDS = 60
 KEEPALIVE_SECONDS = 15
 OFFLINE_DEV = (
     "The AI tutor is offline. Start the Claude Code bridge "
@@ -70,8 +72,8 @@ def flatten_turns(turns: list[dict]) -> list[dict]:
     return actions
 
 
-def _owned(db: Session, student: User, doubt_id: str) -> BoardSession:
-    session = board_repository.get_owned_session(db, doubt_id, student.id)
+def _owned(db: Session, student: User, doubt_id: str, lock: bool = False) -> BoardSession:
+    session = board_repository.get_owned_session(db, doubt_id, student.id, lock=lock)
     if session is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_FOUND)
     return session
@@ -173,12 +175,20 @@ def start_doubt(db: Session, student: User, payload: DoubtCreate) -> TurnStart:
     return TurnStart(_summary(session), event.id, system, prompt)
 
 
+def _is_stale(turn) -> bool:
+    age = (utcnow() - turn.created_at).total_seconds()
+    return age > settings.whiteboard_timeout_seconds + STALE_MARGIN_SECONDS
+
+
 def start_turn(db: Session, student: User, doubt_id: str, payload: TurnCreate) -> TurnStart:
     """Add a follow-up (or "explain another way") turn to a doubt's board."""
-    session = _owned(db, student, doubt_id)
+    session = _owned(db, student, doubt_id, lock=True)
     turns = board_repository.list_turns(db, session.id)
     if turns and turns[-1].payload.get("status") == "streaming":
-        raise HTTPException(status.HTTP_409_CONFLICT, BUSY)
+        if not _is_stale(turns[-1]):
+            raise HTTPException(status.HTTP_409_CONFLICT, BUSY)
+        # Its stream died without saving (a restart or crash): close it so the board isn't stuck.
+        turns[-1].payload = {**turns[-1].payload, "status": "failed", "error": INTERRUPTED}
     if len(turns) >= MAX_TURNS:
         raise HTTPException(status.HTTP_409_CONFLICT, FULL)
 

@@ -20,8 +20,9 @@ parts of a diagram go. Name the visual; the board computes and draws it.
 - Short ids (1-3 characters). No extra fields.
 
 THE BOARD: 1600 wide x 900 tall; (0,0) is the top-left, y grows downwards. Writing flows down \
-the left column (x 80..880). Visuals stack on the stage on the right automatically; add \
-"at":[x,y,w,h] only to place one yourself. Nothing may overlap.
+the left column (x 80..880). Visuals stack on the stage on the right automatically; it holds \
+two visuals, so start a scene before a third. Add "at":[x,y,w,h] only to place one yourself. \
+Nothing may overlap.
 
 WRITING
 {"type":"caption","text":"..."} What you say aloud for the next step: 1-2 short sentences, \

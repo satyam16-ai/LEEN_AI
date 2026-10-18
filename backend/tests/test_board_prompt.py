@@ -105,3 +105,8 @@ def test_prompt_includes_student_context():
 
 def test_system_prompt_explains_braced_subscripts():
     assert "F_{net}" in build_system_prompt("Physics")
+
+
+def test_system_prompt_says_the_stage_holds_two_visuals():
+    prompt = build_system_prompt("Mathematics")
+    assert "two visuals" in prompt and "scene" in prompt

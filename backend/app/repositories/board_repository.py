@@ -20,15 +20,15 @@ def get_session(db: Session, session_id: str) -> BoardSession | None:
 
 
 def get_owned_session(
-    db: Session, session_id: str, student_id: str, kind: str = "doubt"
+    db: Session, session_id: str, student_id: str, kind: str = "doubt", lock: bool = False
 ) -> BoardSession | None:
-    return db.scalar(
-        select(BoardSession).where(
-            BoardSession.id == session_id,
-            BoardSession.student_id == student_id,
-            BoardSession.kind == kind,
-        )
+    """The student's session; `lock` holds its row until commit so turns can't race."""
+    query = select(BoardSession).where(
+        BoardSession.id == session_id,
+        BoardSession.student_id == student_id,
+        BoardSession.kind == kind,
     )
+    return db.scalar(query.with_for_update() if lock else query)
 
 
 def list_sessions(

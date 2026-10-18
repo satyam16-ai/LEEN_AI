@@ -1,12 +1,17 @@
 import json
+import threading
+import time
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from fastapi import HTTPException
 
 from app.database import SessionLocal
 from app.models.board import BoardEvent, BoardSession
 from app.models.llm_call import LlmCall
 from app.models.user import User, UserRole
 from app.repositories import board_repository
+from app.schemas.whiteboard import TurnCreate
 from app.services import whiteboard_service
 from app.services.llm import claude_bridge
 from app.services.whiteboard.parser import ActionStreamParser
@@ -467,3 +472,59 @@ def test_flatten_turns_keeps_the_models_own_scene():
     actions = whiteboard_service.flatten_turns(turns)
 
     assert [a for a in actions if a["type"] == "scene"] == [{"type": "scene", "title": "Part 2"}]
+
+
+def test_stale_streaming_turn_does_not_block_follow_ups(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(BOARD_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = ask(student)
+    with SessionLocal() as db:
+        stuck = board_repository.add_turn(
+            db, db.get(BoardSession, doubt_id), _turn("lost in a restart", "streaming")
+        )
+        stuck.created_at = datetime.now(UTC) - timedelta(hours=1)
+        db.commit()
+        stuck_id = stuck.id
+
+    response = student.post(f"{DOUBTS}/{doubt_id}/turns", json={"question": "Again?"})
+
+    assert response.status_code == 200 and read_events(response)[-1][0] == "done"
+    with SessionLocal() as db:
+        assert db.get(BoardEvent, stuck_id).payload["status"] == "failed"
+
+
+def test_concurrent_follow_ups_get_one_conflict(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(BOARD_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = ask(student)
+    real_get = whiteboard_service.profile_repository.get
+
+    def slow_get(db, user_id):  # widen the gap between the busy check and the insert
+        time.sleep(0.4)
+        return real_get(db, user_id)
+
+    monkeypatch.setattr(whiteboard_service.profile_repository, "get", slow_get)
+    outcomes = []
+
+    def follow_up():
+        with SessionLocal() as db:
+            owner = db.query(User).filter_by(email="s@example.com").one()
+            try:
+                whiteboard_service.start_turn(
+                    db, owner, doubt_id, TurnCreate(question="Why is that?")
+                )
+                outcomes.append("ok")
+            except HTTPException as error:
+                outcomes.append(error.status_code)
+            except Exception as error:  # noqa: BLE001 - the race shows up as any other error
+                outcomes.append(type(error).__name__)
+
+    threads = [threading.Thread(target=follow_up) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert sorted(outcomes, key=str) == [409, "ok"]
+    with SessionLocal() as db:
+        assert len(board_repository.list_turns(db, doubt_id)) == 2
