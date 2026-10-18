@@ -53,13 +53,20 @@ def _summary(session: BoardSession) -> DoubtSummary:
     )
 
 
+def _opens_with_scene(actions: list[dict]) -> bool:
+    """True when the model started the turn on a new page itself (captions may come first)."""
+    first = next((action for action in actions if action.get("type") != "caption"), None)
+    return first is not None and first.get("type") == "scene"
+
+
 def flatten_turns(turns: list[dict]) -> list[dict]:
     """All turns' actions in order; each follow-up turn starts on a new page (scene)."""
     actions: list[dict] = []
     for index, turn in enumerate(turns):
-        if index:
+        turn_actions = turn.get("actions") or []
+        if index and not _opens_with_scene(turn_actions):
             actions.append({"type": "scene", "title": turn["question"][:60]})
-        actions.extend(turn.get("actions") or [])
+        actions.extend(turn_actions)
     return actions
 
 

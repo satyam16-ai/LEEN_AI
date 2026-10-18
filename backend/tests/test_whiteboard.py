@@ -449,3 +449,21 @@ def test_failed_board_is_never_cached(signed_in, monkeypatch):
     ask(student)
 
     assert fake.calls == 1
+
+
+def test_flatten_turns_keeps_the_models_own_scene():
+    turns = [
+        {"question": "First?", "actions": [{"type": "clear"}]},
+        {
+            "question": "Second?",
+            "actions": [
+                {"type": "caption", "text": "New page."},
+                {"type": "scene", "title": "Part 2"},
+                {"type": "write", "text": "x"},
+            ],
+        },
+    ]
+
+    actions = whiteboard_service.flatten_turns(turns)
+
+    assert [a for a in actions if a["type"] == "scene"] == [{"type": "scene", "title": "Part 2"}]

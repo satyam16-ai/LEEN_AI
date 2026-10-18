@@ -1,0 +1,155 @@
+{
+  "label": "v2",
+  "model": "sonnet",
+  "runs": [
+    {
+      "subject": "Mathematics",
+      "question": "Plot y = x^2 - 4 and find where it cuts the x-axis",
+      "actions": 18,
+      "dropped": 0,
+      "types": {
+        "caption": 8,
+        "write": 5,
+        "underline": 1,
+        "table": 1,
+        "plot": 1,
+        "box": 2
+      },
+      "input_tokens": 2,
+      "output_tokens": 600,
+      "cache_read_tokens": 0,
+      "duration_ms": 6467,
+      "error": null
+    },
+    {
+      "subject": "Mathematics",
+      "question": "Prove the angle sum of a triangle is 180°",
+      "actions": 21,
+      "dropped": 0,
+      "types": {
+        "caption": 9,
+        "write": 6,
+        "underline": 1,
+        "geo": 2,
+        "box": 3
+      },
+      "input_tokens": 2,
+      "output_tokens": 908,
+      "cache_read_tokens": 2270,
+      "duration_ms": 9971,
+      "error": null
+    },
+    {
+      "subject": "Physics",
+      "question": "Explain a velocity–time graph for a car that speeds up and then stops",
+      "actions": 28,
+      "dropped": 0,
+      "types": {
+        "caption": 11,
+        "write": 10,
+        "underline": 1,
+        "plot": 4,
+        "box": 2
+      },
+      "input_tokens": 2,
+      "output_tokens": 1225,
+      "cache_read_tokens": 0,
+      "duration_ms": 13182,
+      "error": null
+    },
+    {
+      "subject": "Physics",
+      "question": "How does a convex lens form an image when the object is beyond 2F?",
+      "actions": 16,
+      "dropped": 0,
+      "types": {
+        "caption": 7,
+        "write": 5,
+        "underline": 1,
+        "diagram": 1,
+        "box": 2
+      },
+      "input_tokens": 2,
+      "output_tokens": 562,
+      "cache_read_tokens": 2960,
+      "duration_ms": 6603,
+      "error": null
+    },
+    {
+      "subject": "Chemistry",
+      "question": "Draw the Bohr model of sodium and explain its valency",
+      "actions": 17,
+      "dropped": 0,
+      "types": {
+        "caption": 7,
+        "write": 6,
+        "underline": 1,
+        "diagram": 1,
+        "box": 2
+      },
+      "input_tokens": 2,
+      "output_tokens": 540,
+      "cache_read_tokens": 0,
+      "duration_ms": 6220,
+      "error": null
+    },
+    {
+      "subject": "Chemistry",
+      "question": "Balance H2 + O2 → H2O and explain each step",
+      "actions": 21,
+      "dropped": 0,
+      "types": {
+        "caption": 10,
+        "write": 4,
+        "underline": 1,
+        "table": 3,
+        "box": 3
+      },
+      "input_tokens": 2,
+      "output_tokens": 824,
+      "cache_read_tokens": 2199,
+      "duration_ms": 8399,
+      "error": null
+    },
+    {
+      "subject": "Biology",
+      "question": "Label the parts of a plant cell",
+      "actions": 15,
+      "dropped": 0,
+      "types": {
+        "caption": 10,
+        "write": 2,
+        "underline": 1,
+        "diagram": 1,
+        "box": 1
+      },
+      "input_tokens": 2,
+      "output_tokens": 586,
+      "cache_read_tokens": 0,
+      "duration_ms": 6552,
+      "error": null
+    },
+    {
+      "subject": "Biology",
+      "question": "Explain the steps of photosynthesis as a flowchart",
+      "actions": 14,
+      "dropped": 0,
+      "types": {
+        "caption": 6,
+        "write": 3,
+        "underline": 1,
+        "flow": 1,
+        "diagram": 1,
+        "box": 2
+      },
+      "input_tokens": 2,
+      "output_tokens": 582,
+      "cache_read_tokens": 1985,
+      "duration_ms": 6663,
+      "error": null
+    }
+  ],
+  "median_output_tokens": 593.0,
+  "median_input_tokens": 2.0,
+  "median_actions": 17.5
+}
