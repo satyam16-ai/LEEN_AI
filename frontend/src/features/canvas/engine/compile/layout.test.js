@@ -1,5 +1,5 @@
 import { STAGE } from '../board';
-import { placeVisual } from './layout';
+import { placeVisual, writeRoom } from './layout';
 
 describe('placeVisual', () => {
   it('uses an explicit box as given', () => {
@@ -28,5 +28,17 @@ describe('placeVisual', () => {
     const state = { stageY: STAGE.y };
     expect(placeVisual({ type: 'numberline' }, state).h).toBe(140);
     expect(placeVisual({ type: 'unknown' }, state).h).toBe(380);
+  });
+});
+
+describe('writeRoom', () => {
+  it('keeps column writes clear of the stage', () => {
+    expect(writeRoom(80, 'left')).toBe(820);
+    expect(writeRoom(300, 'left')).toBe(600);
+  });
+
+  it('lets full-width and stage writes run to the board edge', () => {
+    expect(writeRoom(80, 'full')).toBe(1496);
+    expect(writeRoom(940, 'right')).toBe(636);
   });
 });

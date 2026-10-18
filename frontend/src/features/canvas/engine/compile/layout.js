@@ -1,4 +1,4 @@
-import { STAGE } from '../board';
+import { BOARD_WIDTH, STAGE } from '../board';
 
 /** Height a visual gets on the stage when the AI does not give it a box. */
 export const DEFAULT_HEIGHT = {
@@ -27,4 +27,15 @@ export function placeVisual(action, state) {
   const box = { x: STAGE.x, y: state.stageY, w: STAGE.w, h };
   state.stageY += h + GAP;
   return box;
+}
+
+const WRITE_EDGE = 24;
+
+/**
+ * How wide a write starting at x may be. Writes in a column stop before the stage,
+ * so they never run under a visual; full-width and on-stage writes may reach the edge.
+ */
+export function writeRoom(x, column) {
+  if (column === 'full' || x >= STAGE.x) return BOARD_WIDTH - WRITE_EDGE - x;
+  return STAGE.x - 20 - x;
 }

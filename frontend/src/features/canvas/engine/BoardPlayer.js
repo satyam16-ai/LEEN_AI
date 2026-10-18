@@ -12,7 +12,7 @@ import {
   STAGE,
 } from './board';
 import { expandAction, isCompiled, needsMath } from './compile';
-import { placeVisual } from './compile/layout';
+import { placeVisual, writeRoom } from './compile/layout';
 import { isMathReady, loadMath } from './math/expr';
 import { layoutMathText } from './mathText';
 import { drawObject, Scene } from './scene';
@@ -27,6 +27,7 @@ import {
   wobblyLine,
 } from './strokes';
 import { drawDuster, drawPencil } from './tools';
+import { wrapWords } from './wrap';
 
 const PEN_SPEED = 1100; // board units per second
 const ERASER_SPEED = 2000;
@@ -704,26 +705,49 @@ export class BoardPlayer {
     const column = action.x ?? prev?.column ?? COLUMNS[this.column];
     let y = action.y ?? (prev ? prev.y + Math.max(prev.size, size) * LINE_SPACING : MARGIN + size);
 
-    let layout = layoutMathText(action.text, size, this._measure);
-    const room = BOARD_WIDTH - EDGE - column;
+    // Fit the column: shrink a little, then wrap onto more lines (never under the stage).
+    const room = writeRoom(column, this.column);
+    const layoutOf = (text) => layoutMathText(text, size, this._measure);
+    let layout = layoutOf(action.text);
     if (layout.width > room) {
-      // Shrink a little to fit; beyond that, slide the text left.
-      size = Math.max(size * 0.6, size * (room / layout.width));
-      layout = layoutMathText(action.text, size, this._measure);
+      size = Math.max(size * 0.75, size * (room / layout.width));
+      layout = layoutOf(action.text);
     }
-    const x = Math.max(EDGE, Math.min(column, BOARD_WIDTH - EDGE - layout.width));
-    y = Math.min(Math.max(y, size * 0.85 + EDGE / 2), BOARD_HEIGHT - size * 0.3 - EDGE / 2);
-    this.flow = { column, y, size };
+    const lines =
+      layout.width > room
+        ? wrapWords(action.text, room, (text) => layoutOf(text).width).map(layoutOf)
+        : [layout];
+    const width = Math.max(...lines.map((line) => line.width));
+    const lineHeight = size * LINE_SPACING;
+    const extra = (lines.length - 1) * lineHeight;
 
-    const bounds = { x, y: y - size * 0.82, w: layout.width, h: size * 1.12, baseline: y, size };
+    const x = Math.max(EDGE, Math.min(column, BOARD_WIDTH - EDGE - width));
+    y = Math.min(Math.max(y, size * 0.85 + EDGE / 2), BOARD_HEIGHT - size * 0.3 - EDGE / 2 - extra);
+    this.flow = { column, y: y + extra, size };
+
+    const bounds = {
+      x,
+      y: y - size * 0.82,
+      w: width,
+      h: size * 1.12 + extra,
+      baseline: y + extra,
+      size,
+    };
     if (action.id) this.items.set(action.id, bounds);
 
     let time = 0;
-    const glyphs = layout.glyphs.map((glyph) => {
-      const timed = { ...glyph, start: time, end: time + glyphDuration(glyph) };
-      time = timed.end;
-      return timed;
-    });
+    const glyphs = lines.flatMap((line, row) =>
+      line.glyphs.map((glyph) => {
+        const timed = {
+          ...glyph,
+          dy: glyph.dy + row * lineHeight,
+          start: time,
+          end: time + glyphDuration(glyph),
+        };
+        time = timed.end;
+        return timed;
+      })
+    );
     return { kind: 'write', x, y, color: action.color, glyphs, duration: time, done: 0 };
   }
 
