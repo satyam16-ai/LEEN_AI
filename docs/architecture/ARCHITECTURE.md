@@ -249,7 +249,7 @@ Over the limit returns `429` with a `Retry-After` header.
 
 ## AI Whiteboard Tutor
 
-> This whiteboard is LEEN AI's core engine, now at **canvas engine v2** (Phase 4: visuals computed in the browser, board sessions with follow-ups, the LLM gateway). The two-way board, daily tuition class, agents and student model that build on it are designed in [CANVAS_ENGINE.md](CANVAS_ENGINE.md).
+> This whiteboard is LEEN AI's core engine, now at **canvas engine v2** (Phase 4: visuals computed in the browser, board sessions with follow-ups, the LLM gateway). Talking to the board (Phase 5), the daily tuition class, agents and student model that build on it are designed in [CANVAS_ENGINE.md](CANVAS_ENGINE.md).
 
 A student asks a doubt. The AI explains it on an HTML canvas in real time: a pencil writes the working, a duster erases and rewrites steps, and captions explain each step.
 
