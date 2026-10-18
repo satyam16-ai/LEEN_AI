@@ -34,6 +34,7 @@ Today's whiteboard tutor (Phase 3, described in [ARCHITECTURE.md](ARCHITECTURE.m
 - **Deterministic control, AI content.** Code runs the class state machine, scheduling, subject rotation, spaced revision, and MCQ and numeric grading. The model writes explanations and questions and judges free-form work.
 - **Short streamed steps.** One AI call covers one scene, one checkpoint or one grading. This fits the bridge's per-call limit and lets the class adapt between steps.
 - **Every session is an append-only event log.** Replay, time spent, analytics, the parent view and continuous improvement all read it.
+- **Token-efficient by design.** If something can be computed, the engine computes it with a math library; the AI only names it. See [Token efficiency](#token-efficiency).
 
 ## Layer 1: Board Protocol v2
 
@@ -135,11 +136,40 @@ A time-budget tracker trims extra practice when the class runs long.
   - `complete_json(agent, system, prompt, schema, images=[])`
 - `LLM_PROVIDER` selects `claude_bridge` (default) or `anthropic_api` (for deployment).
 - Model, effort and timeout are set per agent.
-- Every call is logged in `llm_calls`: agent, duration, `cost_usd` from the bridge's `done` event, and status.
+- Every call is logged in `llm_calls`: agent, duration, input/output/cached tokens and `cost_usd` (from the CLI's result event, forwarded by the bridge), and status.
 - **Image input through the bridge** is the first task of Phase 5. The options, in order:
   1. `claude -p --input-format stream-json` with image content blocks.
   2. The bridge writes the image into the run's empty temp directory and enables only Claude Code's `Read` tool for that run.
   3. The `anthropic_api` provider for vision calls only. This needs agreement to use an API key.
+
+## Token efficiency
+
+Tokens are the main running cost and the main source of delay. The rule: **if it can be computed, the engine computes it; the AI only names it.**
+
+| Where | How tokens are saved |
+| ----- | -------------------- |
+| Graphs | The AI sends `plot y=x^2, x from -3 to 3` (~25 tokens); the engine evaluates the curve |
+| Tables of values | The AI sends the expression and x values; the engine fills the cells |
+| Geometry | The AI sends vertices; the engine computes angles, arcs, lengths, label positions |
+| Diagrams | Template name + a few parameters instead of 30+ line and arrow commands |
+| Flowcharts | Nodes and edges only; a layout library places them |
+| Layout and defaults | Auto-layout means most actions carry no coordinates; defaults are omitted |
+| Grading | MCQ, numeric and algebraic answers checked in code with SymPy (equivalence, tolerance, units); the AI judges only working that can't be computed |
+| Answer keys | SymPy re-computes numeric answers where possible, instead of a second AI solve |
+| Prompt size | Command reference split by subject; follow-ups get a board summary under 200 tokens; student card under 300 tokens; fixed prompt parts cached (`cache_control` on the API provider) |
+| Model routing | Haiku for summaries, syllabus tidy-up and classification; Sonnet at low effort for the board; more effort only for free-form grading |
+| Reuse | The same doubt (normalised question, class, board, level, language) is served from cache at zero tokens |
+| Measurement | Input, output and cached tokens logged per call. Phase 4 records a v1 baseline and must stay at or below it |
+
+**Math engine and libraries** (free, local, versions pinned when built):
+
+| Job | Library |
+| --- | ------- |
+| Expression evaluation: plots, tables of values, instant numeric checks in the browser | mathjs, loaded only on canvas pages |
+| Axes, ticks, scales, chart shapes | d3-scale, d3-shape |
+| Flowchart and mind-map layout | dagre |
+| Geometry: angles, arcs, label placement | small in-house vector helpers |
+| Answer checking: algebraic equivalence, numeric tolerance, units | SymPy and pint (backend) |
 
 ## Frontend
 
@@ -188,5 +218,5 @@ A time-budget tracker trims extra practice when the class runs long.
 | Bridge capacity (2 runs at once) | Enough for a demo; raise `--max-concurrent`; the API provider for real users |
 | Board clutter | Auto-layout cursor, columns, scenes, camera focus |
 | Wrong answer keys | Independent re-solve, numeric tolerance, "report this question" |
-| Cost per class (15–30 calls) | Visible per agent in `llm_calls` |
+| Cost per class (15–30 calls) | Math-engine visuals, subject-split prompts, caching, model routing, SymPy grading; tokens per agent visible in `llm_calls` |
 | Embedding model size | Loaded once per process; ingestion only in Celery |
