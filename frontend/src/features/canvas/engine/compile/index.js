@@ -9,6 +9,7 @@
  */
 
 import { compileChart } from './chart';
+import { compileDiagram } from './diagram';
 import { compileFlow } from './flow';
 import { compileGeo } from './geo';
 import { compileNumberLine } from './numberline';
@@ -22,7 +23,7 @@ export const COMPILERS = {
   table: compileTable,
   chart: compileChart,
   flow: compileFlow,
-  diagram: () => [],
+  diagram: compileDiagram,
 };
 
 export function isCompiled(type) {
