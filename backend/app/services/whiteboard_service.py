@@ -17,7 +17,7 @@ from app.database import SessionLocal
 from app.models.user import User, utcnow
 from app.repositories import profile_repository, whiteboard_repository
 from app.schemas.whiteboard import DoubtCreate, DoubtOut, DoubtSummary
-from app.services.llm import claude_bridge
+from app.services.llm import claude_bridge, gateway
 from app.services.whiteboard.parser import ActionStreamParser
 from app.services.whiteboard.prompt import SYSTEM_PROMPT, build_user_prompt
 
@@ -86,14 +86,11 @@ def _save_result(doubt_id: str, actions: list[dict], error: str | None) -> None:
         db.commit()
 
 
-async def _produce(prompt: str, queue: asyncio.Queue) -> None:
-    """Pump text from the bridge into the queue so the consumer can send keepalives."""
+async def _produce(prompt: str, queue: asyncio.Queue, student_id: str, doubt_id: str) -> None:
+    """Pump text from the model into the queue so the consumer can send keepalives."""
     try:
-        async for chunk in claude_bridge.stream_text(
-            SYSTEM_PROMPT,
-            prompt,
-            model=settings.whiteboard_model,
-            effort=settings.whiteboard_effort,
+        async for chunk in gateway.stream_text(
+            "board_teacher", SYSTEM_PROMPT, prompt, user_id=student_id, session_id=doubt_id
         ):
             await queue.put(("text", chunk))
         await queue.put(("end", None))
@@ -111,7 +108,9 @@ def _friendly(error: Exception) -> str:
     return FAILED
 
 
-async def stream_solution(doubt: DoubtSummary, prompt: str) -> AsyncIterator[str]:
+async def stream_solution(
+    doubt: DoubtSummary, prompt: str, student_id: str
+) -> AsyncIterator[str]:
     """Server-sent events: doubt, status, action*, then done or error.
 
     Actions are validated one by one as Claude writes them, so the board starts
@@ -124,7 +123,7 @@ async def stream_solution(doubt: DoubtSummary, prompt: str) -> AsyncIterator[str
     actions: list[dict] = []
     error: str | None = STOPPED  # until the stream ends normally
     queue: asyncio.Queue = asyncio.Queue()
-    producer = asyncio.create_task(_produce(prompt, queue))
+    producer = asyncio.create_task(_produce(prompt, queue, student_id, doubt.id))
 
     try:
         while True:

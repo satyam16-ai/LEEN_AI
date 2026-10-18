@@ -72,7 +72,7 @@ def ask_doubt(
     rate_limit.enforce(f"doubt:{student.id}", 15, 3600)
     doubt, prompt = whiteboard_service.start_doubt(db, student, payload)
     return StreamingResponse(
-        whiteboard_service.stream_solution(doubt, prompt),
+        whiteboard_service.stream_solution(doubt, prompt, student.id),
         media_type="text/event-stream",
         # Nginx would otherwise buffer the stream and the board would draw in one go.
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
