@@ -563,3 +563,13 @@ def test_answer_keys_never_reach_the_browser(signed_in, monkeypatch):
     cached = read_events(student.post(DOUBTS, json={"question": "Area of a 3 by 4 rectangle?"}))
     cached_asks = [data for name, data in cached if name == "action" and data["type"] == "ask"]
     assert cached_asks == asks
+
+
+def test_doubts_are_logged_as_the_doubt_solver(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(BOARD_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+
+    ask(student)
+
+    with SessionLocal() as db:
+        assert [call.agent for call in db.query(LlmCall).all()] == ["doubt_solver"]

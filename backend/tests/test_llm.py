@@ -166,7 +166,7 @@ def test_agent_config_for_the_board_teacher():
     assert gateway.agent_config("board_teacher") == gateway.AgentConfig(
         model=settings.whiteboard_model, effort=settings.whiteboard_effort
     )
-    with pytest.raises(KeyError):
+    with pytest.raises(gateway.LlmConfigError):
         gateway.agent_config("nobody")
 
 
@@ -183,3 +183,10 @@ def test_doubt_stream_logs_one_llm_call(signed_in, monkeypatch):
         user = db.query(User).filter_by(email="s@example.com").one()
     assert call.user_id == user.id and call.session_id == doubt_id
     assert call.status == "ok" and call.output_tokens == 40
+
+
+def test_every_doubt_agent_has_a_config():
+    for agent in ("doubt_solver", "examiner", "board_teacher"):
+        assert isinstance(gateway.agent_config(agent), gateway.AgentConfig)
+    with pytest.raises(gateway.LlmConfigError):
+        gateway.agent_config("nobody")

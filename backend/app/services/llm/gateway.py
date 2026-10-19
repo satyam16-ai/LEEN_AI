@@ -6,7 +6,7 @@
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 
 from app.config import settings
@@ -30,11 +30,22 @@ class AgentConfig:
     effort: str | None
 
 
+# One AI agent per job (docs/architecture/CANVAS_ENGINE.md, Layer 3). Read from
+# settings when called, so a changed setting applies without a restart in tests.
+AGENTS: dict[str, Callable[[], AgentConfig]] = {
+    # Doubts, follow-ups, "explain another way" and replies mid-explanation.
+    "doubt_solver": lambda: AgentConfig(settings.whiteboard_model, settings.whiteboard_effort),
+    # Practice questions and answer checks.
+    "examiner": lambda: AgentConfig(settings.examiner_model, settings.examiner_effort),
+    # The daily class (Phase 8).
+    "board_teacher": lambda: AgentConfig(settings.whiteboard_model, settings.whiteboard_effort),
+}
+
+
 def agent_config(agent: str) -> AgentConfig:
-    configs = {
-        "board_teacher": AgentConfig(settings.whiteboard_model, settings.whiteboard_effort),
-    }
-    return configs[agent]
+    if agent not in AGENTS:
+        raise LlmConfigError(f"Unknown agent: {agent}")
+    return AGENTS[agent]()
 
 
 def _record(agent: str, config: AgentConfig, status: str, usage: dict, elapsed_ms: int, **ids):

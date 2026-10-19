@@ -34,7 +34,7 @@ async def _run_one(subject: str, question: str) -> dict:
     error = None
     started = time.monotonic()
     try:
-        async for chunk in gateway.stream_text("board_teacher", system, prompt, usage=usage):
+        async for chunk in gateway.stream_text("doubt_solver", system, prompt, usage=usage):
             actions += parser.feed(chunk)
         actions += parser.flush()
     except Exception as exc:  # noqa: BLE001 - reported in the run instead
@@ -62,7 +62,7 @@ async def run_board_eval(label: str) -> dict:
     runs = [await _run_one(subject, question) for subject, question in SAMPLE_DOUBTS]
     return {
         "label": label,
-        "model": gateway.agent_config("board_teacher").model,
+        "model": gateway.agent_config("doubt_solver").model,
         "runs": runs,
         "median_output_tokens": _median(runs, "output_tokens"),
         "median_input_tokens": _median(runs, "input_tokens"),

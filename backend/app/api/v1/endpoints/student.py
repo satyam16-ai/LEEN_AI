@@ -69,7 +69,7 @@ def _board_stream(start: whiteboard_service.TurnStart, student: User) -> Streami
         events = whiteboard_service.stream_cached(start.doubt, start.cached_actions)
     else:
         events = whiteboard_service.stream_solution(
-            start.doubt, start.event_id, start.system, start.prompt, student.id
+            start.doubt, start.event_id, start.system, start.prompt, student.id, start.agent
         )
     return StreamingResponse(
         events,

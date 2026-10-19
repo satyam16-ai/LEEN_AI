@@ -128,6 +128,7 @@ class TurnStart(NamedTuple):
     system: str | None
     prompt: str | None
     cached_actions: list[dict] | None = None
+    agent: str = "doubt_solver"
 
 
 def cache_key(question: str, subject: str | None, profile: StudentProfile | None) -> str:
@@ -158,7 +159,7 @@ def start_doubt(db: Session, student: User, payload: DoubtCreate) -> TurnStart:
         student_id=student.id,
         title=payload.question,
         subject=payload.subject,
-        model=gateway.agent_config("board_teacher").model,
+        model=gateway.agent_config("doubt_solver").model,
         cache_key=key,
     )
     turn = _new_turn(payload.question, "ask")
@@ -226,12 +227,12 @@ def _save_result(event_id: str, actions: list[dict], error: str | None) -> None:
 
 
 async def _produce(
-    system: str, prompt: str, queue: asyncio.Queue, student_id: str, doubt_id: str
+    agent: str, system: str, prompt: str, queue: asyncio.Queue, student_id: str, doubt_id: str
 ) -> None:
     """Pump text from the model into the queue so the consumer can send keepalives."""
     try:
         async for chunk in gateway.stream_text(
-            "board_teacher", system, prompt, user_id=student_id, session_id=doubt_id
+            agent, system, prompt, user_id=student_id, session_id=doubt_id
         ):
             await queue.put(("text", chunk))
         await queue.put(("end", None))
@@ -250,7 +251,12 @@ def _friendly(error: Exception) -> str:
 
 
 async def stream_solution(
-    doubt: DoubtSummary, event_id: str, system: str, prompt: str, student_id: str
+    doubt: DoubtSummary,
+    event_id: str,
+    system: str,
+    prompt: str,
+    student_id: str,
+    agent: str = "doubt_solver",
 ) -> AsyncIterator[str]:
     """Server-sent events: doubt, status, action*, then done or error.
 
@@ -264,7 +270,7 @@ async def stream_solution(
     actions: list[dict] = []
     error: str | None = STOPPED  # until the stream ends normally
     queue: asyncio.Queue = asyncio.Queue()
-    producer = asyncio.create_task(_produce(system, prompt, queue, student_id, doubt.id))
+    producer = asyncio.create_task(_produce(agent, system, prompt, queue, student_id, doubt.id))
 
     try:
         while True:
