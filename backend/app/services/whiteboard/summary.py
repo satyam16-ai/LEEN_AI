@@ -37,3 +37,34 @@ def summarize_board(actions: list[dict], limit: int = 800) -> str:
         lines.append(line)
         size += len(line) + 1
     return "\n".join(lines)
+
+
+def summarize_plan(actions: list[dict], limit: int = 600) -> str:
+    """What a stretch of board teaches, in teaching order: the part a reply still has to cover."""
+    lines: list[str] = []
+    size = 0
+    for action in actions:
+        line = _describe(action)
+        if line is None and action.get("type") in ("caption", "write"):
+            line = action.get("text")
+        if not line or line in lines:
+            continue
+        if size + len(line) + 1 > limit:
+            break
+        lines.append(line)
+        size += len(line) + 1
+    return "\n".join(lines)
+
+
+def question_context(actions: list[dict], index: int, limit: int = 200) -> str:
+    """The question asked at `index`: the last caption before it and the writes after that."""
+    start = next((i for i in range(index - 1, -1, -1) if actions[i].get("type") == "caption"), None)
+    if start is None:
+        return ""
+    parts = [actions[start]["text"]]
+    parts += [
+        action["text"]
+        for action in actions[start + 1 : index]
+        if action.get("type") == "write" and action.get("text")
+    ]
+    return "\n".join(parts)[:limit]
