@@ -287,6 +287,23 @@ export const SAMPLES = [
     ],
   },
   {
+    id: 'questions',
+    title: 'Questions: ask, answers and marks',
+    actions: [
+      ...intro('A rectangle is 3 cm long and 4 cm wide. What is its area?', 'Area'),
+      { type: 'write', text: 'Area = l × b' },
+      { type: 'ask', id: 'q1', kind: 'number', unit: 'cm^2' },
+      { type: 'answer', ask: 'q1', text: '7', correct: false },
+      { type: 'answer', ask: 'q1', text: '12', correct: true },
+      { type: 'caption', text: 'Correct! Length times breadth: 3 × 4 = 12.' },
+      { type: 'write', text: '3 + 4 = 7', color: 'orange', id: 's1' },
+      { type: 'mark', id: 's1', kind: 'cross', note: 'added, not multiplied' },
+      { type: 'write', text: '3 × 4 = 12 cm^2', color: 'orange', id: 's2' },
+      { type: 'mark', id: 's2', kind: 'tick' },
+      { type: 'ask', id: 'q2', kind: 'choice', options: ['7 cm^2', '12 cm^2', '14 cm^2'] },
+    ],
+  },
+  {
     id: 'lesson',
     title: 'Mixed lesson: motion',
     actions: [

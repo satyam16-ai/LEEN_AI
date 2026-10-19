@@ -21,7 +21,9 @@ const V1 = [
   'stop',
   'remove',
 ];
-const KNOWN = new Set([...V1, ...Object.keys(COMPILERS), 'scene', 'column', 'focus']);
+// Phase 5: questions the student answers, and the board's marks on written work.
+const QUESTIONS = ['ask', 'answer', 'mark', 'verdict'];
+const KNOWN = new Set([...V1, ...Object.keys(COMPILERS), 'scene', 'column', 'focus', ...QUESTIONS]);
 
 beforeAll(() => loadMath());
 

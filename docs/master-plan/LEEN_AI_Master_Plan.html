@@ -662,8 +662,8 @@
       <tr><td class="n">2</td><td>Profiles &amp; relationships</td><td class="n">7.1</td><td class="n"><span class="pill done">Done</span></td><td>Profiles and avatars, student onboarding, parent–child link codes, teacher classes with join codes, admin user management</td></tr>
       <tr><td class="n">3</td><td><strong>Canvas engine v1: AI whiteboard doubts</strong></td><td class="n">7.4</td><td class="n"><span class="pill done">Done</span></td><td>Claude Code bridge, live pencil, 2D animation, neural narration, history and replay</td></tr>
       <tr><td class="n">4</td><td><strong>Canvas engine v2: richer visuals</strong></td><td class="n">7.5, 7.13</td><td class="n"><span class="pill done">Done</span></td><td>LLM gateway with token logging; Board Protocol v2 computed by a math engine, so the AI sends short commands; renderer registry; scenes, camera, auto-layout; plots, geometry, tables, diagram templates, flowcharts, charts, number line, chemical equations; board sessions and events (doubts migrated); follow-up questions on the same board; "explain another way"</td></tr>
-      <tr><td class="n">5</td><td><strong>Talk to the board</strong></td><td class="n">7.4, 7.6, 7.9</td><td class="n"><span class="pill next">Next</span></td><td><em>Agents: Doubt Solver, Examiner.</em> The student talks to the board by voice or a text box at any time, and the AI works it in without stopping; ask / mark / verdict; choice, number and expression answers checked in code; written answers copied onto the board and marked by the AI; "Now you try"</td></tr>
-      <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Syllabus Reader, Librarian.</em> Image-input spike; one-time syllabus/contents upload per subject → editable topic tree; books and notes ingestion, OCR, local embeddings, pgvector; cited retrieval in doubts; doubts by photo</td></tr>
+      <tr><td class="n">5</td><td><strong>Talk to the board</strong></td><td class="n">7.4, 7.6, 7.9</td><td class="n"><span class="pill done">Done</span></td><td><em>Agents: Doubt Solver, Examiner.</em> The student talks to the board by voice or a text box at any time, and the AI works it in without stopping; ask / mark / verdict; choice, number and expression answers checked in code; written answers copied onto the board and marked by the AI; "Now you try"</td></tr>
+      <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill next">Next</span></td><td><em>Agents: Syllabus Reader, Librarian.</em> Image-input spike; one-time syllabus/contents upload per subject → editable topic tree; books and notes ingestion, OCR, local embeddings, pgvector; cited retrieval in doubts; doubts by photo</td></tr>
       <tr><td class="n">7</td><td><strong>Student model &amp; daily planner</strong></td><td class="n">7.7, 7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Planner, Coach.</em> Daily minutes, study days, exam and date; topic mastery and learner profile; student card in every prompt; Planner with subject rotation and spaced revision; Today page; topic practice that moves mastery</td></tr>
       <tr><td class="n">8</td><td><strong>Daily tuition class</strong> (core loop)</td><td class="n">7.3, 7.8</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Lesson Designer, Board Teacher, Homework Agent.</em> Lesson Designer; class orchestrator (warm-up → teach + checkpoints → practice → wrap-up); talk at any time; reteach a different way; pause and resume; prefetch; homework set; class player; Coach summaries; replay</td></tr>
       <tr><td class="n">9</td><td><strong>Homework &amp; tests</strong></td><td class="n">7.8, 7.9</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Homework Agent, Test Maker.</em> Homework grading with red-pen review; weekly and chapter tests, timed and auto-graded, mistakes explained on the canvas</td></tr>
@@ -759,8 +759,9 @@
   </div>
 
   <div class="phase">
-    <h3><span class="num">Phase 5</span>Talk to the board <span class="pill next">Next</span></h3>
+    <h3><span class="num">Phase 5</span>Talk to the board <span class="pill done">Done</span></h3>
     <p class="goal">The student talks to the board by voice or text at any time. The AI finishes its step, works what they said into the explanation like a real teacher, asks questions and checks the answers.</p>
+    <div class="callout accent"><p><strong>Result.</strong> Live on the bridge, a question sent mid-explanation was answered after the current step ("Great question!"), on the same page, and the AI then taught what was left (867 output tokens, about 9 s). "Now you try" took 187 tokens; number answers were checked instantly at <strong>zero tokens</strong>; after two wrong answers the Examiner wrote the answer, crossed it and showed the working (288 tokens). Hindi students speak through Sarvam AI and hear Hindi narration.</p></div>
     <div class="cols">
       <div>
         <h4>Backend</h4>
@@ -792,7 +793,7 @@
   </div>
 
   <div class="phase">
-    <h3><span class="num">Phase 6</span>Syllabus &amp; knowledge base (RAG)</h3>
+    <h3><span class="num">Phase 6</span>Syllabus &amp; knowledge base (RAG) <span class="pill next">Next</span></h3>
     <p class="goal">The AI knows each student's syllabus and can teach from their own books.</p>
     <div class="cols">
       <div>

@@ -5,8 +5,9 @@ The core engine of LEEN AI is the **AI-powered 2D canvas**: the board the AI tea
 **Status:**
 - **Phase 3** built canvas engine v1, the whiteboard tutor.
 - **Phase 4** built canvas engine v2: the LLM gateway, Board Protocol v2 visuals, board sessions with follow-up turns, the board cache, per-subject prompts, and a dev gallery at `/dev/canvas`.
+- **Phase 5** built talking to the board (Layer 2): voice or text at any time without cutting the AI off, `ask`/`mark`/`verdict`, answers checked in code, check and "Now you try" turns, and the Doubt Solver and Examiner agents.
 
-The as-built details are in [ARCHITECTURE.md](ARCHITECTURE.md#ai-whiteboard-tutor). Layers 2–5 are planned (Phases 5–8).
+The as-built details are in [ARCHITECTURE.md](ARCHITECTURE.md#ai-whiteboard-tutor). Layers 3–5 are planned (Phases 6–8).
 
 ## The daily tuition loop
 

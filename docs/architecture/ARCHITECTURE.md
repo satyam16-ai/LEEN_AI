@@ -227,9 +227,11 @@ Cookies are `SameSite=Lax`. Every POST/PUT/PATCH/DELETE must also send `X-Reques
 | POST | `/api/v1/teacher/classes/{id}/join-code` | Teacher (owner) | New join code (old one stops working) |
 | DELETE | `/api/v1/teacher/classes/{id}/students/{student_id}` | Teacher (owner) | Remove a student |
 | POST | `/api/v1/student/doubts` | Student | `{question, subject?}` → **`text/event-stream`** of the whiteboard explanation (see below) |
-| POST | `/api/v1/student/doubts/{id}/turns` | Student (owner) | `{question}` (follow-up) or `{mode: "another_way"}` → **`text/event-stream`** onto the same board; 6 turns per board, 409 while one is streaming |
+| POST | `/api/v1/student/doubts/{id}/turns` | Student (owner) | Another turn on the same board, as **`text/event-stream`**: `{question}` (follow-up), `{question, keep}` (reply mid-explanation), `{mode: "another_way"}`, `{mode: "check", ask, keep?}` or `{mode: "practice"}`. 12 turns per board; 409 while one is streaming |
+| POST | `/api/v1/student/doubts/{id}/answers` | Student (owner) | `{ask, answer}` → `{correct, attempt, final, expected}`. Choice, number and expression answers are checked in code (no AI call); two tries; 422 for an answer that can't be read (no try used) |
 | GET | `/api/v1/student/doubts` · GET / DELETE `/{id}` | Student | History (newest first) / full board for replay with its `turns` / delete |
 | GET | `/api/v1/tts?text=…&voice=neerja\|prabhat\|ishita\|shubh` | Signed in | MP3 narration of a caption (English: edge-tts; Hindi: Sarvam AI; cached 7 days) |
+| POST | `/api/v1/stt` | Signed in | Multipart `file` (a short Hindi recording, ≤ 1 MB, webm/ogg/wav/mp3/mp4) → `{text}` in Hinglish (Sarvam Saaras, translit mode) |
 
 Protect new endpoints with `Depends(get_current_user)` or `Depends(require_roles(UserRole.TEACHER, ...))` from `app/api/v1/dependencies/auth.py`.
 
@@ -243,13 +245,16 @@ Protect new endpoints with `Depends(get_current_user)` or `Depends(require_roles
 | Redeem parent link code | 10 / 15 min per parent               |
 | Join class      | 10 / 15 min per student                      |
 | Ask a doubt     | 15 / hour per student (protects the Claude quota) |
+| More turns on a board (replies, checks, practice) | 40 / hour per student |
+| Answers         | 120 / hour per student                       |
+| Voice input (Hindi) | 120 / hour per user                      |
 | Narration audio | 600 / hour per user                          |
 
 Over the limit returns `429` with a `Retry-After` header.
 
 ## AI Whiteboard Tutor
 
-> This whiteboard is LEEN AI's core engine, now at **canvas engine v2** (Phase 4: visuals computed in the browser, board sessions with follow-ups, the LLM gateway). Talking to the board (Phase 5), the daily tuition class, agents and student model that build on it are designed in [CANVAS_ENGINE.md](CANVAS_ENGINE.md).
+> This whiteboard is LEEN AI's core engine: canvas engine v2 (Phase 4: visuals computed in the browser, board sessions with follow-ups, the LLM gateway) plus talking to the board (Phase 5: voice or text at any time, questions checked in code). The daily tuition class, the other agents and the student model that build on it are designed in [CANVAS_ENGINE.md](CANVAS_ENGINE.md).
 
 A student asks a doubt. The AI explains it on an HTML canvas in real time: a pencil writes the working, a duster erases and rewrites steps, and captions explain each step.
 
@@ -330,6 +335,45 @@ Because the model's output becomes plain data, a prompt-injected question can't 
 | Output tokens | 1,494.5 | 593 (−60%) |
 | Actions | 33.5 | 17.5 |
 | Dropped lines | 0 | 0 |
+
+### Talking to the board (Phase 5)
+
+**The student never writes on the board; they talk to it.** Under the board, the talk bar (`features/whiteboard/components/TalkBar.jsx`) has a text box and a tap-to-talk mic.
+- **English** speech is recognised by the browser (`SpeechRecognition`, en-IN).
+- **Hindi** speech (students whose language is Hindi) is recorded with `MediaRecorder` for up to 15 s and sent to `POST /api/v1/stt`, which asks Sarvam AI for Hinglish in English letters.
+- Narration is turned down while the mic listens (`player.duck`).
+
+**Messages never cut the AI off.**
+1. If the AI is still writing the turn, `useDoubtSession.say()` queues the message and shows it as pending.
+2. Once the turn is written, the player finds the end of the step being drawn (`stepEnd()`: the next caption not shown yet) and drops everything after it that hasn't started.
+3. The browser sends `{question, keep}`, where `keep` counts the turn's own streamed actions before that point.
+4. The server records `cut_at` on that turn and asks the **Doubt Solver** for a reply. The prompt carries `<board>` (the board so far, ≤ 800 characters), `<left>` (the part not taught yet, ≤ 600, in teaching order) and `<message>`. The reply acknowledges the message, answers it on the same page, then teaches what was left.
+5. Replays show what the student saw: cut parts are hidden, and replies and checks carry on the same page.
+
+**Questions.**
+- The AI may ask once per turn: `ask {id, kind: choice | number | expr | text, options?, unit?, hint?, answer, calc?}`. `services/whiteboard/grading.py` prepares the key as the action streams in:
+  - choice → a 0-based option;
+  - number → computed from `calc` when the AI gives it, otherwise parsed;
+  - expr → kept when it evaluates;
+  - an unusable key → the question becomes a text question.
+- **Keys never reach the browser.** `public_action()` strips `answer` and `calc` from the stream, the cache and replays.
+- The player draws the options (or `Answer (cm): ?`) and waits; the talk bar becomes the answer box. Replays don't wait.
+- `POST …/answers` checks choice, number (1%) and expression (equal at sample points) answers with `app/utils/safe_math.py`. It walks a whitelisted Python `ast`, never `eval`. There is no AI call. Each answer is an `answer` board event, and replays show it after its question.
+- A wrong answer gets "Not quite. Have another go."; a second wrong answer, or any written answer, starts a **check** turn by the **Examiner**. It writes the answer in orange, marks it with `mark` (tick or cross), explains, and for written answers records a `verdict` on the answer event.
+- **"Now you try"** is a `practice` turn by the Examiner: a scene, one question like the doubt, then it stops.
+
+**Agents.** `gateway.AGENTS` gives each job its own model setting and token log: `doubt_solver` (doubts, follow-ups, replies) and `examiner` (practice and checks). `board_teacher` is kept for the daily class.
+
+**Live tokens** (18 Oct 2026, real bridge):
+
+| Turn | Agent | Output tokens | Time |
+| --- | --- | ---: | ---: |
+| Lens doubt (first turn) | Doubt Solver | 766 | 9.0 s |
+| Reply mid-explanation (answers, then re-teaches the rest) | Doubt Solver | 867 | 9.1 s |
+| Maths doubt | Doubt Solver | 528 | 5.2 s |
+| "Now you try" | Examiner | 187 | 3.2 s |
+| Check after two wrong answers | Examiner | 288 | 4.7 s |
+| Checking two number answers | none | 0 | instant |
 
 ### Streaming
 
