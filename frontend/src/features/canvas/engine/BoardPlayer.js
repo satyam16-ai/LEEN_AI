@@ -15,6 +15,7 @@ import { expandAction, isCompiled, needsMath } from './compile';
 import { placeVisual, writeRoom } from './compile/layout';
 import { isMathReady, loadMath } from './math/expr';
 import { layoutMathText } from './mathText';
+import { stepEnd } from './steps';
 import { drawObject, Scene } from './scene';
 import {
   arrowStrokes,
@@ -44,6 +45,8 @@ const FONT_WEIGHT = 400;
 const POP_MS = 420;
 const LABEL_SPEED = 0.6; // labels inside visuals are written faster than the main writing
 const DASH = [14, 10];
+const MARK_GAP = 20;
+const CONTD = ' (contd.)';
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 // Overshoots a little, so placed pictures "pop" onto the board.
@@ -125,6 +128,10 @@ export class BoardPlayer {
     this.narrator = null;
     this.speaking = false;
     this.speechToken = 0;
+    // Live boards wait at questions; replays pass straight through them.
+    this.interactive = false;
+    // Where the latest turn's streamed actions start (local ones are added after).
+    this.turnOffset = 0;
     this._resetPlayback();
     this.snapshot = this._buildSnapshot();
   }
@@ -197,6 +204,7 @@ export class BoardPlayer {
   /** Start a fresh board for a live stream; follow with enqueue() and endStream(). */
   begin() {
     this.load([], { streaming: true });
+    this.interactive = true;
   }
 
   enqueue(action) {
@@ -209,6 +217,8 @@ export class BoardPlayer {
   extend() {
     this.streaming = true;
     this.started = true;
+    this.interactive = true;
+    this.turnOffset = this.actions.length;
     this._emit();
     this._wake();
   }
@@ -223,12 +233,59 @@ export class BoardPlayer {
   load(actions, { streaming = false } = {}) {
     this.actions = [...actions];
     this.streaming = streaming;
+    this.interactive = false;
+    this.turnOffset = 0;
     this.started = streaming || actions.length > 0;
     this._restart();
   }
 
   replay() {
     this._restart();
+  }
+
+  // -- talking to the board ----------------------------------------------------
+
+  /** Where the step being drawn ends: a message sent now is answered from there. */
+  stepEnd() {
+    return stepEnd(this.actions, this.next);
+  }
+
+  /** How many of the latest turn's own (streamed, not local) actions come before `at`. */
+  keepCount(at) {
+    return this.actions.slice(this.turnOffset, at).filter((action) => !action?.local).length;
+  }
+
+  /** Drop the actions from `at` on, if none of them has started yet. */
+  cut(at) {
+    if (at < this.next || at >= this.actions.length) return;
+    this.actions.length = at;
+    this._emit();
+  }
+
+  /**
+   * Write the student's answer to the open question on the board, then `say` something.
+   * With `release` the board moves on; otherwise the question stays open for another try.
+   */
+  answerAsk({ text, correct = null, say = null, release = true }) {
+    const ask = this.openAsk;
+    if (!ask) return;
+    const local = [{ type: 'answer', ask: ask.id, text, correct, local: true }];
+    if (say) local.push({ type: 'caption', text: say, local: true });
+    if (!release) local.push({ type: 'ask', ...ask, again: true, local: true });
+    this.actions.splice(this.next, 0, ...local);
+    this._closeAsk();
+  }
+
+  /** Move on without answering. */
+  skipAsk() {
+    if (this.openAsk) this._closeAsk();
+  }
+
+  _closeAsk() {
+    this.openAsk = null;
+    this.current = null;
+    this._emit();
+    this._wake();
   }
 
   play() {
@@ -305,6 +362,8 @@ export class BoardPlayer {
     this.pages = [];
     this.pageTitle = null;
     this.camera = null;
+    // The question the board is waiting on (live boards only).
+    this.openAsk = null;
   }
 
   _restart() {
@@ -322,6 +381,7 @@ export class BoardPlayer {
 
   _status() {
     if (!this.started) return 'idle';
+    if (this.openAsk) return 'asking';
     const pending =
       this.current !== null || this.expanded.length > 0 || this.next < this.actions.length;
     if (this.paused && (pending || this.streaming)) return 'paused';
@@ -338,6 +398,7 @@ export class BoardPlayer {
       pages: this.pages,
       pageTitle: this.pageTitle,
       camera: this.camera,
+      ask: this.openAsk,
     };
   }
 
@@ -352,7 +413,8 @@ export class BoardPlayer {
       prev.narrate === next.narrate &&
       prev.pages === next.pages &&
       prev.pageTitle === next.pageTitle &&
-      prev.camera === next.camera
+      prev.camera === next.camera &&
+      prev.ask === next.ask
     ) {
       return;
     }
@@ -414,6 +476,17 @@ export class BoardPlayer {
       }
 
       const current = this.current;
+      if (current.plan.kind === 'ask') {
+        if (!this.interactive) {
+          this.current = null;
+          continue;
+        }
+        if (this.openAsk !== current.plan.ask) {
+          this.openAsk = current.plan.ask;
+          this._emit();
+        }
+        return;
+      }
       if (current.plan.kind === 'caption') {
         if (!this._captionReady()) return;
         this._showCaption(current.plan.text);
@@ -506,9 +579,22 @@ export class BoardPlayer {
     switch (action?.type) {
       case 'caption':
         return { kind: 'caption', text: action.text };
+      case 'ask':
+        return this._askPlan(action, index);
+      case 'answer':
+        return this._answerPlan(action, index);
+      case 'mark':
+        return this._markPlan(action, rng);
+      case 'verdict':
+        return null;
       case 'pause':
         return { kind: 'pause', duration: action.ms ?? 800 };
       case 'write':
+        if (this._columnFull(action)) {
+          this.next = index; // write it again on the new page
+          const title = this.pageTitle ? this.pageTitle.replace(CONTD, '') + CONTD : 'Continued';
+          return this._startPage(title, index);
+        }
         return this._resolveWrite(action);
       case 'line':
       case 'arrow':
@@ -646,12 +732,82 @@ export class BoardPlayer {
     }
   }
 
+  /** True when a write that flows down the column would start below the bottom of the board. */
+  _columnFull(action) {
+    if (action.y !== undefined || !this.flow) return false;
+    const size = FONT_SIZES[action.size] ?? FONT_SIZES.md;
+    const y = this.flow.y + Math.max(this.flow.size, size) * LINE_SPACING;
+    return y > BOARD_HEIGHT - EDGE - size * 0.3;
+  }
+
+  /** A question: write its options (or an answer line), then wait for the student. */
+  _askPlan(action, index) {
+    const ask = this._askView(action);
+    if (!action.again) {
+      const letter = (i) => String.fromCharCode(65 + i);
+      const line =
+        action.kind === 'choice' && Array.isArray(action.options)
+          ? action.options.map((option, i) => `${letter(i)}. ${option}`).join('   ')
+          : `Answer${action.unit ? ` (${action.unit})` : ''}: ?`;
+      const prompt = { type: 'write', text: line, color: 'blue' };
+      this.expanded.push({ action: prompt, seed: (index + 1) * 1000 });
+    }
+    this.expanded.push({ action: { type: 'wait-ask', ask }, seed: 0 });
+    return null;
+  }
+
+  /** What the talk bar needs to know about a question (never its key). */
+  _askView(action) {
+    const { id, kind, options, unit, hint } = action;
+    const view = { id, kind, options, unit, hint };
+    // One object per question, so React sees a change only when the question changes.
+    if (this.askView?.id === id && this.askView?.kind === kind) return this.askView;
+    this.askView = view;
+    return view;
+  }
+
+  /** The student's answer written in the column, with a tick or cross after it. */
+  _answerPlan(action, index) {
+    const id = `__answer${index}`;
+    const seed = (index + 1) * 1000;
+    const written = { type: 'write', text: String(action.text), color: 'orange', id };
+    this.expanded.push({ action: written, seed });
+    if (action.correct === true || action.correct === false) {
+      const kind = action.correct ? 'tick' : 'cross';
+      this.expanded.push({ action: { type: 'mark', id, kind }, seed: seed + 1 });
+    }
+    return null;
+  }
+
+  /** A tick or cross just right of an earlier write, plus an optional note. */
+  _markPlan(action, rng) {
+    const item = this.items.get(action.id);
+    if (!item) return null;
+    const x = item.x + item.w + MARK_GAP;
+    const y = item.y + item.h / 2;
+    const line = (from, to) => wobblyLine(from, to, rng);
+    const strokes =
+      action.kind === 'tick'
+        ? [line([x, y], [x + 10, y + 12]), line([x + 10, y + 12], [x + 30, y - 14])]
+        : [line([x, y - 12], [x + 24, y + 12]), line([x + 24, y - 12], [x, y + 12])];
+    if (action.note) {
+      const at = { x: x + 42, y: y + LABEL_PX / 3 };
+      const note = { type: 'label', text: action.note, ...at, color: 'red' };
+      this.expanded.unshift({ action: note, seed: 0 });
+    }
+    return this._strokePlan(strokes, action.kind === 'tick' ? 'green' : 'red');
+  }
+
   /** One primitive of a compiled visual (see compile/index.js), or a queued write. */
   _resolvePrimitive(part, seed) {
     const rng = mulberry32(seed);
     switch (part.type) {
       case 'write':
         return this._resolveWrite(part);
+      case 'wait-ask':
+        return { kind: 'ask', ask: part.ask, duration: 0 };
+      case 'mark':
+        return this._markPlan(part, rng);
       case 'erase':
         return this._erasePlan({ x: part.x, y: part.y, w: part.w, h: part.h });
       case 'path':
