@@ -13,7 +13,7 @@ from app.services import tts_service
 
 router = APIRouter()
 
-Voice = Literal["neerja", "prabhat"]
+Voice = Literal["neerja", "prabhat", "ishita", "shubh"]
 
 
 def _limited_user(user: User = Depends(get_current_user)) -> User:
@@ -27,7 +27,7 @@ async def speak(
     voice: Voice = tts_service.DEFAULT_VOICE,
     user: User = Depends(_limited_user),
 ):
-    """MP3 of `text` in a natural Indian-English voice."""
+    """MP3 of `text` in a natural Indian voice (English: neerja, prabhat; Hindi: ishita, shubh)."""
     text = text.strip()
     if not text:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "Text is required")

@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     # Narration: neural text-to-speech (Microsoft Edge voices via edge-tts; needs internet)
     tts_enabled: bool = True
     tts_cache_ttl_seconds: int = 7 * 24 * 3600
+    # Hindi narration: Sarvam AI (Bulbul). Put the key in backend/.env, never in .env.example.
+    sarvam_api_key: str = ""
+    sarvam_api_url: str = "https://api.sarvam.ai"
+    sarvam_tts_model: str = "bulbul:v3"
+    sarvam_tts_pace: float = 0.95
 
     @field_validator("cors_origins", mode="before")
     @classmethod

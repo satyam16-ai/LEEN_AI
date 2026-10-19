@@ -25,7 +25,7 @@ function readChoice() {
   }
 }
 
-/** Off / Neerja / Prabhat. The choice is remembered on this device. */
+/** Off, or an English or Hindi voice. The choice is remembered on this device. */
 export function NarrationMenu({ player }) {
   const [choice, setChoice] = useState(readChoice);
 

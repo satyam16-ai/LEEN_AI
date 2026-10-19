@@ -1,4 +1,4 @@
-import { Narrator } from './narrator';
+import { Narrator, VOICES } from './narrator';
 
 class FakeAudio {
   static instances = [];
@@ -96,5 +96,32 @@ describe('Narrator', () => {
     expect(speak.mock.calls[0][0].text).toBe('x squared');
     // After a failure the server is not asked again straight away.
     expect(fetchAudio).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers Hindi voices', () => {
+    expect(VOICES.ishita).toMatch(/Hindi/);
+    expect(VOICES.shubh).toMatch(/Hindi/);
+  });
+
+  it('falls back to a Hindi browser voice for a Hindi voice', async () => {
+    const english = { name: 'Google UK English Female', lang: 'en-GB' };
+    const hindi = { name: 'Google हिन्दी', lang: 'hi-IN' };
+    const speak = vi.fn((utterance) => utterance.onend());
+    vi.stubGlobal('speechSynthesis', {
+      getVoices: () => [english, hindi],
+      speak,
+      cancel: vi.fn(),
+    });
+    vi.stubGlobal('SpeechSynthesisUtterance', function Utterance(text) {
+      this.text = text;
+    });
+    const narrator = new Narrator(vi.fn().mockRejectedValue(new Error('503')));
+    narrator.setVoice('ishita');
+
+    await narrator.speak('Dekho');
+
+    const [utterance] = speak.mock.calls[0];
+    expect(utterance.voice).toBe(hindi);
+    expect(utterance.lang).toBe('hi-IN');
   });
 });

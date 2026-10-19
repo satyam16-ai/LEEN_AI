@@ -6,13 +6,19 @@ const MAX_CACHED = 200;
 const SERVER_RETRY_MS = 60_000;
 
 export const VOICES = {
-  neerja: 'Neerja (female)',
-  prabhat: 'Prabhat (male)',
+  neerja: 'Neerja (English, female)',
+  prabhat: 'Prabhat (English, male)',
+  ishita: 'Ishita (Hindi, female)',
+  shubh: 'Shubh (Hindi, male)',
 };
 export const DEFAULT_VOICE = 'neerja';
+const HINDI_VOICES = new Set(['ishita', 'shubh']);
 
 /** Best voice the browser itself has, for when the server voice is unavailable. */
-function browserVoice(synth) {
+function browserVoice(synth, hindi = false) {
+  if (hindi) {
+    return synth.getVoices().find((voice) => /^hi([-_]|$)/i.test(voice.lang)) ?? null;
+  }
   const english = synth.getVoices().filter((voice) => /^en([-_]|$)/i.test(voice.lang));
   const natural = (voice) => /natural|neural|online|premium|enhanced/i.test(voice.name);
   const indian = (voice) => /IN$/i.test(voice.lang);
@@ -181,9 +187,10 @@ export class Narrator {
       return;
     }
     const utterance = new SpeechSynthesisUtterance(speakableText(text));
-    const voice = browserVoice(synth);
+    const hindi = HINDI_VOICES.has(this.voice);
+    const voice = browserVoice(synth, hindi);
     if (voice) utterance.voice = voice;
-    utterance.lang = voice?.lang ?? 'en-IN';
+    utterance.lang = voice?.lang ?? (hindi ? 'hi-IN' : 'en-IN');
     utterance.rate = Math.min(1.8, this.rate);
     utterance.onend = finish;
     utterance.onerror = finish;
