@@ -32,6 +32,7 @@ CONSTANTS = {"pi": math.pi, "e": math.e}
 
 _UNICODE = str.maketrans({"−": "-", "×": "*", "÷": "/", "·": "*", "π": " pi "})
 _ROOT_OF_NUMBER = re.compile(r"√\s*(\d+(?:\.\d+)?|[A-Za-z]+)")
+_MIXED_NUMBER = re.compile(r"^(-?)\s*(\d+)\s+(\d+)\s*/\s*(\d+)$")
 _TOKEN = re.compile(
     r"\s*(?:(?P<number>\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\.\d+)"
     r"|(?P<name>[A-Za-z_][A-Za-z_0-9]*)"
@@ -73,7 +74,9 @@ def _python(text: str) -> str:
     parts: list[str] = []
     previous = None
     for kind, value in _tokens(text.replace("^", "**")):
-        if previous and _ends_value(*previous) and _starts_value(kind, value):
+        # Two numbers in a row ("2 3", "1.5.2") are a typo, not a product: leave them to fail.
+        both_numbers = previous is not None and previous[0] == "number" and kind == "number"
+        if previous and _ends_value(*previous) and _starts_value(kind, value) and not both_numbers:
             parts.append("*")
         parts.append(value)
         previous = (kind, value)
@@ -127,9 +130,16 @@ def evaluate(text: str, x: float | None = None) -> float:
 
 
 def parse_answer_number(text: str, unit: str | None = None) -> float:
-    """A student's number answer: "12 cm", "1,000", "3/4", "−3.5"."""
-    value = text.strip()
+    """A student's number answer: "12 cm", "1,000", "3/4", "−3.5", "1 1/2"."""
+    value = text.strip().translate(_UNICODE)
     if unit and value.casefold().endswith(unit.strip().casefold()):
         value = value[: -len(unit.strip())]
-    value = re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", value)
+    value = re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", value).strip()
+    mixed = _MIXED_NUMBER.match(value)
+    if mixed:
+        sign, whole, numerator, denominator = mixed.groups()
+        if int(denominator) == 0:
+            raise ValueError("division by zero")
+        size = int(whole) + int(numerator) / int(denominator)
+        return -size if sign else size
     return evaluate(value)

@@ -66,11 +66,30 @@ def test_check_choice():
 
 def test_check_number():
     ask = prepare_ask({"type": "ask", "id": "q1", "kind": "number", "answer": 12, "unit": "cm"})
-    assert check_answer(ask, "12.1") is True
-    assert check_answer(ask, "12.5") is False
+    assert check_answer(ask, "12") is True
     assert check_answer(ask, "12 cm") is True
+    assert check_answer(ask, "12.5") is False
     with pytest.raises(ValueError):
         check_answer(ask, "abc")
+
+
+def test_whole_number_keys_need_the_exact_number():
+    # Review: with a 1% tolerance, 99 and 101 were marked right for 100.
+    ask = prepare_ask({"type": "ask", "id": "q1", "kind": "number", "answer": 100})
+    assert check_answer(ask, "100") is True
+    assert check_answer(ask, "99") is False
+    assert check_answer(ask, "101") is False
+    assert check_answer(ask, "12.1") is False
+
+
+def test_decimal_keys_accept_the_places_the_student_gives():
+    third = prepare_ask({"type": "ask", "id": "q1", "kind": "number", "calc": "1/3"})
+    assert check_answer(third, "0.33") is True
+    assert check_answer(third, "1/3") is True
+    assert check_answer(third, "0.4") is False
+    circle = prepare_ask({"type": "ask", "id": "q2", "kind": "number", "calc": "2*pi*7"})
+    assert check_answer(circle, "43.98") is True
+    assert check_answer(circle, "43.9") is False
 
 
 def test_check_expression():
@@ -93,7 +112,10 @@ def test_display_key():
     number = {"type": "ask", "id": "q1", "kind": "number", "answer": 12, "unit": "cm"}
     assert display_key(prepare_ask(number)) == "12 cm"
     third = {"type": "ask", "id": "q1", "kind": "number", "answer": 0.3333333}
-    assert display_key(prepare_ask(third)) == "0.3333"
+    assert display_key(prepare_ask(third)) == "0.333333"
+    for value, shown in ((12345, "12345"), (100000, "100000"), (1.5e-7, "0.00000015")):
+        ask = {"type": "ask", "id": "q1", "kind": "number", "answer": value}
+        assert display_key(prepare_ask(ask)) == shown
     expr = {"type": "ask", "id": "q1", "kind": "expr", "answer": "x^2+2x+1"}
     assert display_key(prepare_ask(expr)) == "x^2+2x+1"
 

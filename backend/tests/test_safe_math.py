@@ -54,6 +54,8 @@ def test_evaluates_expressions_in_x():
         "2x",
         "1/0",
         "sqrt(-1)",
+        "2 3",
+        "1.5.2",
     ],
 )
 def test_rejects_anything_but_arithmetic(text):
@@ -70,6 +72,8 @@ def test_rejects_anything_but_arithmetic(text):
         ("1,000", None, 1000),
         ("  -3.5 ", None, -3.5),
         ("3/4", None, 0.75),
+        ("1 1/2", None, 1.5),
+        ("-2 1/4", None, -2.25),
     ],
 )
 def test_parse_answer_number(text, unit, value):

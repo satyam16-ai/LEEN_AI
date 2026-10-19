@@ -8,12 +8,15 @@
 import math
 import re
 import string
+from decimal import Decimal
 
 from app.utils.safe_math import evaluate, parse_answer_number
 
 SAMPLE_XS = (-2.7, -1.3, 0.6, 1.9, 3.1)
 MIN_SAMPLES = 3
-NUMBER_TOLERANCE = 0.01
+# A decimal answer also counts if it is the key to within 0.1%, e.g. 44 for 43.98.
+NUMBER_TOLERANCE = 0.001
+_DECIMALS = re.compile(r"\d\.(\d+)")
 MAX_MODEL_ANSWER = 200
 HIDDEN = ("answer", "calc")
 LETTERS = string.ascii_uppercase[:6]
@@ -103,9 +106,7 @@ def check_answer(ask: dict, answer: str) -> bool | None:
             raise ValueError("pick one of the options")
         return index == ask["answer"]
     if kind == "number":
-        value = parse_answer_number(answer, ask.get("unit"))
-        key = float(ask["answer"])
-        return abs(value - key) <= max(1e-9, NUMBER_TOLERANCE * abs(key))
+        return _number_matches(parse_answer_number(answer, ask.get("unit")), ask["answer"], answer)
     if kind == "expr":
         student = _values(answer)
         if all(value is None for value in student):
@@ -121,6 +122,25 @@ def check_answer(ask: dict, answer: str) -> bool | None:
     return None
 
 
+def _number_matches(value: float, key: float, typed: str) -> bool:
+    """Whole-number keys need the exact number; decimal keys accept the places typed."""
+    key = float(key)
+    if key.is_integer():
+        return abs(value - key) < 1e-9
+    if math.isclose(value, key, rel_tol=NUMBER_TOLERANCE, abs_tol=1e-9):
+        return True
+    places = max((len(digits) for digits in _DECIMALS.findall(typed)), default=0)
+    return places > 0 and round(key, places) == round(value, places)
+
+
+def _format_number(value: float) -> str:
+    """A number as a student writes it: 12345, 0.333333, 0.00000015 (never 1.2e+04)."""
+    value = float(value)
+    if value.is_integer() and abs(value) < 1e15:
+        return str(int(value))
+    return format(Decimal(f"{value:.6g}"), "f")
+
+
 def display_key(ask: dict) -> str | None:
     """The right answer as the student should see it, e.g. "B. 8" or "12 cm"."""
     answer = ask.get("answer")
@@ -130,7 +150,7 @@ def display_key(ask: dict) -> str | None:
         return f"{LETTERS[answer]}. {ask['options'][answer]}"
     if ask.get("kind") == "number":
         unit = ask.get("unit")
-        return f"{float(answer):.4g}" + (f" {unit}" if unit else "")
+        return _format_number(answer) + (f" {unit}" if unit else "")
     return str(answer)
 
 

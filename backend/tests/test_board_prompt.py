@@ -156,7 +156,9 @@ def test_check_prompt_carries_answers_and_key():
     _, user = build_prompt("Area?", "Maths", None, context="b", mode="check", left="l", check=check)
     assert "<answer>\n14\n</answer>" in user and "<answer>\n15\n</answer>" in user
     assert "12 cm" in user and "Area of a 3 cm by 4 cm rectangle?" in user
-    assert "mark" in user and "<left>\nl\n</left>" in user
+    assert "<left>\nl\n</left>" in user
+    # Review: the board already shows the answers with a cross; the AI wrote them again.
+    assert "already on the board" in user
 
 
 def test_text_check_asks_for_a_verdict():
