@@ -358,7 +358,7 @@ Because the model's output becomes plain data, a prompt-injected question can't 
   - an unusable key → the question becomes a text question.
 - **Keys never reach the browser.** `public_action()` strips `answer` and `calc` from the stream, the cache and replays.
 - The player draws the options (or `Answer (cm): ?`) and waits; the talk bar becomes the answer box. Replays don't wait.
-- `POST …/answers` checks choice, number (1%) and expression (equal at sample points) answers with `app/utils/safe_math.py`. It walks a whitelisted Python `ast`, never `eval`. There is no AI call. Each answer is an `answer` board event, and replays show it after its question.
+- `POST …/answers` checks choice, number (whole-number keys exactly; decimal keys to the places typed, or 0.1%) and expression (equal at sample points) answers with `app/utils/safe_math.py`. It walks a whitelisted Python `ast`, never `eval`. There is no AI call. Each answer is an `answer` board event, and replays show it after its question.
 - A wrong answer gets "Not quite. Have another go."; a second wrong answer, or any written answer, starts a **check** turn by the **Examiner**. It writes the answer in orange, marks it with `mark` (tick or cross), explains, and for written answers records a `verdict` on the answer event.
 - **"Now you try"** is a `practice` turn by the Examiner: a scene, one question like the doubt, then it stops.
 

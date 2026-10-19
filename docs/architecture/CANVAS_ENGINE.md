@@ -87,7 +87,7 @@ Planned for later phases:
 - `ask {id, kind: choice | number | expr | text, options?, unit?, hint?, answer, calc?}`. The board writes the answer line (and the options), the player waits, and the talk bar becomes the answer box. The `answer` key never reaches the browser.
 - Choice, number and expression answers are checked **in code**, instantly, with no AI call:
   - a small safe evaluator (Python `ast`, no `eval`) reads fractions, roots and π;
-  - numbers match within 1%;
+  - a whole-number key needs the exact number; a decimal key accepts the student's value rounded to the places they typed, or within 0.1%;
   - expressions match when they agree at several sample values of x;
   - for `number`, the AI sends the sum as `calc` and the code works out the key, which catches arithmetic slips.
 - The board writes the student's answer in orange with a tick or a cross. A wrong answer gets one more try, with the hint. A second wrong answer makes the AI explain the mistake on the board, then carry on.
