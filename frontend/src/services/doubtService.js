@@ -1,3 +1,4 @@
+import { getApiError } from '@/utils/apiError';
 import { createSSEParser } from '@/utils/sse';
 
 import { apiClient, notifySessionExpired, refreshSession, unwrap } from './api';
@@ -44,9 +45,21 @@ export const doubtService = {
    */
   stream: (body, options) => streamSSE('/student/doubts', body, options),
 
-  /** Stream a follow-up ({question}) or "explain another way" ({mode}) onto a doubt's board. */
+  /**
+   * Stream another turn onto a doubt's board: a follow-up ({question}), a reply mid-explanation
+   * ({question, keep}), another way ({mode}), a check ({mode: 'check', ask, keep}) or practice.
+   */
   streamTurn: (doubtId, body, options) =>
     streamSSE(`/student/doubts/${doubtId}/turns`, body, options),
+
+  /** Check an answer to a question on the board; rejects with the server's message. */
+  answer: async (doubtId, body) => {
+    try {
+      return await apiClient.post(`/student/doubts/${doubtId}/answers`, body).then(unwrap);
+    } catch (error) {
+      throw new Error(getApiError(error).message, { cause: error });
+    }
+  },
 };
 
 async function streamSSE(path, body, { signal, onEvent }) {

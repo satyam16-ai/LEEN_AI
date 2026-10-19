@@ -265,6 +265,7 @@ export class BoardPlayer {
   /**
    * Write the student's answer to the open question on the board, then `say` something.
    * With `release` the board moves on; otherwise the question stays open for another try.
+   * Returns the index just after what was added (where a check turn's cut goes).
    */
   answerAsk({ text, correct = null, say = null, release = true }) {
     const ask = this.openAsk;
@@ -274,6 +275,7 @@ export class BoardPlayer {
     if (!release) local.push({ type: 'ask', ...ask, again: true, local: true });
     this.actions.splice(this.next, 0, ...local);
     this._closeAsk();
+    return this.next + local.length;
   }
 
   /** Turn narration down while the student's microphone is listening. */

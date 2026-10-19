@@ -54,7 +54,8 @@ describe('BoardPlayer: questions', () => {
     expect(snapshot.ask.answer).toBeUndefined();
     expect(snapshot.captions).toEqual(['What is the area?']);
 
-    player.answerAsk({ text: '12', correct: true, say: 'Correct!', release: true });
+    const after = player.answerAsk({ text: '12', correct: true, say: 'Correct!', release: true });
+    expect(after).toBe(4); // caption, question, then the answer and 'Correct!'
     player.endStream();
     drain(player);
 
