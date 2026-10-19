@@ -528,3 +528,38 @@ def test_concurrent_follow_ups_get_one_conflict(signed_in, monkeypatch):
     assert sorted(outcomes, key=str) == [409, "ok"]
     with SessionLocal() as db:
         assert len(board_repository.list_turns(db, doubt_id)) == 2
+
+
+# -- questions: answer keys stay on the server ------------------------------------------
+
+QUESTION_SCRIPT = (
+    '{"type":"caption","text":"What is the area of a 3 cm by 4 cm rectangle?"}\n'
+    '{"type":"write","text":"Area = ?","id":"a"}\n'
+    '{"type":"ask","id":"q1","kind":"number","answer":13,"calc":"3*4","unit":"cm"}\n'
+)
+
+
+def _has_key(action: dict) -> bool:
+    return "answer" in action or "calc" in action
+
+
+def test_answer_keys_never_reach_the_browser(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(QUESTION_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+
+    events = read_events(student.post(DOUBTS, json={"question": "Area of a 3 by 4 rectangle?"}))
+    streamed = [data for name, data in events if name == "action"]
+    doubt_id = events[0][1]["id"]
+
+    asks = [action for action in streamed if action["type"] == "ask"]
+    assert asks == [{"type": "ask", "id": "q1", "kind": "number", "unit": "cm"}]
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert not any(_has_key(action) for action in saved["actions"])
+    with SessionLocal() as db:
+        [turn] = board_repository.list_turns(db, doubt_id)
+        [stored] = [a for a in turn.payload["actions"] if a["type"] == "ask"]
+        assert stored["answer"] == 12.0
+
+    cached = read_events(student.post(DOUBTS, json={"question": "Area of a 3 by 4 rectangle?"}))
+    cached_asks = [data for name, data in cached if name == "action" and data["type"] == "ask"]
+    assert cached_asks == asks

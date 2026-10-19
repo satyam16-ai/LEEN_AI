@@ -22,6 +22,7 @@ from app.models.user import User, utcnow
 from app.repositories import board_repository, profile_repository
 from app.schemas.whiteboard import DoubtCreate, DoubtOut, DoubtSummary, TurnCreate, TurnOut
 from app.services.llm import claude_bridge, gateway
+from app.services.whiteboard.grading import prepare_ask, public_action
 from app.services.whiteboard.parser import ActionStreamParser
 from app.services.whiteboard.prompt import build_prompt
 from app.services.whiteboard.summary import summarize_board
@@ -88,7 +89,7 @@ def get_doubt(db: Session, student: User, doubt_id: str) -> DoubtOut:
     turns = [event.payload for event in board_repository.list_turns(db, session.id)]
     return DoubtOut(
         **_summary(session).model_dump(),
-        actions=flatten_turns(turns),
+        actions=[public_action(action) for action in flatten_turns(turns)],
         turns=[
             TurnOut(
                 question=turn["question"],
@@ -278,8 +279,10 @@ async def stream_solution(
                 break
             new = parser.flush() if kind == "end" else parser.feed(value)
             for action in new:
+                if action["type"] == "ask":
+                    action = prepare_ask(action)  # the key is saved, never sent
                 actions.append(action)
-                yield _sse("action", action)
+                yield _sse("action", public_action(action))
             if kind == "end" or parser.full:
                 error = None if actions else EMPTY
                 break
@@ -301,5 +304,5 @@ async def stream_cached(doubt: DoubtSummary, actions: list[dict]) -> AsyncIterat
     """The same events as stream_solution, for a board copied from the cache."""
     yield _sse("doubt", doubt.model_dump(mode="json"))
     for action in actions:
-        yield _sse("action", action)
+        yield _sse("action", public_action(action))
     yield _sse("done", {"id": doubt.id, "count": len(actions)})
