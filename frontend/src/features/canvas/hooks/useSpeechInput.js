@@ -77,11 +77,26 @@ export function useSpeechInput({ lang = 'en-IN', onFinal } = {}) {
   }, [lang]);
 
   const record = useCallback(async () => {
+    // Hold the slot while the browser asks for the microphone: a second tap starts nothing,
+    // and stopping or closing now means the recording never begins.
+    const starting = { cancelled: false };
+    const cancel = () => {
+      starting.cancelled = true;
+      activeRef.current = null;
+    };
+    activeRef.current = { stop: cancel, abort: cancel };
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setError(BLOCKED);
+      if (!starting.cancelled) {
+        activeRef.current = null;
+        setError(BLOCKED);
+      }
+      return;
+    }
+    if (starting.cancelled) {
+      stream.getTracks().forEach((track) => track.stop());
       return;
     }
     const recorder = new MediaRecorder(stream);

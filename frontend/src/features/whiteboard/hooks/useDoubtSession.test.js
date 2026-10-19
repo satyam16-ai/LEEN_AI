@@ -372,3 +372,66 @@ describe('useDoubtSession: review fixes', () => {
     );
   });
 });
+
+
+describe('useDoubtSession: deferred fixes', () => {
+  it('a queued message comes back when its turn fails', async () => {
+    let fail;
+    doubtService.stream.mockImplementation(
+      (body, { onEvent }) =>
+        new Promise((resolve) => {
+          onEvent('doubt', { id: 'd1' });
+          fail = () => {
+            onEvent('error', { message: 'The AI tutor ran into a problem.' });
+            resolve();
+          };
+        })
+    );
+    const player = fakePlayer('playing');
+    const { result } = renderHook(() => useDoubtSession(player), { wrapper });
+    let asking;
+    act(() => {
+      asking = result.current.ask({ question: 'Q' });
+    });
+    act(() => result.current.say('why is it inverted?'));
+
+    await act(async () => {
+      fail();
+      await asking;
+      await flush();
+    });
+
+    expect(doubtService.streamTurn).not.toHaveBeenCalled();
+    expect(result.current.session.pending).toBeNull();
+    expect(result.current.session.unsent).toBe('why is it inverted?');
+  });
+
+  it("a verdict replaces 'checking your answer'", async () => {
+    const player = fakePlayer('asking');
+    player.ask = { id: 'q2', kind: 'text' };
+    const { result } = await askedDoubt(player);
+    const judged = { correct: null, attempt: 1, final: true, expected: null };
+    doubtService.answer.mockResolvedValue(judged);
+    doubtService.streamTurn.mockImplementation((id, body, { onEvent }) => {
+      onEvent('action', { type: 'verdict', ask: 'q2', correct: false });
+      onEvent('done', { id });
+      return Promise.resolve();
+    });
+
+    await act(async () => result.current.answer('light slows down'));
+
+    expect(result.current.session.feedback).toEqual({ kind: 'marked' });
+  });
+
+  it('a check that gives no verdict clears the waiting line', async () => {
+    const player = fakePlayer('asking');
+    player.ask = { id: 'q2', kind: 'text' };
+    const { result } = await askedDoubt(player);
+    const judged = { correct: null, attempt: 1, final: true, expected: null };
+    doubtService.answer.mockResolvedValue(judged);
+
+    await act(async () => result.current.answer('light slows down'));
+
+    expect(result.current.session.feedback).toBeNull();
+  });
+});

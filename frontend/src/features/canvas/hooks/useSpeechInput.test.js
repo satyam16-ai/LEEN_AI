@@ -153,6 +153,56 @@ describe('useSpeechInput in Hindi (recorded, transcribed by Sarvam)', () => {
     expect(sttService.transcribe).toHaveBeenCalledTimes(1);
   });
 
+  it('a second tap during the permission prompt starts nothing', async () => {
+    let grant;
+    navigator.mediaDevices.getUserMedia.mockReturnValue(
+      new Promise((resolve) => {
+        grant = () => resolve({ getTracks: () => [track] });
+      })
+    );
+    const recorders = vi.spyOn(globalThis, 'MediaRecorder');
+    const { result } = renderHook(() => useSpeechInput({ lang: 'hi-IN', onFinal: vi.fn() }));
+
+    let first;
+    act(() => {
+      first = result.current.start();
+      result.current.start();
+    });
+    await act(async () => {
+      grant();
+      await first;
+    });
+
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
+    expect(recorders).toHaveBeenCalledTimes(1);
+  });
+
+  it('closing during the permission prompt records and sends nothing', async () => {
+    let grant;
+    navigator.mediaDevices.getUserMedia.mockReturnValue(
+      new Promise((resolve) => {
+        grant = () => resolve({ getTracks: () => [track] });
+      })
+    );
+    FakeRecorder.last = null;
+    const onFinal = vi.fn();
+    const { result, unmount } = renderHook(() => useSpeechInput({ lang: 'hi-IN', onFinal }));
+
+    let starting;
+    act(() => {
+      starting = result.current.start();
+    });
+    unmount();
+    await act(async () => {
+      grant();
+      await starting;
+    });
+
+    expect(track.stop).toHaveBeenCalled();
+    expect(FakeRecorder.last).toBeNull();
+    expect(onFinal).not.toHaveBeenCalled();
+  });
+
   it("a failed upload shows the server's message", async () => {
     sttService.transcribe.mockRejectedValue(new Error('Voice input is unavailable right now.'));
     const { result } = renderHook(() => useSpeechInput({ lang: 'hi-IN', onFinal: vi.fn() }));

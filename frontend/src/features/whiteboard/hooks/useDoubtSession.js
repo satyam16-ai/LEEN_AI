@@ -13,9 +13,11 @@ const IDLE = {
   turns: 0,
   // A message the student sent while the AI was still writing; it goes out when that ends.
   pending: null,
+  // A queued message whose turn failed: the talk bar puts it back in the box.
+  unsent: null,
   // An answer is being checked.
   checking: false,
-  // How the last answer went: { kind: correct | wrong | final | teacher | unreadable, ... }.
+  // How the last answer went: { kind: correct | wrong | final | teacher | marked | unreadable }.
   feedback: null,
 };
 const CUT_OFF = 'The connection closed before the explanation finished. Please try again.';
@@ -74,6 +76,10 @@ export function useDoubtSession(player, { onDoubt } = {}) {
               onDoubtEvent?.(data);
             } else if (event === 'action') {
               player.enqueue(data);
+              if (data?.type === 'verdict') {
+                const feedback = { kind: data.correct ? 'correct' : 'marked' };
+                setSession((current) => ({ ...current, feedback }));
+              }
             } else if (event === 'done') {
               outcome = { phase: 'done' };
             } else if (event === 'error') {
@@ -121,8 +127,9 @@ export function useDoubtSession(player, { onDoubt } = {}) {
       const waiting = pendingRef.current;
       if (waiting !== null && controllerRef.current === null) {
         pendingRef.current = null;
-        setSession((current) => ({ ...current, pending: null }));
-        if (outcome.phase === 'done') await sendRef.current?.(waiting);
+        const done = outcome.phase === 'done';
+        setSession((current) => ({ ...current, pending: null, unsent: done ? null : waiting }));
+        if (done) await sendRef.current?.(waiting);
       }
     },
     [player, queryClient]
@@ -193,6 +200,7 @@ export function useDoubtSession(player, { onDoubt } = {}) {
   const say = useCallback(
     (text) => {
       if (!doubtIdRef.current && !generatingRef.current) return undefined;
+      setSession((current) => (current.unsent ? { ...current, unsent: null } : current));
       if (generatingRef.current) {
         // Several messages while the AI writes are all kept, as one.
         const queued = pendingRef.current ? `${pendingRef.current}\n${text}` : text;
@@ -207,10 +215,14 @@ export function useDoubtSession(player, { onDoubt } = {}) {
 
   /** Ask the Examiner to explain the answer to question `askId`, cutting the board at `at`. */
   const check = useCallback(
-    (askId, at) => {
+    async (askId, at) => {
       player.cut(at);
       const body = { mode: 'check', ask: askId, keep: player.keepCount(at) };
-      return streamTurn(doubtIdRef.current, body);
+      await streamTurn(doubtIdRef.current, body);
+      // The check is over: "Your teacher is checking…" shouldn't outlive it.
+      setSession((current) =>
+        current.feedback?.kind === 'teacher' ? { ...current, feedback: null } : current
+      );
     },
     [player, streamTurn]
   );

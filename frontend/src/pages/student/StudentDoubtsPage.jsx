@@ -173,6 +173,7 @@ export function StudentDoubtsPage() {
               busy={busy}
               full={turnCount >= MAX_TURNS}
               pending={talkingLive ? session.pending : null}
+              unsent={talkingLive ? session.unsent : null}
               checking={talkingLive && session.checking}
               feedback={talkingLive ? session.feedback : null}
               speechLang={hindi ? 'hi-IN' : 'en-IN'}

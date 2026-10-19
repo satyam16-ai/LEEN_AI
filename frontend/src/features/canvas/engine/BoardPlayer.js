@@ -610,12 +610,7 @@ export class BoardPlayer {
       case 'pause':
         return { kind: 'pause', duration: action.ms ?? 800 };
       case 'write':
-        if (this._columnFull(action)) {
-          this.next = index; // write it again on the new page
-          const title = this.pageTitle ? this.pageTitle.replace(CONTD, '') + CONTD : 'Continued';
-          return this._startPage(title, index);
-        }
-        return this._resolveWrite(action);
+        return this._pageBreak(action, index) ?? this._resolveWrite(action);
       case 'line':
       case 'arrow':
       case 'rect':
@@ -752,6 +747,17 @@ export class BoardPlayer {
     }
   }
 
+  /**
+   * When the column is full, start a "(contd.)" page and come back to action `index` on it.
+   * Returns the page's plan, or null when there is room.
+   */
+  _pageBreak(action, index) {
+    if (!this._columnFull(action)) return null;
+    this.next = index; // resolve the action again on the new page
+    const title = this.pageTitle ? this.pageTitle.replace(CONTD, '') + CONTD : 'Continued';
+    return this._startPage(title, index);
+  }
+
   /** True when a write that flows down the column would start below the bottom of the board. */
   _columnFull(action) {
     if (action.y !== undefined || !this.flow) return false;
@@ -762,6 +768,10 @@ export class BoardPlayer {
 
   /** A question: write its options (or an answer line), then wait for the student. */
   _askPlan(action, index) {
+    if (!action.again) {
+      const page = this._pageBreak({}, index);
+      if (page) return page;
+    }
     const ask = this._askView(action);
     if (!action.again) {
       const letter = (i) => String.fromCharCode(65 + i);
@@ -785,6 +795,8 @@ export class BoardPlayer {
 
   /** The student's answer written in the column, with a tick or cross after it. */
   _answerPlan(action, index) {
+    const page = this._pageBreak({}, index);
+    if (page) return page;
     const id = `__answer${index}`;
     const seed = (index + 1) * 1000;
     const written = { type: 'write', text: String(action.text), color: 'orange', id };

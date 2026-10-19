@@ -195,3 +195,39 @@ describe('BoardPlayer: review fixes', () => {
     expect(player.turnOffset).toBe(0);
   });
 });
+
+
+describe('BoardPlayer: the bottom edge', () => {
+  /** How many writes after a scene fit on one page (the next one starts a new page). */
+  function writesPerPage() {
+    const probe = livePlayer([{ type: 'scene', title: 'Area' }]);
+    for (let n = 1; n < 60; n += 1) {
+      probe.enqueue(write(`line ${n}`));
+      drain(probe);
+      if (probe.getSnapshot().pages.length > 0) return n - 1; // the scene's own page is not kept
+    }
+    throw new Error('the column never filled');
+  }
+
+  it('a question at the bottom of a full page goes to a new page', () => {
+    const fit = writesPerPage();
+    const player = livePlayer([{ type: 'scene', title: 'Area' }]);
+    for (let n = 0; n < fit; n += 1) player.enqueue(write(`line ${n}`));
+    player.enqueue(QUESTION);
+    drain(player);
+
+    expect(player.getSnapshot().pageTitle).toBe('Area (contd.)');
+    expect(player.getSnapshot().status).toBe('asking');
+  });
+
+  it("the student's answer at the bottom of a full page goes to a new page", () => {
+    const fit = writesPerPage();
+    const player = attachFakeCanvas(new BoardPlayer());
+    const lines = Array.from({ length: fit }, (_, n) => write(`line ${n}`));
+    const answer = { type: 'answer', ask: 'q1', text: '12', correct: true };
+    player.load([{ type: 'scene', title: 'Area' }, ...lines, answer]);
+    drain(player);
+
+    expect(player.getSnapshot().pageTitle).toBe('Area (contd.)');
+  });
+});

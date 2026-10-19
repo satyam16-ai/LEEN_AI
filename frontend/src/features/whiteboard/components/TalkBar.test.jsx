@@ -163,3 +163,33 @@ describe('TalkBar: review fixes', () => {
     expect(screen.queryByText('Add them')).toBeNull();
   });
 });
+
+
+describe('TalkBar: deferred fixes', () => {
+  it('an unsent message is put back in the box', () => {
+    setup({ playing: false, unsent: 'why is it inverted?' });
+    const box = screen.getByRole('textbox', { name: /say or type/i });
+    expect(box).toHaveValue('why is it inverted?');
+  });
+
+  it('a marked written answer points to the board', () => {
+    setup({ playing: false, feedback: { kind: 'marked' } });
+    expect(screen.getByText('See the board for what to fix.')).toBeInTheDocument();
+  });
+
+  it('the hint shows itself after a wrong answer', () => {
+    const ask = { id: 'q1', kind: 'number', hint: 'Multiply them' };
+    setup({ ask, feedback: { kind: 'wrong' } });
+    expect(screen.getByText('Multiply them')).toBeInTheDocument();
+  });
+
+  it('closing the bar while listening turns narration back up', () => {
+    speech.listening = true;
+    const onListening = vi.fn();
+    const { unmount } = render(
+      <TalkBar playing onListening={onListening} onSay={vi.fn()} onAnswer={vi.fn()} />
+    );
+    unmount();
+    expect(onListening).toHaveBeenLastCalledWith(false);
+  });
+});

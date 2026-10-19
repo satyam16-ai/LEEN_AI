@@ -7,7 +7,7 @@ import {
   Sparkles,
   Square,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button, Card, Input } from '@/components/ui';
 import { useSpeechInput } from '@/features/canvas';
@@ -31,6 +31,8 @@ function feedbackText(feedback) {
       return feedback.expected ? `The answer is ${feedback.expected}. Let's see why.` : null;
     case 'teacher':
       return 'Your teacher is checking your answer…';
+    case 'marked':
+      return 'See the board for what to fix.';
     case 'unreadable':
       return feedback.message;
     default:
@@ -68,6 +70,7 @@ export function TalkBar({
   busy = false,
   full = false,
   pending = null,
+  unsent = null,
   checking = false,
   feedback = null,
   speechLang = 'en-IN',
@@ -87,6 +90,12 @@ export function TalkBar({
     setSeenAsk(ask);
     setValue('');
   }
+  // A message whose turn failed comes back into the box, ready to send again.
+  const [seenUnsent, setSeenUnsent] = useState(null);
+  if (unsent !== seenUnsent) {
+    setSeenUnsent(unsent);
+    if (unsent) setText(unsent);
+  }
 
   const speech = useSpeechInput({
     lang: speechLang,
@@ -100,6 +109,13 @@ export function TalkBar({
   useEffect(() => {
     onListening?.(speech.listening);
   }, [speech.listening, onListening]);
+
+  // Closing the bar mid-sentence must not leave narration turned down.
+  const onListeningRef = useRef(onListening);
+  useEffect(() => {
+    onListeningRef.current = onListening;
+  });
+  useEffect(() => () => onListeningRef.current?.(false), []);
 
   if (full && !ask) {
     return (
@@ -178,7 +194,9 @@ export function TalkBar({
             Skip
           </Button>
         </div>
-        {hintFor === ask && ask.hint && <p className="text-sm">{ask.hint}</p>}
+        {ask.hint && (hintFor === ask || feedback?.kind === 'wrong') && (
+          <p className="text-sm">{ask.hint}</p>
+        )}
         {footer}
       </Card>
     );
