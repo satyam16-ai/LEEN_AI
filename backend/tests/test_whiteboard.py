@@ -396,7 +396,7 @@ def test_busy_board_and_turn_limit(signed_in, monkeypatch):
     with SessionLocal() as db:
         board_repository.add_turn(db, db.get(BoardSession, busy_id), _turn("q", "streaming"))
         full = db.get(BoardSession, full_id)
-        for n in range(5):
+        for n in range(11):
             board_repository.add_turn(db, full, _turn(f"q{n}"))
         db.commit()
 
@@ -573,3 +573,134 @@ def test_doubts_are_logged_as_the_doubt_solver(signed_in, monkeypatch):
 
     with SessionLocal() as db:
         assert [call.agent for call in db.query(LlmCall).all()] == ["doubt_solver"]
+
+
+# -- replies mid-explanation and practice ------------------------------------------------
+
+STEPS_SCRIPT = (
+    '{"type":"caption","text":"First, the rule."}\n'
+    '{"type":"write","text":"1/v - 1/u = 1/f"}\n'
+    '{"type":"caption","text":"Now put in the numbers."}\n'
+    '{"type":"write","text":"v = 15 cm"}\n'
+)
+REPLY_SCRIPT = '{"type":"caption","text":"Good question!"}\n{"type":"write","text":"inverted"}\n'
+
+
+def test_reply_cuts_the_board_and_carries_on(signed_in, monkeypatch):
+    fake = counting_stream(STEPS_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = ask(student, "Where is the image of a convex lens?")
+    fake_reply = counting_stream(REPLY_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake_reply)
+
+    response = student.post(f"{DOUBTS}/{doubt_id}/turns", json={"question": "Why?", "keep": 2})
+
+    assert read_events(response)[-1][0] == "done"
+    assert "<left>\nNow put in the numbers.\nv = 15 cm\n</left>" in fake_reply.prompt
+    assert "<message>\nWhy?\n</message>" in fake_reply.prompt
+    assert "<doubt>\nWhere is the image of a convex lens?\n</doubt>" in fake_reply.prompt
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert [a["text"] for a in saved["actions"]] == [
+        "First, the rule.",
+        "1/v - 1/u = 1/f",
+        "Good question!",
+        "inverted",
+    ]
+    assert [(t["mode"], t["question"]) for t in saved["turns"]] == [
+        ("ask", "Where is the image of a convex lens?"),
+        ("reply", "Why?"),
+    ]
+    with SessionLocal() as db:
+        first = board_repository.list_turns(db, doubt_id)[0]
+        assert first.payload["cut_at"] == 2 and len(first.payload["actions"]) == 4
+
+
+def test_reply_without_left_wraps_up(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(STEPS_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = ask(student)
+    fake_reply = counting_stream(REPLY_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake_reply)
+
+    student.post(f"{DOUBTS}/{doubt_id}/turns", json={"question": "And then?", "keep": 99})
+
+    assert "<left>" not in fake_reply.prompt and "wrap up" in fake_reply.prompt
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert len(saved["actions"]) == 6 and saved["turns"][1]["mode"] == "reply"
+
+
+def test_now_you_try_sets_a_practice_question(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(BOARD_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = ask(student, "What is a prime number?")
+    fake = counting_stream(QUESTION_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+
+    response = student.post(f"{DOUBTS}/{doubt_id}/turns", json={"mode": "practice"})
+
+    assert read_events(response)[-1][0] == "done"
+    assert "Now you try" in fake.prompt
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert saved["turns"][1] | {"count": 0} == {
+        "question": "What is a prime number?",
+        "mode": "practice",
+        "status": "complete",
+        "count": 0,
+    }
+    with SessionLocal() as db:
+        agents = [call.agent for call in db.query(LlmCall).order_by(LlmCall.created_at)]
+        assert agents == ["doubt_solver", "examiner"]
+
+
+def test_flatten_applies_cuts_and_answers():
+    ask_q1 = {"type": "ask", "id": "q1", "kind": "number"}
+    turns = [
+        {
+            "question": "Area?",
+            "mode": "ask",
+            "actions": [
+                {"type": "caption", "text": "c"},
+                {"type": "write", "text": "w"},
+                ask_q1,
+                {"type": "caption", "text": "cut"},
+            ],
+            "cut_at": 3,
+        },
+        {"question": "Why?", "mode": "check", "actions": [{"type": "caption", "text": "see"}]},
+    ]
+    answers = {
+        (0, "q1"): [
+            {"turn": 0, "ask": "q1", "answer": "14", "correct": False, "attempt": 1},
+            {"turn": 0, "ask": "q1", "answer": "12", "correct": True, "attempt": 2},
+        ]
+    }
+
+    actions = whiteboard_service.flatten_turns(turns, answers)
+
+    assert actions == [
+        {"type": "caption", "text": "c"},
+        {"type": "write", "text": "w"},
+        ask_q1,
+        {"type": "answer", "ask": "q1", "text": "14", "correct": False},
+        {"type": "answer", "ask": "q1", "text": "12", "correct": True},
+        {"type": "caption", "text": "see"},
+    ]
+
+
+def test_turns_have_their_own_rate_limit(signed_in, monkeypatch):
+    from app.api.v1.endpoints import student as student_endpoints
+
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(BOARD_SCRIPT))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    limits = []
+    monkeypatch.setattr(
+        student_endpoints.rate_limit,
+        "enforce",
+        lambda key, limit, window: limits.append((key.split(":")[0], limit, window)),
+    )
+    doubt_id = ask(student)
+
+    student.post(f"{DOUBTS}/{doubt_id}/turns", json={"question": "Why so?"})
+
+    assert limits == [("doubt", 15, 3600), ("doubt-turn", 40, 3600)]

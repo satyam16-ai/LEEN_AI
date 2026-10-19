@@ -44,12 +44,16 @@ def list_sessions(
     )
 
 
-def add_turn(db: Session, session: BoardSession, payload: dict) -> BoardEvent:
+def add_event(db: Session, session: BoardSession, kind: str, payload: dict) -> BoardEvent:
     last = db.scalar(select(func.max(BoardEvent.seq)).where(BoardEvent.session_id == session.id))
-    event = BoardEvent(session_id=session.id, seq=(last or 0) + 1, kind="turn", payload=payload)
+    event = BoardEvent(session_id=session.id, seq=(last or 0) + 1, kind=kind, payload=payload)
     db.add(event)
     db.flush()
     return event
+
+
+def add_turn(db: Session, session: BoardSession, payload: dict) -> BoardEvent:
+    return add_event(db, session, "turn", payload)
 
 
 def get_event(db: Session, event_id: str) -> BoardEvent | None:
@@ -62,6 +66,15 @@ def list_turns(db: Session, session_id: str) -> list[BoardEvent]:
             select(BoardEvent)
             .where(BoardEvent.session_id == session_id, BoardEvent.kind == "turn")
             .order_by(BoardEvent.seq)
+        )
+    )
+
+
+def list_events(db: Session, session_id: str) -> list[BoardEvent]:
+    """Every event of a board (turns and answers), in order."""
+    return list(
+        db.scalars(
+            select(BoardEvent).where(BoardEvent.session_id == session_id).order_by(BoardEvent.seq)
         )
     )
 

@@ -25,12 +25,12 @@ from app.services.llm import claude_bridge, gateway
 from app.services.whiteboard.grading import prepare_ask, public_action
 from app.services.whiteboard.parser import ActionStreamParser
 from app.services.whiteboard.prompt import build_prompt
-from app.services.whiteboard.summary import summarize_board
+from app.services.whiteboard.summary import summarize_board, summarize_plan
 
 logger = logging.getLogger("leen_ai")
 
 NOT_FOUND = "Doubt not found"
-MAX_TURNS = 6
+MAX_TURNS = 12
 BUSY = "Wait for the current explanation to finish."
 FULL = "This board is full. Start a new doubt to keep going."
 INTERRUPTED = "Interrupted before the explanation finished."
@@ -62,15 +62,55 @@ def _opens_with_scene(actions: list[dict]) -> bool:
     return first is not None and first.get("type") == "scene"
 
 
-def flatten_turns(turns: list[dict]) -> list[dict]:
-    """All turns' actions in order; each follow-up turn starts on a new page (scene)."""
+# Turns that carry on the page the student was looking at, instead of starting a new one.
+CONTINUING_MODES = ("reply", "check")
+# Turns run by the Examiner agent; everything else on a doubt board is the Doubt Solver's.
+EXAMINER_MODES = ("check", "practice")
+
+Answers = dict[tuple[int, str], list[dict]]
+
+
+def _shown(turn: dict) -> list[dict]:
+    """A turn's actions up to where a reply cut it off."""
+    actions = turn.get("actions") or []
+    cut = turn.get("cut_at")
+    return actions[:cut] if cut is not None else actions
+
+
+def flatten_turns(turns: list[dict], answers: Answers | None = None) -> list[dict]:
+    """The board as the student saw it, in order.
+
+    Cut-off parts of a turn are left out, each answer follows its question, and a new turn
+    starts a new page (scene) unless it is a reply or check that carries on the same page.
+    """
     actions: list[dict] = []
     for index, turn in enumerate(turns):
-        turn_actions = turn.get("actions") or []
-        if index and not _opens_with_scene(turn_actions):
+        turn_actions = _shown(turn)
+        new_page = index and turn.get("mode") not in CONTINUING_MODES
+        if new_page and not _opens_with_scene(turn_actions):
             actions.append({"type": "scene", "title": turn["question"][:60]})
-        actions.extend(turn_actions)
+        for action in turn_actions:
+            actions.append(action)
+            if action.get("type") == "ask" and answers:
+                actions += [
+                    {
+                        "type": "answer",
+                        "ask": action["id"],
+                        "text": answer["answer"],
+                        "correct": answer.get("correct"),
+                    }
+                    for answer in answers.get((index, action["id"]), [])
+                ]
     return actions
+
+
+def _answers(events) -> Answers:
+    grouped: Answers = {}
+    for event in events:
+        if event.kind == "answer":
+            key = (event.payload["turn"], event.payload["ask"])
+            grouped.setdefault(key, []).append(event.payload)
+    return grouped
 
 
 def _owned(db: Session, student: User, doubt_id: str, lock: bool = False) -> BoardSession:
@@ -86,16 +126,17 @@ def list_doubts(db: Session, student: User) -> list[DoubtSummary]:
 
 def get_doubt(db: Session, student: User, doubt_id: str) -> DoubtOut:
     session = _owned(db, student, doubt_id)
-    turns = [event.payload for event in board_repository.list_turns(db, session.id)]
+    events = board_repository.list_events(db, session.id)
+    turns = [event.payload for event in events if event.kind == "turn"]
     return DoubtOut(
         **_summary(session).model_dump(),
-        actions=[public_action(action) for action in flatten_turns(turns)],
+        actions=[public_action(action) for action in flatten_turns(turns, _answers(events))],
         turns=[
             TurnOut(
                 question=turn["question"],
                 mode=turn.get("mode", "ask"),
                 status=turn.get("status", "complete"),
-                count=len(turn.get("actions") or []),
+                count=len(_shown(turn)),
             )
             for turn in turns
         ],
@@ -183,7 +224,7 @@ def _is_stale(turn) -> bool:
 
 
 def start_turn(db: Session, student: User, doubt_id: str, payload: TurnCreate) -> TurnStart:
-    """Add a follow-up (or "explain another way") turn to a doubt's board."""
+    """Add a turn to a doubt's board: a follow-up or reply, another way, a check or practice."""
     session = _owned(db, student, doubt_id, lock=True)
     turns = board_repository.list_turns(db, session.id)
     if turns and turns[-1].payload.get("status") == "streaming":
@@ -194,18 +235,36 @@ def start_turn(db: Session, student: User, doubt_id: str, payload: TurnCreate) -
     if len(turns) >= MAX_TURNS:
         raise HTTPException(status.HTTP_409_CONFLICT, FULL)
 
-    question = payload.question if payload.mode == "follow_up" else session.title
+    mode, left, message = payload.mode, None, None
+    asked = payload.question if payload.mode == "follow_up" else session.title
+    if payload.mode == "follow_up" and payload.keep is not None and turns:
+        # Sent mid-explanation: keep what the student has seen, reply, then teach the rest.
+        latest = turns[-1]
+        actions = _shown(latest.payload)
+        keep = min(payload.keep, len(actions))
+        latest.payload = {**latest.payload, "cut_at": keep}
+        left = summarize_plan(actions[keep:]) or None
+        mode, message = "reply", payload.question
+
     context = summarize_board(flatten_turns([turn.payload for turn in turns]))
     profile = profile_repository.get(db, student.id)
-    event = board_repository.add_turn(db, session, _new_turn(question, payload.mode))
+    event = board_repository.add_turn(db, session, _new_turn(asked, mode))
     session.status = "streaming"
     session.error = None
     db.commit()
 
+    question = session.title if mode == "reply" else asked
     system, prompt = build_prompt(
-        question, session.subject, profile, context=context, mode=payload.mode
+        question,
+        session.subject,
+        profile,
+        context=context,
+        mode=mode,
+        left=left,
+        message=message,
     )
-    return TurnStart(_summary(session), event.id, system, prompt)
+    agent = "examiner" if mode in EXAMINER_MODES else "doubt_solver"
+    return TurnStart(_summary(session), event.id, system, prompt, agent=agent)
 
 
 def _sse(event: str, data: dict) -> str:

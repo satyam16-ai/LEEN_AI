@@ -17,6 +17,9 @@ from app.services import classroom_service, family_service, whiteboard_service
 
 router = APIRouter()
 current_student = require_roles(UserRole.STUDENT)
+# New doubts and turns on a board are limited separately: replies, checks and practice add up.
+DOUBT_LIMIT = 15
+TURN_LIMIT = 40
 
 
 @router.get("/link-code")
@@ -84,7 +87,7 @@ def ask_doubt(
     payload: DoubtCreate, student: User = Depends(current_student), db: Session = Depends(get_db)
 ):
     """Stream the whiteboard explanation as server-sent events."""
-    rate_limit.enforce(f"doubt:{student.id}", 15, 3600)
+    rate_limit.enforce(f"doubt:{student.id}", DOUBT_LIMIT, 3600)
     return _board_stream(whiteboard_service.start_doubt(db, student, payload), student)
 
 
@@ -95,8 +98,8 @@ def add_doubt_turn(
     student: User = Depends(current_student),
     db: Session = Depends(get_db),
 ):
-    """Stream a follow-up (or "explain another way") onto the same board."""
-    rate_limit.enforce(f"doubt:{student.id}", 15, 3600)
+    """Stream a follow-up, reply, another explanation, check or practice onto the same board."""
+    rate_limit.enforce(f"doubt-turn:{student.id}", TURN_LIMIT, 3600)
     return _board_stream(whiteboard_service.start_turn(db, student, doubt_id, payload), student)
 
 
