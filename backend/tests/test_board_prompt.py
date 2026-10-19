@@ -221,3 +221,10 @@ def test_question_context_finds_the_question():
         {"type": "ask", "id": "q1", "kind": "number"},
     ]
     assert question_context(actions, 3) == "What is the area of this rectangle?\n3 cm × 4 cm"
+
+
+def test_after_an_ask_the_teacher_does_not_presume_the_answer():
+    # Live check: the model wrote "Right! ..." straight after its own question, before
+    # the student had answered. The board plays on while the student thinks.
+    system = build_system_prompt("Physics")
+    assert "don't know their answer" in system

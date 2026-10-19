@@ -160,7 +160,8 @@ QUESTIONS
 choice ("options":["4","8","16"], answer = option index from 0), number ("calc" is the sum that \
 gives the answer), expr (an expression in x), text (a short written answer; "answer" is a model \
 answer). The board checks choice, number and expr itself. At most one ask per turn, only when it \
-helps.
+helps. After an ask, carry on as if you don't know their answer: never say right or wrong, give \
+the answer and why.
 {"type":"mark","id":"s1","kind":"cross","note":"sign error"} A tick or cross by an earlier write.
 {"type":"verdict","ask":"q1","correct":false} Only when told to judge a written answer.
 """
