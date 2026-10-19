@@ -361,6 +361,8 @@ Because the model's output becomes plain data, a prompt-injected question can't 
 - `POST …/answers` checks choice, number (whole-number keys exactly; decimal keys to the places typed, or 0.1%) and expression (equal at sample points) answers with `app/utils/safe_math.py`. It walks a whitelisted Python `ast`, never `eval`. There is no AI call. Each answer is an `answer` board event, and replays show it after its question.
 - A wrong answer gets "Not quite. Have another go."; a second wrong answer, or any written answer, starts a **check** turn by the **Examiner**. It writes the answer in orange, marks it with `mark` (tick or cross), explains, and for written answers records a `verdict` on the answer event.
 - **"Now you try"** is a `practice` turn by the Examiner: a scene, one question like the doubt, then it stops.
+- Everyday answers are read: `05`, `1,000` and `1,00,000`, `₹500` / `Rs. 500` / `500/-`, `1 1/2`, `3√2`, `2π`, `x²`. Whole-number keys need the exact number. A model key that can't be used (out of range, not a number, `Infinity`) never marks an answer right: a broken choice key keeps its options and the Examiner judges the pick.
+- A check turn closes its question: once the solution is on the board, a later answer gets 409. A verdict only updates the checked question's answers, since ids like `q1` repeat across turns.
 
 **Agents.** `gateway.AGENTS` gives each job its own model setting and token log: `doubt_solver` (doubts, follow-ups, replies) and `examiner` (practice and checks). `board_teacher` is kept for the daily class.
 
