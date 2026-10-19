@@ -11,14 +11,14 @@ import {
   DoubtComposer,
   DoubtHistory,
   DoubtSuggestions,
-  FollowUpBar,
   StepsList,
+  TalkBar,
   useDoubt,
   useDoubtSession,
 } from '@/features/whiteboard';
 
-// A board takes a first question plus up to 5 follow-ups (the server enforces it too).
-const MAX_TURNS = 6;
+// A board takes a first question plus up to 11 more turns (the server enforces it too).
+const MAX_TURNS = 12;
 
 export function StudentDoubtsPage() {
   const { doubtId } = useParams();
@@ -37,12 +37,13 @@ export function StudentDoubtsPage() {
   // Turns already on a saved board before following up on it in this visit.
   const [baseTurns, setBaseTurns] = useState(0);
 
-  const { session, ask, followUp, stop, reset } = useDoubtSession(player, {
+  const doubtSession = useDoubtSession(player, {
     onDoubt: (doubt) => {
       setLiveId(doubt.id);
       navigate(`/student/doubts/${doubt.id}`, { replace: true });
     },
   });
+  const { session, ask, followUp, say, answer, skip, tryOne, stop, reset } = doubtSession;
 
   const live = liveId !== null || !doubtId;
   const replayId = live ? null : doubtId;
@@ -82,6 +83,9 @@ export function StudentDoubtsPage() {
 
   const turnCount = live ? baseTurns + session.turns : (saved.data?.turns?.length ?? 0);
   const canFollowUp = live ? Boolean(session.doubt?.id) : Boolean(saved.data);
+  // Talking on the board shown live goes into this session; on a replay it starts a new turn.
+  const talkingLive = live && Boolean(session.doubt?.id);
+  const hindi = profile.data?.student_profile?.preferred_language === 'hi';
 
   const startOver = () => {
     setBaseTurns(0);
@@ -163,11 +167,23 @@ export function StudentDoubtsPage() {
           </Canvas>
 
           {canFollowUp && (
-            <FollowUpBar
+            <TalkBar
+              ask={talkingLive ? board.ask : null}
+              playing={busy || board.status === 'playing' || board.status === 'paused'}
               busy={busy}
               full={turnCount >= MAX_TURNS}
-              onFollowUp={(text) => continueBoard({ question: text, mode: 'follow_up' })}
+              pending={talkingLive ? session.pending : null}
+              checking={talkingLive && session.checking}
+              feedback={talkingLive ? session.feedback : null}
+              speechLang={hindi ? 'hi-IN' : 'en-IN'}
+              onListening={(on) => player.duck(on)}
+              onSay={(text) =>
+                talkingLive ? say(text) : continueBoard({ question: text, mode: 'follow_up' })
+              }
+              onAnswer={answer}
+              onSkip={skip}
               onAnotherWay={() => continueBoard({ mode: 'another_way' })}
+              onTryOne={() => (talkingLive ? tryOne() : continueBoard({ mode: 'practice' }))}
             />
           )}
         </div>
