@@ -98,6 +98,20 @@ describe('Narrator', () => {
     expect(fetchAudio).toHaveBeenCalledTimes(1);
   });
 
+  it('setVolume applies to the playing audio and later ones', async () => {
+    const fetchAudio = vi.fn().mockResolvedValue(new Blob(['mp3']));
+    const narrator = new Narrator(fetchAudio);
+
+    narrator.speak('First');
+    await flush();
+    narrator.setVolume(0.2);
+    expect(FakeAudio.instances.at(-1).volume).toBe(0.2);
+
+    narrator.speak('Second');
+    await flush();
+    expect(FakeAudio.instances.at(-1).volume).toBe(0.2);
+  });
+
   it('offers Hindi voices', () => {
     expect(VOICES.ishita).toMatch(/Hindi/);
     expect(VOICES.shubh).toMatch(/Hindi/);

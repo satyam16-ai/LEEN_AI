@@ -45,6 +45,7 @@ export class Narrator {
     this.fetchAudio = fetchAudio; // (text, voice) => Promise<Blob>
     this.voice = DEFAULT_VOICE;
     this.rate = 1;
+    this.volume = 1;
     this.paused = false;
     this.serverDownUntil = 0;
     this.cache = new Map(); // `${voice}|${text}` -> Promise<objectURL | null>
@@ -57,6 +58,12 @@ export class Narrator {
     if (!VOICES[voice] || voice === this.voice) return;
     this.voice = voice;
     this.serverDownUntil = 0;
+  }
+
+  /** Turn the voice down (e.g. while the student is speaking) or back up, from 0 to 1. */
+  setVolume(volume) {
+    this.volume = volume;
+    if (this.playback?.audio) this.playback.audio.volume = volume;
   }
 
   setRate(rate) {
@@ -114,6 +121,7 @@ export class Narrator {
         }
         const audio = new Audio(url);
         audio.playbackRate = this.rate;
+        audio.volume = this.volume;
         audio.onended = finish;
         audio.onerror = finish;
         playback.audio = audio;
@@ -192,6 +200,7 @@ export class Narrator {
     if (voice) utterance.voice = voice;
     utterance.lang = voice?.lang ?? (hindi ? 'hi-IN' : 'en-IN');
     utterance.rate = Math.min(1.8, this.rate);
+    utterance.volume = this.volume;
     utterance.onend = finish;
     utterance.onerror = finish;
     playback.utterance = utterance;

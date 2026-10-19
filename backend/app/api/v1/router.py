@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     health,
     parent,
     profile,
+    stt,
     student,
     teacher,
     tts,
@@ -27,3 +28,4 @@ router.include_router(parent.router, prefix="/parent", tags=["Parent"])
 router.include_router(teacher.router, prefix="/teacher", tags=["Teacher"])
 router.include_router(admin_users.router, prefix="/admin/users", tags=["Admin · Users"])
 router.include_router(tts.router, prefix="/tts", tags=["Narration"])
+router.include_router(stt.router, prefix="/stt", tags=["Voice input"])

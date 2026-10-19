@@ -122,3 +122,16 @@ describe('BoardPlayer: page overflow', () => {
     expect(snapshot.pageTitle).toBe('Lens (contd.)');
   });
 });
+
+describe('BoardPlayer: listening', () => {
+  it('duck turns narration down while the mic listens', () => {
+    const player = new BoardPlayer();
+    const narrator = { setRate: vi.fn(), setVolume: vi.fn() };
+    player.setNarrator(narrator);
+
+    player.duck(true);
+    player.duck(false);
+
+    expect(narrator.setVolume.mock.calls).toEqual([[0.2], [1]]);
+  });
+});

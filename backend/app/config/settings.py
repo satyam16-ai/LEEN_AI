@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     sarvam_api_url: str = "https://api.sarvam.ai"
     sarvam_tts_model: str = "bulbul:v3"
     sarvam_tts_pace: float = 0.95
+    # Hindi voice input: translit mode returns Hinglish in English letters, like the captions.
+    sarvam_stt_model: str = "saaras:v3"
+    sarvam_stt_mode: str = "translit"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

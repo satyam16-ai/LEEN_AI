@@ -1,5 +1,6 @@
 # =============================================================================
-# Sarvam AI — Indian-language speech: Bulbul text-to-speech and transliteration.
+# Sarvam AI — Indian-language speech: Bulbul text-to-speech, Saaras speech-to-text
+# and transliteration.
 # Needs SARVAM_API_KEY (keep it in backend/.env, which git ignores).
 # =============================================================================
 
@@ -18,7 +19,10 @@ class SarvamError(Exception):
     """Sarvam could not be reached, refused the request, or sent something unusable."""
 
 
-async def _post(path: str, payload: dict) -> dict:
+async def _post(
+    path: str, payload: dict | None = None, *, files: dict | None = None, data: dict | None = None
+) -> dict:
+    """POST JSON (`payload`) or a multipart form (`files` and `data`) to Sarvam."""
     if not settings.sarvam_api_key:
         raise SarvamError("SARVAM_API_KEY is not set")
     async with httpx.AsyncClient(
@@ -28,7 +32,10 @@ async def _post(path: str, payload: dict) -> dict:
         transport=TRANSPORT,
     ) as client:
         try:
-            response = await client.post(path, json=payload)
+            if files is not None:
+                response = await client.post(path, files=files, data=data)
+            else:
+                response = await client.post(path, json=payload)
         except httpx.HTTPError as error:
             raise SarvamError(f"Sarvam is unreachable: {error!r}") from error
     if response.status_code != 200:
@@ -49,6 +56,23 @@ async def transliterate(text: str, source: str = "en-IN", target: str = "hi-IN")
     if not isinstance(result, str) or not result.strip():
         raise SarvamError("Sarvam returned no transliteration")
     return result
+
+
+async def speech_to_text(audio: bytes, filename: str, content_type: str) -> str:
+    """What was said in a short recording, as Hinglish in English letters (like the captions)."""
+    data = await _post(
+        "/speech-to-text",
+        files={"file": (filename, audio, content_type)},
+        data={
+            "model": settings.sarvam_stt_model,
+            "mode": settings.sarvam_stt_mode,
+            "language_code": "hi-IN",
+        },
+    )
+    transcript = data.get("transcript")
+    if not isinstance(transcript, str) or not transcript.strip():
+        raise SarvamError("Sarvam heard nothing")
+    return transcript.strip()
 
 
 async def text_to_speech(text: str, speaker: str, language: str = "hi-IN") -> bytes:

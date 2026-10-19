@@ -276,6 +276,11 @@ export class BoardPlayer {
     this._closeAsk();
   }
 
+  /** Turn narration down while the student's microphone is listening. */
+  duck(on) {
+    this.narrator?.setVolume(on ? 0.2 : 1);
+  }
+
   /** Move on without answering. */
   skipAsk() {
     if (this.openAsk) this._closeAsk();
