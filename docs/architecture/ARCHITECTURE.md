@@ -229,7 +229,7 @@ Cookies are `SameSite=Lax`. Every POST/PUT/PATCH/DELETE must also send `X-Reques
 | POST | `/api/v1/student/doubts` | Student | `{question, subject?}` → **`text/event-stream`** of the whiteboard explanation (see below) |
 | POST | `/api/v1/student/doubts/{id}/turns` | Student (owner) | `{question}` (follow-up) or `{mode: "another_way"}` → **`text/event-stream`** onto the same board; 6 turns per board, 409 while one is streaming |
 | GET | `/api/v1/student/doubts` · GET / DELETE `/{id}` | Student | History (newest first) / full board for replay with its `turns` / delete |
-| GET | `/api/v1/tts?text=…&voice=neerja\|prabhat` | Signed in | MP3 narration of a caption (neural en-IN voice, cached 7 days) |
+| GET | `/api/v1/tts?text=…&voice=neerja\|prabhat\|ishita\|shubh` | Signed in | MP3 narration of a caption (English: edge-tts; Hindi: Sarvam AI; cached 7 days) |
 
 Protect new endpoints with `Depends(get_current_user)` or `Depends(require_roles(UserRole.TEACHER, ...))` from `app/api/v1/dependencies/auth.py`.
 
@@ -386,12 +386,23 @@ Explanations of motion (gravity, orbits, pendulums, projectiles, waves) can incl
 
 ### Narration
 
-Captions are read aloud by Microsoft's neural Indian-English voices: **Neerja** (female, `en-IN-NeerjaNeural`) or **Prabhat** (male, `en-IN-PrabhatNeural`). The student picks one from the board's **Voice** menu, and the choice is remembered on that device.
+Captions are read aloud in English or Hindi. The student picks a voice from the board's **Voice** menu, and the choice is remembered on that device.
 
-- `app/services/tts_service.py` generates the audio with [edge-tts](https://github.com/rany2/edge-tts). It needs internet but no API key, at a slightly slow `-5%` rate. Audio is cached in Redis for 7 days under `tts:<sha256(voice|rate|text)>`, so a replay is instant.
+| Voice | Language | Provider |
+| ----- | -------- | -------- |
+| **Neerja** (female), **Prabhat** (male) | English | Microsoft's neural `en-IN` voices through edge-tts |
+| **Ishita** (female), **Shubh** (male) | Hindi | [Sarvam AI](https://docs.sarvam.ai) Bulbul (`bulbul:v3`, `hi-IN`) |
+
+**Hindi voices (Sarvam AI).**
+- They need `SARVAM_API_KEY` in `backend/.env`, which git ignores. Don't put it in `backend/.env.example`: Compose loads that file into the containers, and an empty value there would override the real key.
+- Captions for Hindi students are Hinglish in English letters, and Bulbul reads romanised text poorly. So `tts_service._speak_hindi()` first sends the caption to Sarvam's `/transliterate` (`en-IN` → `hi-IN`) and passes the Devanagari to `/text-to-speech`. Only the copy sent for speech changes; the caption on screen stays in English letters. Text already in Devanagari skips this step.
+- If transliteration fails, the caption is spoken as written. If speech fails or the key is missing, the endpoint returns 503 and the browser's Hindi voice takes over.
+- The client is `app/services/sarvam.py` (httpx, 20 s timeout). Model and pace come from `SARVAM_TTS_MODEL` (default `bulbul:v3`) and `SARVAM_TTS_PACE` (default 0.95).
+
+- `app/services/tts_service.py` generates English audio with [edge-tts](https://github.com/rany2/edge-tts). It needs internet but no API key, at a slightly slow `-5%` rate. All audio is cached in Redis for 7 days under `tts:<sha256(voice|style|text)>`, where style is the edge-tts rate or the Sarvam model and pace, so a replay is instant and costs nothing.
 - `engine/narrator.js` requests audio for each caption as it streams in, at most 2 at a time. Each caption is therefore ready by the time it appears. It plays through an `<audio>` element, which keeps up with the board's 1×/1.5×/2× speed, pause and stop.
 - Before sending a caption, `speakableText()` rewrites the maths the way a teacher reads it, for example `(x+y)^2 = x^2 + 2xy` becomes "x plus y whole squared equals x squared plus 2 x y".
-- If the voice service fails, the narrator falls back to the browser's best built-in voice and retries the server after a minute.
+- If the voice service fails, the narrator falls back to the browser's best built-in voice (a Hindi one for the Hindi voices) and retries the server after a minute.
 - `edge-tts` uses the service behind Microsoft Edge's *Read aloud* feature, without an official agreement. For a production deployment, swap `tts_service._generate()` for a licensed TTS API such as Azure Speech.
 
 ## Security Considerations

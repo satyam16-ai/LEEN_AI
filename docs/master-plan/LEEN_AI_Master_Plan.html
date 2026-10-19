@@ -279,6 +279,7 @@
       <tr><td>Moved</td><td>English voice input from Phase 12 to Phase 5. The image-input spike and doubts by photo to Phase 6, where the syllabus photo needs them</td></tr>
       <tr><td>Fully AI</td><td>The product is <strong>fully AI</strong>: no human teacher is needed for any part of it</td></tr>
       <tr><td>AI agents</td><td><strong>Every job has its own AI agent</strong> (chapter 6, Layer 3). Code only routes work between them and does the maths they call on</td></tr>
+      <tr><td>Hindi voice</td><td><strong>Sarvam AI</strong> for Hindi (19 October 2026): Bulbul voices for Hindi narration, built now; Saaras speech-to-text for Hindi voice input in Phase 5. Captions stay Hinglish in English letters; only the copy sent for speech is transliterated to Devanagari. The key lives in <code>backend/.env</code></td></tr>
       <tr><td>Teachers</td><td>No new teacher features for now; they come in a <strong>future phase, after Phase 13</strong>. What Phase 2 built stays (teachers create classes; students join with a code)</td></tr>
     </tbody>
   </table>
@@ -968,14 +969,14 @@
       <div>
         <h4>Backend</h4>
         <ul>
-          <li>Hindi voices (<code>hi-IN-SwaraNeural</code>, <code>hi-IN-MadhurNeural</code>) through edge-tts.</li>
+          <li>Hindi narration through Sarvam AI (Bulbul voices Ishita and Shubh) is already built (19 October 2026). This phase adds Hindi and Hinglish board-language modes and more voices if needed.</li>
           <li>Hindi and Hinglish board-language modes in the prompts.</li>
         </ul>
       </div>
       <div>
         <h4>Frontend</h4>
         <ul>
-          <li>Hindi voice input (hi-IN), and a local speech model if browser recognition is not enough.</li>
+          <li>Hindi interface; voice input in more Indian languages through Sarvam (Hindi voice input arrives in Phase 5).</li>
           <li>Hindi interface text.</li>
           <li>Class video export: canvas layers and narration recorded to WebM.</li>
         </ul>

@@ -19,7 +19,7 @@ Work ships in phases, ordered by dependency. Each phase delivers working backend
 | 9   | **Homework & tests**                         | 7.8, 7.9       | Planned | *Agents: Homework Agent, Test Maker.* Homework (a photo of paper working, or typed) graded in the background with red-pen review; weekly and chapter tests, timed and auto-graded, with every mistake explained on the canvas |
 | 10  | **Progress & analytics**                     | 7.10, 7.14     | Planned | *Agents: Progress Analyst.* Mastery map, time spent, streaks, weak areas, insights; admin platform and AI-usage stats |
 | 11  | **Parent dashboard & notifications**         | 7.11           | Planned | *Agents: Parent Reporter.* Per-child class status, scores, weak areas, alerts, class replays; notification centre; weekly email report via Celery beat |
-| 12  | **Voice, video & Hindi**                     | 7.6, 7.12      | Planned | Hindi voice input; Hindi/Hinglish board and Hindi neural voices; class video export; Hindi interface |
+| 12  | **Voice, video & Hindi**                     | 7.6, 7.12      | Planned | Hindi/Hinglish board and Hindi neural voices; class video export; Hindi interface |
 | 13  | **Production & polish**                      | —              | Planned | Anthropic API provider for deployment, HTTPS + secure cookies, CSP review, CI, monitoring, PWA, accessibility, Playwright E2E, email verification, licensed TTS |
 | —   | **Future: teachers**                         | —              | Later   | After Phase 13: teacher-shared class syllabus, tests assigned to a class, class analytics. Until then the product is fully AI |
 
@@ -72,7 +72,9 @@ The business model (§9: subscriptions, premium and institutional plans) is out 
 - The study planner became the daily tuition class.
 - The old 8 phases are now 13.
 
-**Phase 5 redesign (18 Oct 2026).** The student never writes on the board. They talk to it by voice or a text box, and the AI works what they say into the explanation without stopping, the way a real teacher does. English voice input moved from Phase 12 to Phase 5. The image-input spike and doubts by photo moved to Phase 6, where the syllabus photo needs them.
+**Phase 5 redesign (18 Oct 2026).** The student never writes on the board. They talk to it by voice or a text box, and the AI works what they say into the explanation without stopping, the way a real teacher does. Voice input (English through the browser, Hindi through Sarvam AI) moved from Phase 12 to Phase 5. The image-input spike and doubts by photo moved to Phase 6, where the syllabus photo needs them.
+
+**Hindi voice (19 Oct 2026).** Hindi narration uses **Sarvam AI** (Bulbul voices Ishita and Shubh) and is built already, ahead of Phase 12. Captions stay Hinglish in English letters; only the copy sent for speech is transliterated to Devanagari. Hindi voice input will use Sarvam's speech-to-text when Phase 5 builds the mic.
 
 **Fully AI and teachers (18 Oct 2026).** The product is fully AI, with an AI agent for every job. No new teacher features for now; they come in a future phase after Phase 13. What Phase 2 built stays: teachers create classes, and students join with a code.
 

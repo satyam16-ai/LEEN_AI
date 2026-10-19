@@ -59,7 +59,8 @@
   - endpoints → services → repositories (repositories `flush()`, services `commit()`);
   - JSON responses through `ok()`;
   - roles via `require_roles`.
-- **Frontend:** plain JavaScript, feature folders. The speech button is hidden where `SpeechRecognition` is missing.
+- **Frontend:** plain JavaScript, feature folders. The speech button is hidden where the browser can't record (English needs `SpeechRecognition`; Hindi needs `MediaRecorder`).
+- **Sarvam key:** `SARVAM_API_KEY` lives only in `backend/.env` and is used only on the server; the browser talks to `/api/v1/stt` and `/api/v1/tts`.
 - **Commits:**
   - Conventional Commits;
   - author `satyam16-ai <satyamtiwari567890@gmail.com>`;
@@ -532,35 +533,75 @@
 - [ ] **Step 4: Run** `pnpm test && pnpm lint`. Expected: PASS. All 211 existing tests stay green.
 - [ ] **Step 5: Commit** `feat(frontend): let the board pause for questions and cut at the end of a step`.
 
-### Task 10: Speech input and narration ducking
+### Task 10: Speech input (English and Hindi) and narration ducking
+
+Hindi voice input goes through Sarvam AI (Satyam, 19 Oct 2026). The `sarvam.py` client and the `SARVAM_API_KEY` setting already exist from the Hindi narration work.
 
 **Files:**
+- Modify: `backend/app/services/sarvam.py`:
+  - `speech_to_text(audio: bytes, filename: str, content_type: str) -> str`;
+  - `_post` gains multipart support (`files`/`data` instead of `json`).
+- Create: `backend/app/api/v1/endpoints/stt.py`, `POST /api/v1/stt`, registered in `router.py`.
 - Modify: `frontend/src/features/canvas/engine/narrator.js`: `setVolume(volume)`
-- Create: `frontend/src/features/canvas/hooks/useSpeechInput.js`
-- Modify: `frontend/src/features/canvas/index.js` (export it)
-- Test: `frontend/src/features/canvas/engine/narrator.test.js`, `frontend/src/features/canvas/hooks/useSpeechInput.test.js`
+- Create: `frontend/src/services/sttService.js`, `frontend/src/features/canvas/hooks/useSpeechInput.js`
+- Modify: `frontend/src/features/canvas/index.js` (export the hook)
+- Test: `backend/tests/test_stt.py`, `frontend/src/features/canvas/engine/narrator.test.js`, `frontend/src/features/canvas/hooks/useSpeechInput.test.js`
 
 **Interfaces:**
 - Produces:
+  - `sarvam.speech_to_text(...)`:
+    - multipart `POST /speech-to-text` with `file`, `model="saaras:v3"`, `mode="translit"` (Hinglish comes back in English letters, matching the captions) and `language_code="hi-IN"`;
+    - returns `transcript` stripped;
+    - raises `SarvamError` on an empty transcript.
+  - `POST /api/v1/stt`:
+    - signed in; multipart `file`;
+    - `audio/webm`, `audio/ogg`, `audio/wav`, `audio/mpeg` or `audio/mp4`, ≤ 1 MB;
+    - rate limit `stt:{user}` 120/3600;
+    - returns `ok({"text": …})`;
+    - errors: a wrong type or size → 422; Sarvam unavailable or no key → 503 "Voice input is unavailable right now.";
+    - the key never reaches the browser.
   - `Narrator.setVolume(volume)`: applies to the playing audio and to later audio and browser utterances.
   - `useSpeechInput({ lang = 'en-IN', onFinal }) -> { supported, listening, interim, error, start, stop }`:
-    - `window.SpeechRecognition ?? window.webkitSpeechRecognition`;
-    - `continuous = false`, `interimResults = true`;
-    - `onFinal(text)` is called once per utterance with the trimmed final transcript;
-    - `error` is "Microphone access is blocked." for `not-allowed`/`service-not-allowed`, and "Didn't catch that. Try again." for `no-speech`;
-    - recognition stops on unmount.
+    - **`en-IN`:**
+      - `window.SpeechRecognition ?? window.webkitSpeechRecognition`;
+      - `continuous = false`, `interimResults = true`;
+      - `onFinal(text)` is called once per utterance with the trimmed final transcript.
+    - **`hi-IN`:**
+      - `MediaRecorder` on `getUserMedia({ audio: true })`;
+      - tap to start, tap to stop, and an automatic stop at 15 s;
+      - while recording, `interim` is "Listening…"; after upload it is "…";
+      - the recording goes to `sttService.transcribe(blob)` (`POST /stt`), and the result is passed to `onFinal(text)`;
+      - the mic is released after each recording.
+    - The page passes `hi-IN` when the student's `preferred_language` is `hi`.
+    - `supported`:
+      - `en-IN` needs speech recognition;
+      - `hi-IN` needs `MediaRecorder` and `getUserMedia`.
+    - `error`:
+      - "Microphone access is blocked." for `not-allowed` or a refused `getUserMedia`;
+      - "Didn't catch that. Try again." for `no-speech` or an empty transcript;
+      - the server's message for a 503.
+    - Recognition and recording stop on unmount.
 
 - [ ] **Step 1: Write the failing tests:**
-  - `setVolume applies to the playing audio and later ones`.
-  - With a fake `SpeechRecognition` class installed on `window`:
-    - `start listens and reports interim text`;
-    - `the final transcript is sent once`;
-    - `blocked microphone shows a message`;
-    - `unsupported browsers report supported: false`.
-- [ ] **Step 2: Run** `pnpm test -- narrator useSpeechInput`. Expected: FAIL.
+  - Backend (mock transport):
+    - `test_hindi_speech_becomes_hinglish_text`: the multipart fields include `model=saaras:v3`, `mode=translit` and `language_code=hi-IN`, and the response is `{"text": "yeh triangle hai"}`.
+    - `test_stt_rejects_wrong_type_and_big_files`.
+    - `test_stt_without_a_key_is_503`.
+  - Frontend:
+    - `setVolume applies to the playing audio and later ones`.
+    - With a fake `SpeechRecognition`:
+      - `start listens and reports interim text`;
+      - `the final transcript is sent once`;
+      - `blocked microphone shows a message`;
+      - `unsupported browsers report supported: false`.
+    - With a fake `MediaRecorder` and a mocked `sttService`:
+      - `hindi records, uploads and sends the transcript`;
+      - `hindi stops by itself after 15 seconds` (fake timers);
+      - `a failed upload shows the server's message`.
+- [ ] **Step 2: Run** `docker compose exec api pytest tests/test_stt.py -q` and `pnpm test -- narrator useSpeechInput`. Expected: FAIL.
 - [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `pnpm test && pnpm lint`. Expected: PASS.
-- [ ] **Step 5: Commit** `feat(frontend): add tap-to-talk speech input that turns narration down`.
+- [ ] **Step 4: Run** the backend suite, `pnpm test` and `pnpm lint`. Expected: PASS.
+- [ ] **Step 5: Commit** `feat: add tap-to-talk voice input, with Hindi through Sarvam, and turn narration down while listening`.
 
 ### Task 11: Doubt session: queued messages, answers, checks and practice
 
