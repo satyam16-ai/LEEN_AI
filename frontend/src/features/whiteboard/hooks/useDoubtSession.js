@@ -19,6 +19,7 @@ const IDLE = {
   feedback: null,
 };
 const CUT_OFF = 'The connection closed before the explanation finished. Please try again.';
+const MAX_MESSAGE = 500;
 const CORRECT = 'Correct! Well done.';
 const TRY_AGAIN = 'Not quite. Have another go.';
 // Player states in which the board is still explaining: a message waits for the step to end.
@@ -40,7 +41,10 @@ export function useDoubtSession(player, { onDoubt } = {}) {
   const doubtIdRef = useRef(null);
   const generatingRef = useRef(false);
   const pendingRef = useRef(null);
+  // An answer given while the AI was still writing: its question isn't saved until then.
+  const pendingAnswerRef = useRef(null);
   const sendRef = useRef(null);
+  const answerRef = useRef(null);
   const [session, setSession] = useState(IDLE);
 
   useEffect(() => {
@@ -49,7 +53,7 @@ export function useDoubtSession(player, { onDoubt } = {}) {
 
   /** Stream one board turn; `start` opens the server stream with the event handler. */
   const run = useCallback(
-    async (start, { onDoubtEvent } = {}) => {
+    async (start, { onDoubtEvent, onRefused } = {}) => {
       controllerRef.current?.abort();
       const controller = new AbortController();
       controllerRef.current = controller;
@@ -57,11 +61,13 @@ export function useDoubtSession(player, { onDoubt } = {}) {
 
       let outcome = null;
       let doubtId = null;
+      let opened = false;
       try {
         await start({
           signal: controller.signal,
           onEvent: (event, data) => {
             if (event === 'doubt') {
+              opened = true;
               doubtId = data.id;
               doubtIdRef.current = data.id;
               setSession((current) => ({ ...current, phase: 'streaming', doubt: data }));
@@ -81,6 +87,8 @@ export function useDoubtSession(player, { onDoubt } = {}) {
           ? { phase: 'stopped' }
           : { phase: 'error', error: error.message || CUT_OFF };
       } finally {
+        // Refused before it started (422, 429, 409): nothing reached the board.
+        if (!opened && outcome.phase === 'error') onRefused?.();
         if (controllerRef.current === controller) {
           controllerRef.current = null;
           generatingRef.current = false;
@@ -100,6 +108,14 @@ export function useDoubtSession(player, { onDoubt } = {}) {
         } else {
           refresh();
         }
+      }
+      if (controllerRef.current !== null) return;
+      // An answer given while the AI was writing is checked now that its question is saved.
+      const answered = pendingAnswerRef.current;
+      if (answered !== null) {
+        pendingAnswerRef.current = null;
+        if (outcome.phase === 'done') await answerRef.current?.(answered);
+        else setSession((current) => ({ ...current, checking: false }));
       }
       // A message sent while the AI was writing goes out now that it has finished.
       const waiting = pendingRef.current;
@@ -128,7 +144,7 @@ export function useDoubtSession(player, { onDoubt } = {}) {
 
   /** Stream `body` as the next turn on board `doubtId`. */
   const streamTurn = useCallback(
-    (doubtId, body, title = null) => {
+    (doubtId, body, title = null, { onRefused } = {}) => {
       doubtIdRef.current = doubtId;
       player.extend();
       setSession((current) => ({
@@ -138,7 +154,7 @@ export function useDoubtSession(player, { onDoubt } = {}) {
         question: current.question ?? title,
         turns: current.turns + 1,
       }));
-      return run((options) => doubtService.streamTurn(doubtId, body, options));
+      return run((options) => doubtService.streamTurn(doubtId, body, options), { onRefused });
     },
     [player, run]
   );
@@ -156,12 +172,16 @@ export function useDoubtSession(player, { onDoubt } = {}) {
       const doubtId = doubtIdRef.current;
       if (!doubtId) return undefined;
       const { status } = player.getSnapshot();
-      if (!MIDWAY.has(status)) return streamTurn(doubtId, { question: text });
+      // Finished, or still playing an earlier turn (a replay): the reply comes after it all.
+      const earlier = player.next < player.turnOffset;
+      if (!MIDWAY.has(status) || earlier) return streamTurn(doubtId, { question: text });
       if (status === 'asking') player.skipAsk();
       const at = player.stepEnd();
       const keep = player.keepCount(at);
-      player.cut(at);
-      return streamTurn(doubtId, { question: text, keep });
+      const removed = player.cut(at);
+      return streamTurn(doubtId, { question: text, keep }, null, {
+        onRefused: () => player.restore?.(removed),
+      });
     },
     [player, streamTurn]
   );
@@ -174,8 +194,10 @@ export function useDoubtSession(player, { onDoubt } = {}) {
     (text) => {
       if (!doubtIdRef.current && !generatingRef.current) return undefined;
       if (generatingRef.current) {
-        pendingRef.current = text;
-        setSession((current) => ({ ...current, pending: text }));
+        // Several messages while the AI writes are all kept, as one.
+        const queued = pendingRef.current ? `${pendingRef.current}\n${text}` : text;
+        pendingRef.current = queued.slice(0, MAX_MESSAGE);
+        setSession((current) => ({ ...current, pending: pendingRef.current }));
         return undefined;
       }
       return send(text);
@@ -198,8 +220,12 @@ export function useDoubtSession(player, { onDoubt } = {}) {
     async (value) => {
       const doubtId = doubtIdRef.current;
       const { ask: question } = player.getSnapshot();
-      if (!doubtId || !question) return;
+      if (!question || (!doubtId && !generatingRef.current)) return;
       setSession((current) => ({ ...current, checking: true, feedback: null }));
+      if (generatingRef.current) {
+        pendingAnswerRef.current = value;
+        return;
+      }
       let result;
       try {
         result = await doubtService.answer(doubtId, { ask: question.id, answer: value });
@@ -228,6 +254,10 @@ export function useDoubtSession(player, { onDoubt } = {}) {
     [player, check]
   );
 
+  useEffect(() => {
+    answerRef.current = answer;
+  });
+
   /** Move on without answering; if nothing follows the question, the AI shows the solution. */
   const skip = useCallback(() => {
     const { ask: question } = player.getSnapshot();
@@ -254,6 +284,7 @@ export function useDoubtSession(player, { onDoubt } = {}) {
     controllerRef.current = null;
     generatingRef.current = false;
     pendingRef.current = null;
+    pendingAnswerRef.current = null;
     doubtIdRef.current = null;
     controller?.abort();
     setSession(IDLE);

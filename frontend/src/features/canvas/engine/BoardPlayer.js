@@ -218,6 +218,7 @@ export class BoardPlayer {
     this.streaming = true;
     this.started = true;
     this.interactive = true;
+    this.previousTurnOffset = this.turnOffset;
     this.turnOffset = this.actions.length;
     this._emit();
     this._wake();
@@ -239,7 +240,9 @@ export class BoardPlayer {
     this._restart();
   }
 
+  /** Play the board again from the start. A replay never stops at questions. */
   replay() {
+    this.interactive = false;
     this._restart();
   }
 
@@ -255,11 +258,20 @@ export class BoardPlayer {
     return this.actions.slice(this.turnOffset, at).filter((action) => !action?.local).length;
   }
 
-  /** Drop the actions from `at` on, if none of them has started yet. */
+  /** Drop the actions from `at` on, if none of them has started yet; returns what was dropped. */
   cut(at) {
-    if (at < this.next || at >= this.actions.length) return;
-    this.actions.length = at;
+    if (at < this.next || at >= this.actions.length) return [];
+    const removed = this.actions.splice(at);
     this._emit();
+    return removed;
+  }
+
+  /** Undo a cut whose turn never started (the server refused it): the board plays on. */
+  restore(removed) {
+    this.actions.push(...removed);
+    this.turnOffset = this.previousTurnOffset ?? this.turnOffset;
+    this._emit();
+    this._wake();
   }
 
   /**
@@ -484,7 +496,8 @@ export class BoardPlayer {
 
       const current = this.current;
       if (current.plan.kind === 'ask') {
-        if (!this.interactive) {
+        // Only the latest turn's questions wait; earlier ones were answered or passed.
+        if (!this.interactive || !current.plan.live) {
           this.current = null;
           continue;
         }
@@ -759,18 +772,15 @@ export class BoardPlayer {
       const prompt = { type: 'write', text: line, color: 'blue' };
       this.expanded.push({ action: prompt, seed: (index + 1) * 1000 });
     }
-    this.expanded.push({ action: { type: 'wait-ask', ask }, seed: 0 });
+    const live = index >= this.turnOffset;
+    this.expanded.push({ action: { type: 'wait-ask', ask, live }, seed: 0 });
     return null;
   }
 
   /** What the talk bar needs to know about a question (never its key). */
   _askView(action) {
     const { id, kind, options, unit, hint } = action;
-    const view = { id, kind, options, unit, hint };
-    // One object per question, so React sees a change only when the question changes.
-    if (this.askView?.id === id && this.askView?.kind === kind) return this.askView;
-    this.askView = view;
-    return view;
+    return { id, kind, options, unit, hint };
   }
 
   /** The student's answer written in the column, with a tick or cross after it. */
@@ -812,7 +822,7 @@ export class BoardPlayer {
       case 'write':
         return this._resolveWrite(part);
       case 'wait-ask':
-        return { kind: 'ask', ask: part.ask, duration: 0 };
+        return { kind: 'ask', ask: part.ask, live: part.live, duration: 0 };
       case 'mark':
         return this._markPlan(part, rng);
       case 'erase':

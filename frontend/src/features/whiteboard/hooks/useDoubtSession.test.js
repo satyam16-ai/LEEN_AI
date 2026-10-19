@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 import { createElement } from 'react';
 
+import { BoardPlayer } from '@/features/canvas/engine/BoardPlayer';
+import { attachFakeCanvas, drain } from '@/features/canvas/engine/testCanvas';
 import { doubtService } from '@/services/doubtService';
 
 import { useDoubtSession } from './useDoubtSession';
@@ -246,4 +248,127 @@ it('tryOne() streams a practice turn', async () => {
     { mode: 'practice' },
     expect.anything()
   );
+});
+
+
+describe('useDoubtSession: review fixes', () => {
+  const caption = (text) => ({ type: 'caption', text });
+  const write = (text) => ({ type: 'write', text });
+  const TURN = [caption('c1'), write('w1'), caption('c2'), write('w2')];
+
+  function streamingActions(actions) {
+    return (bodyOrId, maybeBody, maybeOptions) => {
+      const { onEvent } = maybeOptions ?? maybeBody;
+      onEvent('doubt', { id: 'd1' });
+      actions.forEach((action) => onEvent('action', action));
+      onEvent('done', { id: 'd1' });
+      return Promise.resolve();
+    };
+  }
+
+  it('talking while the board replays an earlier turn sends a plain follow-up', async () => {
+    const player = attachFakeCanvas(new BoardPlayer());
+    doubtService.stream.mockImplementation(streamingActions(TURN));
+    doubtService.streamTurn.mockImplementation(streamingActions(TURN));
+    const { result } = renderHook(() => useDoubtSession(player), { wrapper });
+    await act(async () => result.current.ask({ question: 'Q' }));
+    drain(player);
+    await act(async () => result.current.say('and then?'));
+    drain(player);
+    expect(player.actions).toHaveLength(8);
+
+    player.replay();
+    player._advance(0); // the playhead is back in the first turn
+    expect(player.next).toBeLessThan(player.turnOffset);
+    await act(async () => result.current.say('wait, why?'));
+
+    expect(doubtService.streamTurn).toHaveBeenLastCalledWith(
+      'd1',
+      { question: 'wait, why?' },
+      expect.anything()
+    );
+    expect(player.actions).toHaveLength(12);
+  });
+
+  it('an answer given while the AI is still writing is sent after it finishes', async () => {
+    let finish;
+    doubtService.stream.mockImplementation(
+      (body, { onEvent }) =>
+        new Promise((resolve) => {
+          onEvent('doubt', { id: 'd1' });
+          finish = () => {
+            onEvent('done', { id: 'd1' });
+            resolve();
+          };
+        })
+    );
+    const outcome = { correct: true, attempt: 1, final: true, expected: null };
+    doubtService.answer.mockResolvedValue(outcome);
+    const player = fakePlayer('asking');
+    player.ask = QUESTION;
+    const { result } = renderHook(() => useDoubtSession(player), { wrapper });
+    let asking;
+    act(() => {
+      asking = result.current.ask({ question: 'Q' });
+    });
+
+    await act(async () => result.current.answer('12'));
+    expect(doubtService.answer).not.toHaveBeenCalled();
+    expect(result.current.session.checking).toBe(true);
+
+    await act(async () => {
+      finish();
+      await asking;
+      await flush();
+    });
+    expect(doubtService.answer).toHaveBeenCalledTimes(1);
+    expect(player.answerAsk).toHaveBeenCalledWith(expect.objectContaining({ text: '12' }));
+  });
+
+  it('a refused turn gives the board back what it cut', async () => {
+    const player = fakePlayer('playing');
+    player.cut.mockReturnValue(['rest of the step']);
+    player.restore = vi.fn();
+    const { result } = await askedDoubt(player);
+    doubtService.streamTurn.mockRejectedValue(new Error('Too many requests'));
+
+    await act(async () => result.current.say('why?'));
+
+    expect(player.restore).toHaveBeenCalledWith(['rest of the step']);
+    expect(result.current.session.phase).toBe('error');
+  });
+
+  it('two messages sent while the AI is writing both go out', async () => {
+    let finish;
+    doubtService.stream.mockImplementation(
+      (body, { onEvent }) =>
+        new Promise((resolve) => {
+          onEvent('doubt', { id: 'd1' });
+          finish = () => {
+            onEvent('done', { id: 'd1' });
+            resolve();
+          };
+        })
+    );
+    const player = fakePlayer('playing');
+    const { result } = renderHook(() => useDoubtSession(player), { wrapper });
+    let asking;
+    act(() => {
+      asking = result.current.ask({ question: 'Q' });
+    });
+
+    act(() => result.current.say('why is it inverted?'));
+    act(() => result.current.say('and smaller?'));
+    expect(result.current.session.pending).toBe('why is it inverted?\nand smaller?');
+
+    await act(async () => {
+      finish();
+      await asking;
+      await flush();
+    });
+    expect(doubtService.streamTurn).toHaveBeenCalledTimes(1);
+    expect(doubtService.streamTurn.mock.calls[0][1].question).toBe(
+      'why is it inverted?\nand smaller?'
+    );
+  });
 });

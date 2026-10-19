@@ -142,3 +142,24 @@ describe('TalkBar: speaking', () => {
     expect(onListening).toHaveBeenCalledWith(true);
   });
 });
+
+
+describe('TalkBar: review fixes', () => {
+  it('a spoken word too short to be a message is ignored', () => {
+    const { onSay } = setup({ playing: true });
+    act(() => heard('ok'));
+    expect(onSay).not.toHaveBeenCalled();
+  });
+
+  it('a new question with the same id starts with its hint hidden', async () => {
+    const handlers = { onSay: vi.fn(), onAnswer: vi.fn(), onSkip: vi.fn() };
+    const first = { id: 'q1', kind: 'number', hint: 'Multiply' };
+    const { rerender } = render(<TalkBar {...handlers} ask={first} />);
+    await userEvent.setup().click(screen.getByRole('button', { name: /hint/i }));
+    expect(screen.getByText('Multiply')).toBeInTheDocument();
+
+    rerender(<TalkBar {...handlers} ask={{ id: 'q1', kind: 'number', hint: 'Add them' }} />);
+
+    expect(screen.queryByText('Add them')).toBeNull();
+  });
+});

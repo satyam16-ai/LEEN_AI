@@ -136,3 +136,62 @@ describe('BoardPlayer: listening', () => {
     expect(narrator.setVolume.mock.calls).toEqual([[0.2], [1]]);
   });
 });
+
+describe('BoardPlayer: review fixes', () => {
+  it('a replay does not stop at questions already answered', () => {
+    const player = livePlayer([caption('Area?'), QUESTION]);
+    drain(player);
+    player.answerAsk({ text: '12', correct: true, release: true });
+    player.endStream();
+    drain(player);
+
+    player.replay();
+    drain(player);
+
+    expect(player.getSnapshot().status).toBe('finished');
+  });
+
+  it("questions from earlier turns don't wait once a new turn starts", () => {
+    const player = attachFakeCanvas(new BoardPlayer());
+    player.load([caption('Area?'), QUESTION]);
+    player.extend();
+    player.enqueue(caption('Next part.'));
+    player.endStream();
+    drain(player);
+
+    expect(player.getSnapshot().status).toBe('finished');
+  });
+
+  it('keepCount is 0 for a point before the latest turn', () => {
+    const player = livePlayer([caption('c1'), write('w1')]);
+    player.extend();
+    player.enqueue(caption('c2'));
+    expect(player.keepCount(1)).toBe(0);
+  });
+
+  it('a new question with the same id shows its own options', () => {
+    const first = { type: 'ask', id: 'q1', kind: 'choice', options: ['4', '8', '16'] };
+    const second = { type: 'ask', id: 'q1', kind: 'choice', options: ['a', 'b', 'c'] };
+    const player = livePlayer([first]);
+    drain(player);
+    player.answerAsk({ text: 'B', correct: true, release: true });
+    player.enqueue(second);
+    drain(player);
+
+    expect(player.getSnapshot().ask.options).toEqual(['a', 'b', 'c']);
+  });
+
+  it('a turn that fails to start gets back the actions it cut', () => {
+    const player = livePlayer([caption('c1'), write('w1')]);
+    drain(player);
+    [caption('c2'), write('w2')].forEach((action) => player.enqueue(action));
+
+    const removed = player.cut(2);
+    player.extend();
+    player.restore(removed);
+
+    expect(removed).toHaveLength(2);
+    expect(player.actions.map((action) => action.text)).toEqual(['c1', 'w1', 'c2', 'w2']);
+    expect(player.turnOffset).toBe(0);
+  });
+});

@@ -80,17 +80,21 @@ export function TalkBar({
 }) {
   const [text, setText] = useState('');
   const [value, setValue] = useState('');
+  // Each question (even one reusing an id) starts with an empty box and its hint hidden.
   const [hintFor, setHintFor] = useState(null);
-  const [seenAsk, setSeenAsk] = useState(ask?.id ?? null);
-  if ((ask?.id ?? null) !== seenAsk) {
-    setSeenAsk(ask?.id ?? null);
+  const [seenAsk, setSeenAsk] = useState(ask);
+  if (ask !== seenAsk) {
+    setSeenAsk(ask);
     setValue('');
   }
 
   const speech = useSpeechInput({
     lang: speechLang,
     // Spoken answers fill the box so a misheard number can be fixed before checking.
-    onFinal: (spoken) => (ask ? setValue(spoken) : onSay(spoken)),
+    onFinal: (spoken) => {
+      if (ask) setValue(spoken);
+      else if (spoken.trim().length >= MIN_LENGTH) onSay(spoken.trim());
+    },
   });
 
   useEffect(() => {
@@ -164,7 +168,7 @@ export function TalkBar({
         )}
         <div className="flex flex-wrap gap-2">
           {ask.hint && (
-            <Button variant="ghost" size="sm" onClick={() => setHintFor(ask.id)}>
+            <Button variant="ghost" size="sm" onClick={() => setHintFor(ask)}>
               <Lightbulb className="size-4" aria-hidden="true" />
               Hint
             </Button>
@@ -174,7 +178,7 @@ export function TalkBar({
             Skip
           </Button>
         </div>
-        {hintFor === ask.id && ask.hint && <p className="text-sm">{ask.hint}</p>}
+        {hintFor === ask && ask.hint && <p className="text-sm">{ask.hint}</p>}
         {footer}
       </Card>
     );
