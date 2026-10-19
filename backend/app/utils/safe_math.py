@@ -30,9 +30,14 @@ FUNCTIONS = {
 }
 CONSTANTS = {"pi": math.pi, "e": math.e}
 
-_UNICODE = str.maketrans({"−": "-", "×": "*", "÷": "/", "·": "*", "π": " pi "})
+_UNICODE = str.maketrans(
+    {"−": "-", "×": "*", "÷": "/", "·": "*", "π": " pi ", "²": "^2", "³": "^3"}
+)
 _ROOT_OF_NUMBER = re.compile(r"√\s*(\d+(?:\.\d+)?|[A-Za-z]+)")
 _MIXED_NUMBER = re.compile(r"^(-?)\s*(\d+)\s+(\d+)\s*/\s*(\d+)$")
+_CURRENCY = re.compile(r"^(?:₹|rs\.?|inr)\s*|\s*/-$", re.IGNORECASE)
+# 1,00,000 (Indian) or 100,000 (international): the commas only group digits.
+_GROUPED = re.compile(r"-?\d{1,3}(?:(?:,\d{2})*,\d{3}|(?:,\d{3})+)(?:\.\d+)?")
 _TOKEN = re.compile(
     r"\s*(?:(?P<number>\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\.\d+)"
     r"|(?P<name>[A-Za-z_][A-Za-z_0-9]*)"
@@ -74,6 +79,8 @@ def _python(text: str) -> str:
     parts: list[str] = []
     previous = None
     for kind, value in _tokens(text.replace("^", "**")):
+        if kind == "number" and re.fullmatch(r"0\d+", value):
+            value = value.lstrip("0") or "0"  # "05": Python rejects leading zeros
         # Two numbers in a row ("2 3", "1.5.2") are a typo, not a product: leave them to fail.
         both_numbers = previous is not None and previous[0] == "number" and kind == "number"
         if previous and _ends_value(*previous) and _starts_value(kind, value) and not both_numbers:
@@ -134,6 +141,9 @@ def parse_answer_number(text: str, unit: str | None = None) -> float:
     value = text.strip().translate(_UNICODE)
     if unit and value.casefold().endswith(unit.strip().casefold()):
         value = value[: -len(unit.strip())]
+    value = _CURRENCY.sub("", value).strip()
+    if _GROUPED.fullmatch(value):
+        value = value.replace(",", "")
     value = re.sub(r"(?<=\d),(?=\d{3}(?!\d))", "", value).strip()
     mixed = _MIXED_NUMBER.match(value)
     if mixed:

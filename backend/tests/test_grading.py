@@ -20,8 +20,19 @@ def test_prepare_choice_key(answer, key):
     assert (prepared["kind"], prepared["answer"]) == ("choice", key)
 
 
-def test_prepare_choice_key_out_of_range_becomes_text():
-    assert prepare_ask(choice(5))["kind"] == "text"
+def test_a_choice_question_with_a_broken_key_keeps_its_options():
+    # The teacher judges the pick instead; the options stay on the board and in the talk bar.
+    ask = prepare_ask(choice(5))
+    assert (ask["kind"], ask["answer"], ask["options"]) == ("choice", None, OPTIONS)
+    assert check_answer(ask, "b") is None
+    assert display_key(ask) is None
+    with pytest.raises(ValueError):
+        check_answer(ask, "z")
+
+
+def test_non_finite_keys_are_not_used():
+    ask = prepare_ask({"type": "ask", "id": "q1", "kind": "number", "answer": float("inf")})
+    assert ask["kind"] == "text"
 
 
 def test_prepare_does_not_change_its_input():

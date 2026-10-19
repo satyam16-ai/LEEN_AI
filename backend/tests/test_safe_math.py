@@ -34,6 +34,9 @@ def test_evaluates_expressions_in_x():
     assert evaluate("x^2 - 4", -2) == 0
     assert evaluate("3x(x-1)", 2) == 6
     assert evaluate("sin(pi/2)") == approx(1)
+    assert evaluate("x²", 3) == 9
+    assert evaluate("2x³", 2) == 16
+    assert evaluate("5²") == 25
 
 
 @pytest.mark.parametrize(
@@ -74,6 +77,12 @@ def test_rejects_anything_but_arithmetic(text):
         ("3/4", None, 0.75),
         ("1 1/2", None, 1.5),
         ("-2 1/4", None, -2.25),
+        ("05", None, 5),
+        ("1,00,000", None, 100000),
+        ("12,34,567.5", None, 1234567.5),
+        ("₹500", None, 500),
+        ("Rs. 500", None, 500),
+        ("500/-", None, 500),
     ],
 )
 def test_parse_answer_number(text, unit, value):

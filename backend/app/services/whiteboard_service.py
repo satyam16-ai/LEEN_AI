@@ -112,6 +112,7 @@ def flatten_turns(turns: list[dict], answers: Answers | None = None) -> list[dic
                         "correct": answer.get("correct"),
                     }
                     for answer in answers.get((index, action["id"]), [])
+                    if answer.get("answer") is not None  # a question closed without an answer
                 ]
     return actions
 
@@ -266,16 +267,33 @@ def start_turn(db: Session, student: User, doubt_id: str, payload: TurnCreate) -
             raise HTTPException(status.HTTP_404_NOT_FOUND, QUESTION_NOT_FOUND)
         index, position, question = found
         answers = _answers(board_repository.list_events(db, session.id)).get((index, payload.ask))
+        given = [a["answer"] for a in answers or [] if a.get("answer") is not None]
         context_text = question_context(_shown(turns[index].payload), position)
         check = {
             "ask": payload.ask,
             "question": context_text,
             "kind": question.get("kind"),
-            "answers": [answer["answer"] for answer in answers or []],
+            "options": question.get("options"),
+            "answers": given,
             "expected": display_key(question),
         }
         asked = (context_text.split("\n")[0] or session.title)[:500]
-        turn_extra = {"ask": payload.ask}
+        turn_extra = {"ask": payload.ask, "ask_turn": index}
+        if not any(answer.get("final") for answer in answers or []):
+            # The check shows the solution, so the question is closed to later answers.
+            board_repository.add_event(
+                db,
+                session,
+                "answer",
+                {
+                    "turn": index,
+                    "ask": payload.ask,
+                    "answer": None,
+                    "correct": None,
+                    "attempt": len(given),
+                    "final": True,
+                },
+            )
     if payload.keep is not None and turns and payload.mode in ("follow_up", "check"):
         # Sent mid-explanation: keep what the student has seen, answer, then teach the rest.
         latest = turns[-1]
@@ -366,18 +384,29 @@ def _save_result(event_id: str, actions: list[dict], error: str | None) -> None:
         session.status = status_
         session.error = error[:300] if error else None
         session.completed_at = utcnow()
-        _record_verdicts(db, session.id, actions)
+        _record_verdicts(db, session.id, actions, turn.payload.get("ask_turn"))
         db.commit()
 
 
-def _record_verdicts(db: Session, session_id: str, actions: list[dict]) -> None:
-    """The Examiner's verdicts on written answers, stored on the answers they judge."""
+def _record_verdicts(
+    db: Session, session_id: str, actions: list[dict], ask_turn: int | None
+) -> None:
+    """The Examiner's verdicts on written answers, stored on the answers they judge.
+
+    Question ids repeat across turns, so only the checked question's turn is touched.
+    """
     verdicts = {a["ask"]: a["correct"] for a in actions if a.get("type") == "verdict"}
-    if not verdicts:
+    if not verdicts or ask_turn is None:
         return
     for event in board_repository.list_events(db, session_id):
         payload = event.payload
-        if event.kind == "answer" and payload["ask"] in verdicts and payload["correct"] is None:
+        if (
+            event.kind == "answer"
+            and payload["turn"] == ask_turn
+            and payload["ask"] in verdicts
+            and payload.get("answer") is not None
+            and payload["correct"] is None
+        ):
             event.payload = {**payload, "correct": verdicts[payload["ask"]]}
 
 

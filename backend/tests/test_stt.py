@@ -63,3 +63,18 @@ def test_stt_without_a_key_is_503(signed_in, fake_sarvam, monkeypatch):
     assert response.status_code == 503
     assert response.json()["message"] == "Voice input is unavailable right now."
     assert fake_sarvam == []
+
+
+def test_stt_failure_is_logged(signed_in, monkeypatch, caplog):
+    def handler(request):
+        return httpx.Response(500, json={"error": {"message": "boom"}})
+
+    monkeypatch.setattr(settings, "sarvam_api_key", "test-key")
+    monkeypatch.setattr(sarvam, "TRANSPORT", httpx.MockTransport(handler))
+    student = signed_in("s@example.com", UserRole.STUDENT)
+
+    with caplog.at_level("WARNING", logger="leen_ai"):
+        response = student.post(STT, files={"file": AUDIO})
+
+    assert response.status_code == 503
+    assert "Voice input failed" in caplog.text

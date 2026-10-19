@@ -4,6 +4,8 @@
 # Sarvam key stays on the server.
 # =============================================================================
 
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.api.v1.dependencies.auth import get_current_user
@@ -13,6 +15,7 @@ from app.schemas.response import ok
 from app.services import sarvam
 
 router = APIRouter()
+logger = logging.getLogger("leen_ai")
 
 MAX_AUDIO_BYTES = 1024 * 1024
 AUDIO_TYPES = ("audio/webm", "audio/ogg", "audio/wav", "audio/mpeg", "audio/mp4")
@@ -37,5 +40,6 @@ async def transcribe(file: UploadFile = File(...), user: User = Depends(_limited
     try:
         text = await sarvam.speech_to_text(audio, file.filename or "speech", content_type)
     except sarvam.SarvamError as error:
+        logger.warning("Voice input failed: %r", error)
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, UNAVAILABLE) from error
     return ok({"text": text})

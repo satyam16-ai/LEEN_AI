@@ -845,3 +845,45 @@ def test_verdict_marks_a_text_answer(signed_in, monkeypatch):
         events = board_repository.list_events(db, doubt_id)
         [answer] = [event.payload for event in events if event.kind == "answer"]
         assert answer["correct"] is True
+
+
+# -- small fixes after the review ---------------------------------------------------------
+
+
+def test_parser_drops_non_finite_numbers():
+    parser = ActionStreamParser(max_actions=10)
+    actions = parser.feed('{"type":"ask","id":"q1","kind":"number","answer":Infinity}\n')
+    actions += parser.feed('{"type":"pause","ms":NaN}\n') + parser.flush()
+    assert actions == [] and parser.dropped == 2
+
+
+def test_verdict_only_marks_the_question_checked(signed_in, monkeypatch):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = _question_board(student, monkeypatch, TEXT_SCRIPT)
+    _answer(student, doubt_id, "an early answer", "q2")
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(TEXT_SCRIPT))
+    student.post(f"{DOUBTS}/{doubt_id}/turns", json={"mode": "practice"})
+    _answer(student, doubt_id, "light slows down in glass", "q2")
+    verdict = '{"type":"verdict","ask":"q2","correct":true}\n'
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(CHECK_SCRIPT + verdict))
+
+    student.post(f"{DOUBTS}/{doubt_id}/turns", json={"mode": "check", "ask": "q2"})
+
+    with SessionLocal() as db:
+        answers = [
+            e.payload for e in board_repository.list_events(db, doubt_id) if e.kind == "answer"
+        ]
+        assert [(a["turn"], a["correct"]) for a in answers] == [(0, None), (1, True)]
+
+
+def test_a_question_whose_solution_was_shown_cannot_be_answered(signed_in, monkeypatch):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = _question_board(student, monkeypatch)
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(CHECK_SCRIPT))
+
+    student.post(f"{DOUBTS}/{doubt_id}/turns", json={"mode": "check", "ask": "q1"})
+    late = _answer(student, doubt_id, "12")
+
+    assert late.status_code == 409
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert not any(action["type"] == "answer" for action in saved["actions"])

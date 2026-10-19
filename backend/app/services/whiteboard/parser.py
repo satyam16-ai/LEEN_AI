@@ -12,6 +12,11 @@ from app.schemas.board import board_action, dump_action
 logger = logging.getLogger("leen_ai")
 
 
+def _no_infinity(name: str):
+    """JSON allows Infinity and NaN; a board (or Postgres jsonb) can't use them."""
+    raise ValueError(f"not a finite number: {name}")
+
+
 class ActionStreamParser:
     """Feed raw text chunks as they stream in; get back validated board actions.
 
@@ -56,7 +61,8 @@ class ActionStreamParser:
         if not line or line.startswith("```"):
             return None
         try:
-            return dump_action(board_action.validate_python(json.loads(line)))
+            data = json.loads(line, parse_constant=_no_infinity)
+            return dump_action(board_action.validate_python(data))
         except (ValueError, ValidationError):
             self.dropped += 1
             logger.debug("Dropped whiteboard line: %.200s", line)

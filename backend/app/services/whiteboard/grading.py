@@ -45,6 +45,8 @@ def _number_key(ask: dict) -> float | None:
             continue
         try:
             if isinstance(source, int | float) and not isinstance(source, bool):
+                if not math.isfinite(source):
+                    continue
                 return float(source)
             return parse_answer_number(str(source), ask.get("unit"))
         except ValueError:
@@ -76,8 +78,7 @@ def prepare_ask(action: dict) -> dict:
     kind = ask.get("kind")
     if kind == "choice":
         index = _option_index(ask.get("options") or [], ask.get("answer"))
-        if index is None:
-            return _as_text(ask)
+        # A key that matches no option: keep the options; the Examiner judges the pick.
         ask["answer"] = index
     elif kind == "number":
         key = _number_key(ask)
@@ -104,7 +105,7 @@ def check_answer(ask: dict, answer: str) -> bool | None:
         index = _option_index(ask.get("options") or [], answer)
         if index is None:
             raise ValueError("pick one of the options")
-        return index == ask["answer"]
+        return None if ask.get("answer") is None else index == ask["answer"]
     if kind == "number":
         return _number_matches(parse_answer_number(answer, ask.get("unit")), ask["answer"], answer)
     if kind == "expr":
