@@ -8,6 +8,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, TypeAdapter
 
 from app.schemas.board.common import BOARD_HEIGHT, BOARD_WIDTH, MAX_CAPTION, MAX_TEXT
+from app.schemas.board.questions import AskAction, MarkAction, VerdictAction
 from app.schemas.board.v1 import (
     AnimateAction,
     CaptionAction,
@@ -57,7 +58,10 @@ BoardAction = Annotated[
     | TableAction
     | ChartAction
     | FlowAction
-    | DiagramAction,
+    | DiagramAction
+    | AskAction
+    | MarkAction
+    | VerdictAction,
     Field(discriminator="type"),
 ]
 board_action = TypeAdapter(BoardAction)

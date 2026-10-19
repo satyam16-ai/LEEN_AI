@@ -135,3 +135,37 @@ def test_chart_lists_are_trimmed_to_the_same_length():
 def test_v2_lines_are_short(line):
     assert len(json.dumps(line, separators=(",", ":"))) < 100
     assert parse(line)["type"] == line["type"]
+
+
+# -- questions: ask, mark, verdict ------------------------------------------------------
+
+
+def test_ask_choice_keeps_options_and_answer():
+    ask = {"type": "ask", "id": "q1", "kind": "choice", "options": ["4", "8", "16"], "answer": 1}
+    assert parse(ask) == ask
+
+
+def test_ask_unknown_kind_is_text():
+    assert parse({"type": "ask", "id": "q1", "kind": "essay"})["kind"] == "text"
+
+
+def test_ask_caps_options_at_six():
+    ask = parse({"type": "ask", "id": "q1", "kind": "choice", "options": list("ABCDEFGH")})
+    assert ask["options"] == list("ABCDEF")
+
+
+def test_ask_choice_needs_two_options():
+    assert invalid({"type": "ask", "id": "q1", "kind": "choice", "options": ["4"], "answer": 0})
+
+
+def test_ask_drops_an_unsafe_calc():
+    ask = parse({"type": "ask", "id": "q1", "kind": "number", "answer": 12, "calc": "import os"})
+    assert "calc" not in ask
+    assert parse({"type": "ask", "id": "q1", "kind": "number", "calc": "3*4"})["calc"] == "3*4"
+
+
+def test_mark_and_verdict_validate():
+    mark = parse({"type": "mark", "id": "s1", "kind": "star", "note": "sign error"})
+    assert mark == {"type": "mark", "id": "s1", "kind": "cross", "note": "sign error"}
+    verdict = parse({"type": "verdict", "ask": "q1", "correct": False})
+    assert verdict == {"type": "verdict", "ask": "q1", "correct": False}
