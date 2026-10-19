@@ -20,12 +20,20 @@ from app.models.board import BoardSession
 from app.models.profile import StudentProfile
 from app.models.user import User, utcnow
 from app.repositories import board_repository, profile_repository
-from app.schemas.whiteboard import DoubtCreate, DoubtOut, DoubtSummary, TurnCreate, TurnOut
+from app.schemas.whiteboard import (
+    AnswerCreate,
+    AnswerOut,
+    DoubtCreate,
+    DoubtOut,
+    DoubtSummary,
+    TurnCreate,
+    TurnOut,
+)
 from app.services.llm import claude_bridge, gateway
-from app.services.whiteboard.grading import prepare_ask, public_action
+from app.services.whiteboard.grading import check_answer, display_key, prepare_ask, public_action
 from app.services.whiteboard.parser import ActionStreamParser
 from app.services.whiteboard.prompt import build_prompt
-from app.services.whiteboard.summary import summarize_board, summarize_plan
+from app.services.whiteboard.summary import question_context, summarize_board, summarize_plan
 
 logger = logging.getLogger("leen_ai")
 
@@ -44,6 +52,10 @@ OFFLINE = "The AI tutor is offline right now. Please try again in a little while
 FAILED = "The AI tutor ran into a problem. Please try again."
 EMPTY = "The AI tutor couldn't draw an explanation for that. Try asking in a different way."
 STOPPED = "Stopped before the explanation finished."
+QUESTION_NOT_FOUND = "Question not found"
+UNREADABLE = "Check your answer and try again."
+ANSWERED = "You've already answered this question."
+MAX_TRIES = 2
 
 
 def _summary(session: BoardSession) -> DoubtSummary:
@@ -102,6 +114,16 @@ def flatten_turns(turns: list[dict], answers: Answers | None = None) -> list[dic
                     for answer in answers.get((index, action["id"]), [])
                 ]
     return actions
+
+
+def _find_ask(turns: list, ask_id: str) -> tuple[int, int, dict] | None:
+    """(turn index, position, ask) of the newest question `ask_id` the student has seen."""
+    for index in range(len(turns) - 1, -1, -1):
+        shown = _shown(turns[index].payload)
+        for position, action in enumerate(shown):
+            if action.get("type") == "ask" and action.get("id") == ask_id:
+                return index, position, action
+    return None
 
 
 def _answers(events) -> Answers:
@@ -235,25 +257,43 @@ def start_turn(db: Session, student: User, doubt_id: str, payload: TurnCreate) -
     if len(turns) >= MAX_TURNS:
         raise HTTPException(status.HTTP_409_CONFLICT, FULL)
 
-    mode, left, message = payload.mode, None, None
+    mode, left, message, check = payload.mode, None, None, None
     asked = payload.question if payload.mode == "follow_up" else session.title
-    if payload.mode == "follow_up" and payload.keep is not None and turns:
-        # Sent mid-explanation: keep what the student has seen, reply, then teach the rest.
+    turn_extra: dict = {}
+    if payload.mode == "check":
+        found = _find_ask(turns, payload.ask)
+        if found is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, QUESTION_NOT_FOUND)
+        index, position, question = found
+        answers = _answers(board_repository.list_events(db, session.id)).get((index, payload.ask))
+        context_text = question_context(_shown(turns[index].payload), position)
+        check = {
+            "ask": payload.ask,
+            "question": context_text,
+            "kind": question.get("kind"),
+            "answers": [answer["answer"] for answer in answers or []],
+            "expected": display_key(question),
+        }
+        asked = (context_text.split("\n")[0] or session.title)[:500]
+        turn_extra = {"ask": payload.ask}
+    if payload.keep is not None and turns and payload.mode in ("follow_up", "check"):
+        # Sent mid-explanation: keep what the student has seen, answer, then teach the rest.
         latest = turns[-1]
         actions = _shown(latest.payload)
         keep = min(payload.keep, len(actions))
         latest.payload = {**latest.payload, "cut_at": keep}
         left = summarize_plan(actions[keep:]) or None
-        mode, message = "reply", payload.question
+        if payload.mode == "follow_up":
+            mode, message = "reply", payload.question
 
     context = summarize_board(flatten_turns([turn.payload for turn in turns]))
     profile = profile_repository.get(db, student.id)
-    event = board_repository.add_turn(db, session, _new_turn(asked, mode))
+    event = board_repository.add_turn(db, session, _new_turn(asked, mode) | turn_extra)
     session.status = "streaming"
     session.error = None
     db.commit()
 
-    question = session.title if mode == "reply" else asked
+    question = session.title if mode in ("reply", "check") else asked
     system, prompt = build_prompt(
         question,
         session.subject,
@@ -262,9 +302,53 @@ def start_turn(db: Session, student: User, doubt_id: str, payload: TurnCreate) -
         mode=mode,
         left=left,
         message=message,
+        check=check,
     )
     agent = "examiner" if mode in EXAMINER_MODES else "doubt_solver"
     return TurnStart(_summary(session), event.id, system, prompt, agent=agent)
+
+
+def submit_answer(db: Session, student: User, doubt_id: str, payload: AnswerCreate) -> AnswerOut:
+    """Check an answer in code (choice, number, expression) and record it; no model call.
+
+    Written answers are recorded as final with `correct` unknown: a check turn by the
+    Examiner judges them. An answer that can't be read doesn't cost a try.
+    """
+    session = _owned(db, student, doubt_id, lock=True)
+    events = board_repository.list_events(db, session.id)
+    turns = [event for event in events if event.kind == "turn"]
+    found = _find_ask(turns, payload.ask)
+    if found is None:
+        if turns and turns[-1].payload.get("status") == "streaming":
+            raise HTTPException(status.HTTP_409_CONFLICT, BUSY)
+        raise HTTPException(status.HTTP_404_NOT_FOUND, QUESTION_NOT_FOUND)
+    index, _, question = found
+    earlier = _answers(events).get((index, payload.ask), [])
+    if any(answer.get("final") for answer in earlier):
+        raise HTTPException(status.HTTP_409_CONFLICT, ANSWERED)
+    try:
+        correct = check_answer(question, payload.answer)
+    except ValueError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, UNREADABLE) from error
+
+    attempt = len(earlier) + 1
+    final = correct is not False or attempt >= MAX_TRIES
+    board_repository.add_event(
+        db,
+        session,
+        "answer",
+        {
+            "turn": index,
+            "ask": payload.ask,
+            "answer": payload.answer,
+            "correct": correct,
+            "attempt": attempt,
+            "final": final,
+        },
+    )
+    db.commit()
+    expected = display_key(question) if final and correct is False else None
+    return AnswerOut(correct=correct, attempt=attempt, final=final, expected=expected)
 
 
 def _sse(event: str, data: dict) -> str:
@@ -282,7 +366,19 @@ def _save_result(event_id: str, actions: list[dict], error: str | None) -> None:
         session.status = status_
         session.error = error[:300] if error else None
         session.completed_at = utcnow()
+        _record_verdicts(db, session.id, actions)
         db.commit()
+
+
+def _record_verdicts(db: Session, session_id: str, actions: list[dict]) -> None:
+    """The Examiner's verdicts on written answers, stored on the answers they judge."""
+    verdicts = {a["ask"]: a["correct"] for a in actions if a.get("type") == "verdict"}
+    if not verdicts:
+        return
+    for event in board_repository.list_events(db, session_id):
+        payload = event.payload
+        if event.kind == "answer" and payload["ask"] in verdicts and payload["correct"] is None:
+            event.payload = {**payload, "correct": verdicts[payload["ask"]]}
 
 
 async def _produce(

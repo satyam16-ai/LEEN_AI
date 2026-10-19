@@ -46,6 +46,24 @@ class TurnCreate(BaseModel):
         return self
 
 
+class AnswerCreate(BaseModel):
+    """The student's answer to question `ask` on the board."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ask: AskId
+    answer: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+class AnswerOut(BaseModel):
+    # None for a written answer: the Examiner judges it in a check turn.
+    correct: bool | None
+    attempt: int
+    final: bool
+    # The right answer, once the student has run out of tries.
+    expected: str | None
+
+
 class DoubtSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

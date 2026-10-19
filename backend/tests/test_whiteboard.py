@@ -704,3 +704,144 @@ def test_turns_have_their_own_rate_limit(signed_in, monkeypatch):
     student.post(f"{DOUBTS}/{doubt_id}/turns", json={"question": "Why so?"})
 
     assert limits == [("doubt", 15, 3600), ("doubt-turn", 40, 3600)]
+
+
+# -- answers and check turns -------------------------------------------------------------
+
+TEXT_SCRIPT = (
+    '{"type":"caption","text":"Why does a lens bend light?"}\n'
+    '{"type":"ask","id":"q2","kind":"text","answer":"Light changes speed in glass"}\n'
+)
+CHECK_SCRIPT = (
+    '{"type":"caption","text":"Let us check."}\n'
+    '{"type":"write","text":"15 cm","color":"orange","id":"s1"}\n'
+    '{"type":"mark","id":"s1","kind":"cross"}\n'
+)
+
+
+def _question_board(student, monkeypatch, script=QUESTION_SCRIPT) -> str:
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(script))
+    return ask(student, "Area of a 3 by 4 rectangle?")
+
+
+def _answer(student, doubt_id, answer, ask_id="q1"):
+    return student.post(f"{DOUBTS}/{doubt_id}/answers", json={"ask": ask_id, "answer": answer})
+
+
+def test_number_answer_is_checked_in_code(signed_in, monkeypatch):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = _question_board(student, monkeypatch)
+
+    wrong = _answer(student, doubt_id, "14")
+    right = _answer(student, doubt_id, "12 cm")
+
+    assert wrong.status_code == 200
+    assert wrong.json()["data"] == {
+        "correct": False,
+        "attempt": 1,
+        "final": False,
+        "expected": None,
+    }
+    assert right.json()["data"] == {"correct": True, "attempt": 2, "final": True, "expected": None}
+    with SessionLocal() as db:
+        assert db.query(LlmCall).count() == 1  # only the doubt itself
+
+
+def test_two_wrong_answers_are_final(signed_in, monkeypatch):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = _question_board(student, monkeypatch)
+
+    _answer(student, doubt_id, "14")
+    second = _answer(student, doubt_id, "15")
+    third = _answer(student, doubt_id, "12")
+
+    assert second.json()["data"] == {
+        "correct": False,
+        "attempt": 2,
+        "final": True,
+        "expected": "12 cm",
+    }
+    assert third.status_code == 409 and "already answered" in third.json()["message"]
+
+
+def test_unreadable_answer_does_not_use_a_try(signed_in, monkeypatch):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = _question_board(student, monkeypatch)
+
+    unreadable = _answer(student, doubt_id, "abc")
+    readable = _answer(student, doubt_id, "12")
+
+    assert unreadable.status_code == 422
+    assert readable.json()["data"]["attempt"] == 1
+
+
+def test_text_answer_waits_for_the_teacher(signed_in, monkeypatch):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = _question_board(student, monkeypatch, TEXT_SCRIPT)
+
+    response = _answer(student, doubt_id, "light slows down in glass", "q2")
+
+    assert response.json()["data"] == {
+        "correct": None,
+        "attempt": 1,
+        "final": True,
+        "expected": None,
+    }
+
+
+def test_answer_needs_a_known_question(signed_in, monkeypatch):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = _question_board(student, monkeypatch)
+    other = signed_in("o@example.com", UserRole.STUDENT)
+
+    assert _answer(student, doubt_id, "12", "zz").status_code == 404
+    assert _answer(other, doubt_id, "12").status_code == 404
+    assert student.post(f"{DOUBTS}/{doubt_id}/answers", json={"ask": "q1"}).status_code == 422
+
+
+def test_check_turn_explains_a_wrong_answer(signed_in, monkeypatch):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = _question_board(student, monkeypatch)
+    _answer(student, doubt_id, "14")
+    _answer(student, doubt_id, "15")
+    fake = counting_stream(CHECK_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+
+    response = student.post(
+        f"{DOUBTS}/{doubt_id}/turns", json={"mode": "check", "ask": "q1", "keep": 3}
+    )
+
+    assert read_events(response)[-1][0] == "done"
+    assert "<answer>\n14\n</answer>" in fake.prompt and "<answer>\n15\n</answer>" in fake.prompt
+    assert "12 cm" in fake.prompt and "What is the area of a 3 cm by 4 cm rectangle?" in fake.prompt
+    saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert [a["type"] for a in saved["actions"]] == [
+        "caption",
+        "write",
+        "ask",
+        "answer",
+        "answer",
+        "caption",
+        "write",
+        "mark",
+    ]
+    assert [a["text"] for a in saved["actions"] if a["type"] == "answer"] == ["14", "15"]
+    assert saved["turns"][1]["mode"] == "check"
+    with SessionLocal() as db:
+        agents = [call.agent for call in db.query(LlmCall).order_by(LlmCall.created_at)]
+        assert agents == ["doubt_solver", "examiner"]
+
+
+def test_verdict_marks_a_text_answer(signed_in, monkeypatch):
+    student = signed_in("s@example.com", UserRole.STUDENT)
+    doubt_id = _question_board(student, monkeypatch, TEXT_SCRIPT)
+    _answer(student, doubt_id, "light slows down in glass", "q2")
+    verdict = '{"type":"verdict","ask":"q2","correct":true}\n'
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(CHECK_SCRIPT + verdict))
+
+    student.post(f"{DOUBTS}/{doubt_id}/turns", json={"mode": "check", "ask": "q2"})
+
+    with SessionLocal() as db:
+        events = board_repository.list_events(db, doubt_id)
+        [answer] = [event.payload for event in events if event.kind == "answer"]
+        assert answer["correct"] is True

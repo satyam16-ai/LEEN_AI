@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.family import CodeRequest
 from app.schemas.response import ok
-from app.schemas.whiteboard import DoubtCreate, TurnCreate
+from app.schemas.whiteboard import AnswerCreate, DoubtCreate, TurnCreate
 from app.services import classroom_service, family_service, whiteboard_service
 
 router = APIRouter()
@@ -20,6 +20,7 @@ current_student = require_roles(UserRole.STUDENT)
 # New doubts and turns on a board are limited separately: replies, checks and practice add up.
 DOUBT_LIMIT = 15
 TURN_LIMIT = 40
+ANSWER_LIMIT = 120
 
 
 @router.get("/link-code")
@@ -101,6 +102,18 @@ def add_doubt_turn(
     """Stream a follow-up, reply, another explanation, check or practice onto the same board."""
     rate_limit.enforce(f"doubt-turn:{student.id}", TURN_LIMIT, 3600)
     return _board_stream(whiteboard_service.start_turn(db, student, doubt_id, payload), student)
+
+
+@router.post("/doubts/{doubt_id}/answers")
+def answer_question(
+    doubt_id: str,
+    payload: AnswerCreate,
+    student: User = Depends(current_student),
+    db: Session = Depends(get_db),
+):
+    """Check the student's answer to a question on the board (in code, no model call)."""
+    rate_limit.enforce(f"answer:{student.id}", ANSWER_LIMIT, 3600)
+    return ok(whiteboard_service.submit_answer(db, student, doubt_id, payload))
 
 
 @router.get("/doubts")
