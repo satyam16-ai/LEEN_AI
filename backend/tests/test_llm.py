@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 
 import httpx
@@ -9,6 +10,7 @@ from app.database import SessionLocal
 from app.models.llm_call import LlmCall
 from app.models.user import User, UserRole
 from app.services.llm import claude_bridge, gateway
+from app.services.llm.types import ImageInput
 
 # -- bridge client --------------------------------------------------------------
 
@@ -190,3 +192,65 @@ def test_every_doubt_agent_has_a_config():
         assert isinstance(gateway.agent_config(agent), gateway.AgentConfig)
     with pytest.raises(gateway.LlmConfigError):
         gateway.agent_config("nobody")
+
+
+# -- images and complete() ------------------------------------------------------
+
+
+def _capturing_transport(seen: list):
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, text=json.dumps({"type": "done", "usage": {}}) + "\n")
+
+    return httpx.MockTransport(handler)
+
+
+def test_bridge_client_sends_images():
+    seen = []
+    images = [ImageInput("image/png", b"png")]
+
+    async def run():
+        stream = claude_bridge.stream_text(
+            "s", "p", images=images, transport=_capturing_transport(seen)
+        )
+        return [chunk async for chunk in stream]
+
+    asyncio.run(run())
+    assert seen[0]["images"] == [
+        {"media_type": "image/png", "data": base64.b64encode(b"png").decode()}
+    ]
+
+
+def test_bridge_client_omits_images_when_none():
+    seen = []
+    asyncio.run(_collect(_capturing_transport(seen)))
+    assert "images" not in seen[0]
+
+
+def test_gateway_passes_images_to_the_bridge(monkeypatch):
+    received = {}
+
+    async def stream_text(system, prompt, *, usage=None, images=(), **kwargs):
+        received["images"] = images
+        yield "ok"
+
+    monkeypatch.setattr(claude_bridge, "stream_text", stream_text)
+    images = (ImageInput("image/jpeg", b"jpg"),)
+    asyncio.run(_drain(gateway.stream_text("librarian", "s", "p", images=images)))
+    assert received["images"] == images
+
+
+def test_complete_joins_text_and_logs_call(monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", fake_with_usage(["ab", "c"], USAGE))
+
+    text = asyncio.run(gateway.complete("syllabus_reader", "s", "p"))
+
+    assert text == "abc"
+    with SessionLocal() as db:
+        call = db.query(LlmCall).one()
+    assert (call.agent, call.status) == ("syllabus_reader", "ok")
+
+
+def test_new_agents_are_configured():
+    assert gateway.agent_config("librarian").model == settings.librarian_model
+    assert gateway.agent_config("syllabus_reader").effort == settings.syllabus_effort

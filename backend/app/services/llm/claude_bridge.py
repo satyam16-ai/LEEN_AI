@@ -4,12 +4,14 @@
 # stream_text() with an SDK call that yields text deltas.
 # =============================================================================
 
+import base64
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 
 import httpx
 
 from app.config import settings
+from app.services.llm.types import ImageInput
 
 
 class BridgeOfflineError(Exception):
@@ -37,12 +39,18 @@ async def stream_text(
     effort: str | None = None,
     usage: dict | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
+    images: Sequence[ImageInput] = (),
 ) -> AsyncIterator[str]:
-    """Yield text deltas as Claude writes them.
+    """Yield text deltas as Claude writes them. `images` are sent for Claude to look at.
 
     When the run ends, `usage` (if given) is filled with its token counts, cost and duration.
     """
     body = {"system": system, "prompt": prompt, "model": model, "effort": effort}
+    if images:
+        body["images"] = [
+            {"media_type": image.media_type, "data": base64.b64encode(image.data).decode()}
+            for image in images
+        ]
     try:
         async with (
             _client(transport) as client,

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     # Media (user uploads, served at /media)
     media_root: str = "media"
     max_avatar_bytes: int = 2 * 1024 * 1024
+    # Student uploads (syllabus photos, book pages, doubt photos): never served at /media.
+    private_root: str = "private"
+    max_upload_bytes: int = 8 * 1024 * 1024
+    max_pdf_pages: int = 20
 
     # Redis
     redis_host: str = "localhost"
@@ -72,6 +76,11 @@ class Settings(BaseSettings):
     # The Examiner agent: practice questions and answer checks.
     examiner_model: str = "sonnet"
     examiner_effort: str = "low"
+    # The Syllabus Reader (contents page → topic tree) and the Librarian (book pages).
+    syllabus_model: str = "sonnet"
+    syllabus_effort: str = "low"
+    librarian_model: str = "sonnet"
+    librarian_effort: str = "low"
     whiteboard_timeout_seconds: int = 180
     whiteboard_max_actions: int = 150
     # Serve an identical doubt (same question and student profile) from an earlier board.
@@ -88,6 +97,13 @@ class Settings(BaseSettings):
     # Hindi voice input: translit mode returns Hinglish in English letters, like the captions.
     sarvam_stt_model: str = "saaras:v3"
     sarvam_stt_mode: str = "translit"
+
+    # Knowledge base: local OCR, a local multilingual embedding model and pgvector.
+    embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_dim: int = 384
+    rag_top_k: int = 3
+    rag_min_score: float = 0.35
+    ocr_min_confidence: float = 60.0
 
     @field_validator("cors_origins", mode="before")
     @classmethod
