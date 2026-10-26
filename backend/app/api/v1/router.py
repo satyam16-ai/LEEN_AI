@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     profile,
     stt,
     student,
+    syllabus,
     teacher,
     tts,
 )
@@ -24,6 +25,7 @@ router.include_router(health.router, tags=["Health"])
 router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 router.include_router(profile.router, prefix="/profile", tags=["Profile"])
 router.include_router(student.router, prefix="/student", tags=["Student"])
+router.include_router(syllabus.router, prefix="/student/syllabus", tags=["Syllabus"])
 router.include_router(parent.router, prefix="/parent", tags=["Parent"])
 router.include_router(teacher.router, prefix="/teacher", tags=["Teacher"])
 router.include_router(admin_users.router, prefix="/admin/users", tags=["Admin · Users"])

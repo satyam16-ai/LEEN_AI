@@ -61,3 +61,11 @@ def cleanup_expired_tokens():
         db.commit()
     logger.info("Token cleanup: %d refresh, %d reset tokens removed", refresh, reset)
     return {"refresh_tokens": refresh, "reset_tokens": reset}
+
+
+@celery_app.task(name="app.core.tasks.read_syllabus_task")
+def read_syllabus_task(subject_id: str):
+    """The Syllabus Reader: a contents-page upload → a draft topic tree."""
+    from app.services import syllabus_service
+
+    syllabus_service.read_syllabus(subject_id)
