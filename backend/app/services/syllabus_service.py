@@ -37,6 +37,7 @@ MIN_PDF_TEXT = 200
 # A "reading" status older than this is treated as stuck, so the student can upload again.
 READING_STALE = timedelta(minutes=10)
 READ_FAILED = "Couldn't read that page. Try a clearer photo or type it yourself."
+READ_STUCK = "Reading took too long. Try again."
 NOT_IN_PROFILE = "That subject isn't in your profile."
 WRONG_FILES = "Send up to 3 photos of the contents page, or one PDF."
 
@@ -51,13 +52,22 @@ def profile_subject(db: Session, student: User, subject: str) -> str:
     raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_IN_PROFILE)
 
 
+def _shown_status(row: SyllabusSubject) -> tuple[str, str | None]:
+    """The status the student sees: a read stuck past READING_STALE (a lost task) is failed,
+    so the page offers a new upload instead of waiting forever."""
+    if row.status == "reading" and not _is_reading(row):
+        return "failed", READ_STUCK
+    return row.status, row.error
+
+
 def _tree(row: SyllabusSubject | None, name: str) -> SyllabusOut:
     if row is None:
         return SyllabusOut(subject=name, status="empty", error=None, confirmed_at=None, chapters=[])
+    shown, error = _shown_status(row)
     return SyllabusOut(
         subject=name,
-        status=row.status,
-        error=row.error,
+        status=shown,
+        error=error,
         confirmed_at=row.confirmed_at,
         chapters=[ChapterOut.model_validate(chapter) for chapter in row.chapters],
     )
@@ -77,7 +87,7 @@ def list_subjects(db: Session, student: User) -> list[SubjectSummary]:
         summaries.append(
             SubjectSummary(
                 subject=name,
-                status=row.status if row else "empty",
+                status=_shown_status(row)[0] if row else "empty",
                 chapters=len(row.chapters) if row else 0,
                 topics=len(topics),
                 done=sum(topic.done for topic in topics),

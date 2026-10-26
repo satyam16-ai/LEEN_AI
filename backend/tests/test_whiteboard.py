@@ -1118,3 +1118,27 @@ def test_follow_up_on_photo_doubt_sends_no_image(signed_in, monkeypatch):
 
     assert read_events(response)[-1][0] == "done"
     assert fake.calls[-1]["images"] == ()
+
+
+def test_library_error_never_blocks_a_doubt(signed_in, monkeypatch):
+    from app.services.library import embeddings
+    from tests.pages import add_ready_page
+
+    fake = counting_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    client, student_id = science_student(signed_in)
+    add_ready_page(student_id, INERTIA_PAGE)
+    # A model of the wrong size: pgvector rejects the query inside the request's transaction.
+    embeddings.override(lambda texts: [[0.5, 0.5, 0.5] for _ in texts])
+
+    events = read_events(
+        client.post(DOUBTS, json={"question": "What is inertia?", "subject": "Science"})
+    )
+    doubt_id = events[0][1]["id"]
+    turn = client.post(
+        f"{DOUBTS}/{doubt_id}/turns", json={"question": "And mass?", "mode": "follow_up"}
+    )
+
+    assert events[-1][0] == "done"
+    assert "<sources>" not in fake.prompt
+    assert read_events(turn)[-1][0] == "done"

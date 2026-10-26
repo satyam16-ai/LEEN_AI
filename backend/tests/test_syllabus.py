@@ -301,3 +301,18 @@ def test_save_tree_validates_input(student):
     assert student.put(f"{SYLLABUS}/Maths", json=too_long).status_code == 422
     blank = {"chapters": [{"title": "   ", "topics": []}]}
     assert student.put(f"{SYLLABUS}/Maths", json=blank).status_code == 422
+
+
+def test_stale_reading_shows_as_failed(student, queued):
+    upload(student, "Science", png())
+    with SessionLocal() as db:
+        row = db.query(SyllabusSubject).one()
+        row.updated_at = utcnow() - timedelta(minutes=11)
+        db.commit()
+
+    tree = student.get(f"{SYLLABUS}/Science").json()["data"]
+    summary = {s["subject"]: s for s in student.get(SYLLABUS).json()["data"]}
+
+    assert tree["status"] == "failed"
+    assert tree["error"] == "Reading took too long. Try again."
+    assert summary["Science"]["status"] == "failed"

@@ -24,9 +24,13 @@ def test_retrieval_only_searches_own_documents(create_user):
     owner = create_user("owner@example.com", UserRole.STUDENT)
     other = create_user("other@example.com", UserRole.STUDENT)
     add_ready_page(owner.id, INERTIA)
+    # The other student has a page too, so the vector search itself runs for them.
+    theirs = add_ready_page(other.id, PLANTS)
 
     with SessionLocal() as db:
-        assert retrieve(db, other.id, "inertia", min_score=0.0) == []
+        found = retrieve(db, other.id, "inertia", min_score=0.0, k=3)
+
+    assert [source.doc for source in found] == [theirs]
 
 
 def test_retrieval_skips_unready_and_other_subjects(create_user):

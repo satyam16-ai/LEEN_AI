@@ -219,9 +219,14 @@ def cache_key(question: str, subject: str | None, profile: StudentProfile | None
 
 
 def _retrieve(db: Session, student_id: str, query: str, subject: str | None) -> list[Source]:
-    """The student's own pages for this question; a search failure never blocks a doubt."""
+    """The student's own pages for this question; a search failure never blocks a doubt.
+
+    The search runs in a savepoint, so a database error in it rolls back only the search,
+    not the doubt's transaction.
+    """
     try:
-        return retrieve(db, student_id, query, subject=subject)
+        with db.begin_nested():
+            return retrieve(db, student_id, query, subject=subject)
     except Exception:  # noqa: BLE001 - e.g. the embedding model failed to load
         logger.exception("Could not search the student's pages")
         return []
