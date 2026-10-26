@@ -35,7 +35,7 @@ Requests need `Authorization: Bearer <token>`. Browsers send a CORS preflight fo
 
 `GET /health` returns `{"ok": true, "claude_version": "..."}`.
 
-`POST /v1/stream` takes `{"system": "...", "prompt": "...", "model": "sonnet", "effort": "low"}`. The response streams `application/x-ndjson`, one event per line:
+`POST /v1/stream` takes `{"system": "...", "prompt": "...", "model": "sonnet", "effort": "low"}`, plus optional `images` (below). The response streams `application/x-ndjson`, one event per line:
 
 ```json
 {"type": "start"}
@@ -44,6 +44,12 @@ Requests need `Authorization: Bearer <token>`. Browsers send a CORS preflight fo
 ```
 
 On failure, the stream ends with `{"type": "error", "message": "..."}` instead of `done`.
+
+For vision calls (syllabus photos, page photos, photo doubts), add `"images": [{"media_type": "image/jpeg", "data": "<base64>"}]`:
+- **Limits:** at most 3 images; JPEG, PNG or WEBP; each at most 5 MB decoded. The whole body is capped at 8 MB.
+- **How it's sent:** the bridge then runs `claude -p --input-format stream-json` and writes one user message to stdin, with the image blocks followed by the prompt. Tools stay disabled.
+- **Bad images** get a `400` with `{"error": "..."}`.
+- **Pipe stdin:** the CLI returns nothing if stdin is a regular file rather than a pipe.
 
 ## Production
 

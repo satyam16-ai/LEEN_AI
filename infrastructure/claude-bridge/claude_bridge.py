@@ -10,12 +10,17 @@ terminal on the host instead. For every request it starts a headless, tool-less
     {"type": "done", "duration_ms": 1234, "cost_usd": 0.01}
     {"type": "error", "message": "..."}         (instead of done, on failure)
 
+A request may carry up to three images (base64). They are sent to Claude as image
+blocks through `--input-format stream-json`; text-only requests use plain stdin.
+
 Standard library only. Run it with:
 
     python3 infrastructure/claude-bridge/claude_bridge.py
 """
 
 import argparse
+import base64
+import binascii
 import json
 import logging
 import os
@@ -29,13 +34,57 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 DEFAULT_TOKEN = "dev-bridge-token"
-MAX_BODY_BYTES = 256 * 1024
+MAX_BODY_BYTES = 8 * 1024 * 1024
 ALLOWED_EFFORTS = {"low", "medium", "high", "xhigh", "max"}
+IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_IMAGES = 3
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 log = logging.getLogger("claude-bridge")
 
 
-def build_command(claude_bin, system, model, effort):
+def parse_images(value):
+    """Validate the request's `images`: [{"media_type", "data" (base64)}], at most three."""
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > MAX_IMAGES:
+        raise ValueError(f"images must be a list of at most {MAX_IMAGES}")
+    images = []
+    for item in value:
+        if not isinstance(item, dict) or item.get("media_type") not in IMAGE_TYPES:
+            raise ValueError("each image needs a JPEG, PNG or WEBP media_type")
+        data = item.get("data")
+        try:
+            raw = base64.b64decode(data, validate=True)
+        except (binascii.Error, TypeError, ValueError) as error:
+            raise ValueError("image data must be base64") from error
+        if not raw or len(raw) > MAX_IMAGE_BYTES:
+            raise ValueError("image is empty or too large")
+        images.append({"media_type": item["media_type"], "data": data})
+    return images
+
+
+def user_message(prompt, images):
+    """One stream-json input line: the images first, then the prompt text."""
+    content = [
+        {
+            "type": "image",
+            "source": {"type": "base64", "media_type": item["media_type"], "data": item["data"]},
+        }
+        for item in images
+    ]
+    content.append({"type": "text", "text": prompt})
+    return json.dumps(
+        {
+            "type": "user",
+            "message": {"role": "user", "content": content},
+            "parent_tool_use_id": None,
+            "session_id": "",
+        }
+    )
+
+
+def build_command(claude_bin, system, model, effort, stream_input=False):
     """Headless run with every tool, MCP server, plugin and setting source disabled."""
     command = [
         claude_bin,
@@ -50,6 +99,8 @@ def build_command(claude_bin, system, model, effort):
         "--setting-sources", "",
         "--system-prompt", system,
     ]
+    if stream_input:
+        command += ["--input-format", "stream-json"]
     if model:
         command += ["--model", model]
     if effort:
@@ -171,17 +222,23 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(HTTPStatus.BAD_REQUEST, {"error": "need system and prompt"})
         model = str(body.get("model") or "") or None
         effort = body.get("effort") if body.get("effort") in ALLOWED_EFFORTS else None
+        try:
+            images = parse_images(body.get("images"))
+        except ValueError as error:
+            return self._json(HTTPStatus.BAD_REQUEST, {"error": str(error)})
 
         if not self.bridge.slots.acquire(blocking=False):
             return self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "busy"})
         try:
-            self._stream(system, prompt, model, effort)
+            self._stream(system, prompt, model, effort, images)
         finally:
             self.bridge.slots.release()
 
-    def _stream(self, system, prompt, model, effort):
+    def _stream(self, system, prompt, model, effort, images):
         started = time.monotonic()
-        command = build_command(self.bridge.claude_bin, system, model, effort)
+        command = build_command(
+            self.bridge.claude_bin, system, model, effort, stream_input=bool(images)
+        )
         process = subprocess.Popen(
             command,
             cwd=self.bridge.workdir,
@@ -203,7 +260,8 @@ class Handler(BaseHTTPRequestHandler):
 
         outcome = "error"
         try:
-            process.stdin.write(prompt)
+            # Images go in as one stream-json message; plain prompts as raw text.
+            process.stdin.write(user_message(prompt, images) + "\n" if images else prompt)
             process.stdin.close()
             self._emit({"type": "start"})
 
@@ -233,12 +291,13 @@ class Handler(BaseHTTPRequestHandler):
                 process.kill()
                 process.wait()
             log.info(
-                "stream model=%s effort=%s %s in %.1fs (prompt %d chars)",
+                "stream model=%s effort=%s %s in %.1fs (prompt %d chars, %d images)",
                 model or "default",
                 effort or "default",
                 outcome,
                 time.monotonic() - started,
                 len(prompt),
+                len(images),
             )
 
 

@@ -1,6 +1,8 @@
+import base64
 import json
 
-from claude_bridge import build_command, extract_event
+import pytest
+from claude_bridge import build_command, extract_event, parse_images, user_message
 
 
 def line(payload):
@@ -105,3 +107,49 @@ def test_command_disables_tools_and_settings():
     assert command[command.index("--system-prompt") + 1] == "SYS"
     assert "--model" in command and "--effort" in command
     assert "--model" not in build_command("claude", "SYS", None, None)
+
+
+def image(media_type="image/png", data=b"png-bytes"):
+    return {"media_type": media_type, "data": base64.b64encode(data).decode()}
+
+
+def test_parse_images_accepts_jpeg_png_webp():
+    images = [image("image/jpeg"), image("image/png"), image("image/webp")]
+    assert parse_images(images) == images
+    assert parse_images(None) == []
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "not a list",
+        [image()] * 4,
+        [image("image/gif")],
+        [{"media_type": "image/png", "data": "not base64!!"}],
+        [image(data=b"x" * (5 * 1024 * 1024 + 1))],
+        [{"media_type": "image/png"}],
+    ],
+)
+def test_parse_images_rejects_bad_input(value):
+    with pytest.raises(ValueError):
+        parse_images(value)
+
+
+def test_user_message_puts_images_before_text():
+    message = json.loads(user_message("Read this", [image(), image("image/jpeg")]))
+    assert message["type"] == "user"
+    content = message["message"]["content"]
+    assert [block["type"] for block in content] == ["image", "image", "text"]
+    assert content[0]["source"] == {
+        "type": "base64",
+        "media_type": "image/png",
+        "data": image()["data"],
+    }
+    assert content[-1]["text"] == "Read this"
+
+
+def test_build_command_stream_input_flag():
+    plain = build_command("claude", "sys", None, None)
+    streamed = build_command("claude", "sys", None, None, stream_input=True)
+    assert "--input-format" not in plain
+    assert streamed[streamed.index("--input-format") + 1] == "stream-json"
