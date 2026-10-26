@@ -24,6 +24,8 @@ from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models.user import UserRole  # noqa: E402
 from app.services import auth_service  # noqa: E402
+from app.services.library import embeddings  # noqa: E402
+from tests.samples import fake_embed  # noqa: E402
 
 CSRF = {"X-Requested-With": "XMLHttpRequest"}
 PASSWORD = "Str0ngPass!"
@@ -62,6 +64,14 @@ class _Outbox(list):
     def reset_token_for(self, email: str) -> str:
         message = next(m for m in reversed(self) if m["to"] == email)
         return re.search(r"token=([\w-]+)", message["body"]).group(1)
+
+
+@pytest.fixture(autouse=True)
+def _fake_embeddings():
+    """Tests never load the real embedding model."""
+    embeddings.override(fake_embed)
+    yield
+    embeddings.override(fake_embed)
 
 
 @pytest.fixture(autouse=True)

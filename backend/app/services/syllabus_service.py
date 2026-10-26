@@ -41,7 +41,7 @@ NOT_IN_PROFILE = "That subject isn't in your profile."
 WRONG_FILES = "Send up to 3 photos of the contents page, or one PDF."
 
 
-def _profile_subject(db: Session, student: User, subject: str) -> str:
+def profile_subject(db: Session, student: User, subject: str) -> str:
     """The subject's name as the profile spells it; 404 when it isn't one of them."""
     profile = profile_repository.get(db, student.id)
     key = subject_key(subject)
@@ -87,7 +87,7 @@ def list_subjects(db: Session, student: User) -> list[SubjectSummary]:
 
 
 def get_tree(db: Session, student: User, subject: str) -> SyllabusOut:
-    name = _profile_subject(db, student, subject)
+    name = profile_subject(db, student, subject)
     return _tree(syllabus_repository.get_subject(db, student.id, name), name)
 
 
@@ -98,7 +98,7 @@ def _locked_subject(db: Session, student: User, name: str) -> SyllabusSubject:
 
 def start_upload(db: Session, student: User, subject: str, uploads: list[bytes]) -> SyllabusOut:
     """Store the contents-page photos (or PDF) and queue the Syllabus Reader."""
-    name = _profile_subject(db, student, subject)
+    name = profile_subject(db, student, subject)
     pdfs = sum(1 for data in uploads if data[:5] == b"%PDF-")
     if not uploads or len(uploads) > MAX_PHOTOS or (pdfs and len(uploads) > 1):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, WRONG_FILES)
@@ -126,7 +126,7 @@ def start_upload(db: Session, student: User, subject: str, uploads: list[bytes])
 def save_tree(db: Session, student: User, subject: str, payload: SyllabusSave) -> SyllabusOut:
     """Replace the tree with the student's edit. Ids are kept only for this subject's rows,
     and a topic keeps its id only inside its own chapter."""
-    name = _profile_subject(db, student, subject)
+    name = profile_subject(db, student, subject)
     row = _locked_subject(db, student, name)
     if _is_reading(row):
         raise HTTPException(status.HTTP_409_CONFLICT, "Still reading your contents page.")

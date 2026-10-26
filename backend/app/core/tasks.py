@@ -69,3 +69,11 @@ def read_syllabus_task(subject_id: str):
     from app.services import syllabus_service
 
     syllabus_service.read_syllabus(subject_id)
+
+
+@celery_app.task(name="app.core.tasks.ingest_document_task")
+def ingest_document_task(document_id: str):
+    """The Librarian: an uploaded book page → searchable chunks."""
+    from app.services.library import ingest
+
+    ingest.ingest_document(document_id)

@@ -1,8 +1,11 @@
 """Small real files for upload tests: images and PDFs built in memory."""
 
+import hashlib
 import io
+import math
+import re
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 
 def png(width: int = 300, height: int = 200, color: str = "white") -> bytes:
@@ -17,6 +20,15 @@ def jpeg_with_exif(width: int = 300, height: int = 200) -> bytes:
     exif[0x010F] = "PhoneMaker"  # Make
     output = io.BytesIO()
     image.save(output, format="JPEG", exif=exif)
+    return output.getvalue()
+
+
+def text_image(text: str, width: int = 1400, height: int = 200) -> bytes:
+    """A JPEG of printed text, for OCR."""
+    image = Image.new("RGB", (width, height), "white")
+    ImageDraw.Draw(image).text((30, 60), text, fill="black", font=ImageFont.load_default(size=48))
+    output = io.BytesIO()
+    image.save(output, format="JPEG", quality=95)
     return output.getvalue()
 
 
@@ -62,3 +74,15 @@ def image_pdf(page_count: int) -> bytes:
     output = io.BytesIO()
     pages[0].save(output, format="PDF", save_all=True, append_images=pages[1:])
     return output.getvalue()
+
+
+def fake_embed(texts: list[str]) -> list[list[float]]:
+    """A deterministic stand-in for the embedding model: hashed bag of words, normalised."""
+    vectors = []
+    for text in texts:
+        vector = [0.0] * 384
+        for word in re.findall(r"\w+", text.casefold()):
+            vector[int(hashlib.md5(word.encode()).hexdigest(), 16) % 384] += 1.0
+        norm = math.sqrt(sum(value * value for value in vector)) or 1.0
+        vectors.append([value / norm for value in vector] if any(vector) else [1.0] + [0.0] * 383)
+    return vectors

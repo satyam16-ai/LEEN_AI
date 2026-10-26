@@ -57,11 +57,16 @@ def topic_ids_for(db: Session, student_id: str) -> set[str]:
     return set(db.scalars(query))
 
 
-def get_topic(db: Session, student_id: str, topic_id: str) -> SyllabusTopic | None:
+def get_topic(
+    db: Session, student_id: str, topic_id: str, subject: str | None = None
+) -> SyllabusTopic | None:
+    """The student's topic (in `subject`'s tree, when given)."""
     query = (
         select(SyllabusTopic)
         .join(SyllabusChapter, SyllabusTopic.chapter_id == SyllabusChapter.id)
         .join(SyllabusSubject, SyllabusChapter.subject_id == SyllabusSubject.id)
         .where(SyllabusSubject.student_id == student_id, SyllabusTopic.id == topic_id)
     )
+    if subject is not None:
+        query = query.where(SyllabusSubject.subject_key == subject_key(subject))
     return db.scalar(query)
