@@ -2,11 +2,12 @@
 # Student Endpoints — /api/v1/student (parent link code, classes, doubts)
 # =============================================================================
 
-from fastapi import APIRouter, Depends, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.v1.dependencies.auth import require_roles
+from app.api.v1.endpoints.syllabus import read_upload
 from app.core import rate_limit
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -80,6 +81,8 @@ def _board_stream(start: whiteboard_service.TurnStart, student: User) -> Streami
             student.id,
             start.agent,
             start.sources,
+            start.images,
+            start.prelude,
         )
     return StreamingResponse(
         events,
@@ -96,6 +99,32 @@ def ask_doubt(
     """Stream the whiteboard explanation as server-sent events."""
     rate_limit.enforce(f"doubt:{student.id}", DOUBT_LIMIT, 3600)
     return _board_stream(whiteboard_service.start_doubt(db, student, payload), student)
+
+
+@router.post("/doubts/photo")
+def ask_photo_doubt(
+    photo: UploadFile = File(...),
+    question: str = Form("", max_length=500),
+    subject: str | None = Form(None, max_length=60),
+    student: User = Depends(current_student),
+    db: Session = Depends(get_db),
+):
+    """A doubt asked with a photo of the question (and optionally a few words)."""
+    rate_limit.enforce(f"doubt:{student.id}", DOUBT_LIMIT, 3600)
+    start = whiteboard_service.start_photo_doubt(
+        db, student, photo=read_upload(photo), question=question, subject=subject or None
+    )
+    return _board_stream(start, student)
+
+
+@router.get("/doubts/{doubt_id}/photo")
+def doubt_photo(
+    doubt_id: str, student: User = Depends(current_student), db: Session = Depends(get_db)
+):
+    path = whiteboard_service.photo_path(db, student, doubt_id)
+    return FileResponse(
+        path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"}
+    )
 
 
 @router.post("/doubts/{doubt_id}/turns")

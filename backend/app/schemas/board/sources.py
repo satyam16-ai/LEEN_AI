@@ -28,3 +28,14 @@ class CiteAction(_Action):
     doc: str | None = None
     page: int | None = None
     title: short(120) | None = None
+
+
+class ImageAction(_Action):
+    """The student's photo (a photo doubt), drawn at the top of the board.
+
+    Only the server sends this; one written by the model is dropped.
+    """
+
+    type: Literal["image"]
+    src: Literal["photo"] = "photo"
+    url: str | None = None

@@ -18,6 +18,8 @@ def _describe(action: dict) -> str | None:
         return f"diagram: {action.get('kind')}"
     if kind in ("table", "numberline"):
         return kind
+    if kind == "image":
+        return "(the student's photo of the question)"
     if kind == "cite" and action.get("title"):
         return f"(cited {action['title']} p.{action.get('page')})"
     return None

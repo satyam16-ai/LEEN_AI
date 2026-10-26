@@ -996,3 +996,125 @@ def test_follow_up_retrieves_sources(signed_in, monkeypatch):
 
     cites = [d for n, d in events if n == "action" and d["type"] == "cite"]
     assert [(c["source"], c["page"]) for c in cites] == [(1, 112)]
+
+
+# -- photo doubts (Phase 6) --------------------------------------------------------------
+
+
+def image_stream(text: str):
+    async def stream_text(system, prompt, *, images=(), **kwargs):
+        stream_text.calls.append({"prompt": prompt, "images": images})
+        yield text
+
+    stream_text.calls = []
+    return stream_text
+
+
+def ask_photo(client, photo=None, **form):
+    from tests.samples import png
+
+    return client.post(
+        f"{DOUBTS}/photo",
+        files={"photo": ("question.jpg", photo or png(), "application/octet-stream")},
+        data=form,
+    )
+
+
+def test_photo_doubt_streams_image_first(signed_in, monkeypatch):
+    fake = image_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    client = signed_in("photo@example.com", UserRole.STUDENT)
+
+    response = ask_photo(client, question="Solve question 3", subject="Maths")
+
+    assert response.status_code == 200
+    events = read_events(response)
+    doubt_id = events[0][1]["id"]
+    names = [name for name, _ in events]
+    assert names[:3] == ["doubt", "status", "action"]
+    assert events[2][1] == {
+        "type": "image",
+        "src": "photo",
+        "url": f"/api/v1/student/doubts/{doubt_id}/photo",
+    }
+    assert names[-1] == "done"
+    [call] = fake.calls
+    assert [image.media_type for image in call["images"]] == ["image/jpeg"]
+    assert "attached photo" in call["prompt"] and "Solve question 3" in call["prompt"]
+    saved = client.get(f"{DOUBTS}/{doubt_id}").json()["data"]
+    assert saved["actions"][0]["type"] == "image"
+    assert saved["question"] == "Solve question 3"
+
+
+def test_photo_doubt_default_question_and_title(signed_in, monkeypatch):
+    fake = image_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    client = signed_in("photo@example.com", UserRole.STUDENT)
+
+    doubt_id = read_events(ask_photo(client))[0][1]["id"]
+
+    assert whiteboard_service.PHOTO_QUESTION in fake.calls[0]["prompt"]
+    assert client.get(f"{DOUBTS}/{doubt_id}").json()["data"]["question"] == "Question from a photo"
+
+
+def test_photo_doubt_rejects_non_image(signed_in, monkeypatch):
+    fake = image_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    client = signed_in("photo@example.com", UserRole.STUDENT)
+
+    assert ask_photo(client, b"definitely not a photo").status_code == 422
+    assert fake.calls == []
+
+
+def test_photo_is_owner_only(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", image_stream(BOARD_SCRIPT))
+    owner = signed_in("photo@example.com", UserRole.STUDENT)
+    other = signed_in("nosy@example.com", UserRole.STUDENT)
+    doubt_id = read_events(ask_photo(owner))[0][1]["id"]
+    plain_id = ask(owner, "What is a prime?")
+
+    photo = owner.get(f"{DOUBTS}/{doubt_id}/photo")
+    assert photo.status_code == 200
+    assert photo.headers["content-type"] == "image/jpeg"
+    assert other.get(f"{DOUBTS}/{doubt_id}/photo").status_code == 404
+    assert owner.get(f"{DOUBTS}/{plain_id}/photo").status_code == 404
+
+
+def test_photo_doubt_is_not_cached(signed_in, monkeypatch):
+    fake = image_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    client = signed_in("photo@example.com", UserRole.STUDENT)
+
+    ask_photo(client)
+    ask_photo(client)
+
+    assert len(fake.calls) == 2
+    with SessionLocal() as db:
+        assert [s.cache_key for s in db.query(BoardSession)] == [None, None]
+
+
+def test_model_image_actions_are_dropped(signed_in, monkeypatch):
+    script = BOARD_SCRIPT + '{"type":"image","src":"photo","url":"https://evil.example/x.png"}\n'
+    monkeypatch.setattr(claude_bridge, "stream_text", image_stream(script))
+    client = signed_in("photo@example.com", UserRole.STUDENT)
+
+    plain = read_events(client.post(DOUBTS, json={"question": "What is a prime?"}))
+    photo = read_events(ask_photo(client))
+
+    assert not [d for n, d in plain if n == "action" and d["type"] == "image"]
+    images = [d for n, d in photo if n == "action" and d["type"] == "image"]
+    assert len(images) == 1 and images[0]["url"].startswith("/api/v1/student/doubts/")
+
+
+def test_follow_up_on_photo_doubt_sends_no_image(signed_in, monkeypatch):
+    fake = image_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    client = signed_in("photo@example.com", UserRole.STUDENT)
+    doubt_id = read_events(ask_photo(client))[0][1]["id"]
+
+    response = client.post(
+        f"{DOUBTS}/{doubt_id}/turns", json={"question": "Why that step?", "mode": "follow_up"}
+    )
+
+    assert read_events(response)[-1][0] == "done"
+    assert fake.calls[-1]["images"] == ()

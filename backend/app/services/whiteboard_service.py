@@ -29,8 +29,10 @@ from app.schemas.whiteboard import (
     TurnCreate,
     TurnOut,
 )
+from app.services import files
 from app.services.library.retrieval import Source, format_sources, retrieve
 from app.services.llm import claude_bridge, gateway
+from app.services.llm.types import ImageInput
 from app.services.whiteboard.grading import check_answer, display_key, prepare_ask, public_action
 from app.services.whiteboard.parser import ActionStreamParser
 from app.services.whiteboard.prompt import build_prompt
@@ -57,6 +59,8 @@ QUESTION_NOT_FOUND = "Question not found"
 UNREADABLE = "Check your answer and try again."
 ANSWERED = "You've already answered this question."
 MAX_TRIES = 2
+PHOTO_QUESTION = "Explain and solve the question in this photo."
+PHOTO_TITLE = "Question from a photo"
 
 
 def _summary(session: BoardSession) -> DoubtSummary:
@@ -196,6 +200,9 @@ class TurnStart(NamedTuple):
     agent: str = "doubt_solver"
     # The student's pages offered to the model as numbered <sources>: {n, doc, page, title}.
     sources: tuple[dict, ...] = ()
+    # A photo doubt: the photo for the model, and the image action sent before its board.
+    images: tuple[ImageInput, ...] = ()
+    prelude: tuple[dict, ...] = ()
 
 
 def cache_key(question: str, subject: str | None, profile: StudentProfile | None) -> str:
@@ -281,6 +288,59 @@ def start_doubt(db: Session, student: User, payload: DoubtCreate) -> TurnStart:
         payload.question, payload.subject, profile, sources=format_sources(sources) or None
     )
     return TurnStart(_summary(session), event.id, system, prompt, sources=refs)
+
+
+def start_photo_doubt(
+    db: Session, student: User, *, photo: bytes, question: str | None, subject: str | None
+) -> TurnStart:
+    """A doubt asked with a photo of the question. Never cached: the photo is the question."""
+    stored = files.save_image(photo, "doubts")
+    typed = " ".join((question or "").split())
+    asked = typed or PHOTO_QUESTION
+    profile = profile_repository.get(db, student.id)
+    sources = _retrieve(db, student.id, typed, subject) if typed else []
+
+    session = board_repository.create_session(
+        db,
+        student_id=student.id,
+        title=typed or PHOTO_TITLE,
+        subject=subject,
+        model=gateway.agent_config("doubt_solver").model,
+        cache_key=None,
+    )
+    turn = _new_turn(asked, "ask") | {"image": stored.name}
+    refs = _refs(sources)
+    if refs:
+        turn["sources"] = list(refs)
+    event = board_repository.add_turn(db, session, turn)
+    db.commit()
+
+    system, prompt = build_prompt(
+        asked, subject, profile, sources=format_sources(sources) or None, photo=True
+    )
+    image = {"type": "image", "src": "photo", "url": f"/api/v1/student/doubts/{session.id}/photo"}
+    return TurnStart(
+        _summary(session),
+        event.id,
+        system,
+        prompt,
+        sources=refs,
+        images=(ImageInput(stored.media_type, files.read_bytes(stored.name)),),
+        prelude=(image,),
+    )
+
+
+def photo_path(db: Session, student: User, doubt_id: str):
+    """The stored photo of the student's photo doubt; 404 for any other doubt."""
+    session = _owned(db, student, doubt_id)
+    turns = board_repository.list_turns(db, session.id)
+    name = turns[0].payload.get("image") if turns else None
+    if not name:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_FOUND)
+    path = files.path_of(name)
+    if not path.exists():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, NOT_FOUND)
+    return path
 
 
 def _is_stale(turn) -> bool:
@@ -461,12 +521,18 @@ def _record_verdicts(
 
 
 async def _produce(
-    agent: str, system: str, prompt: str, queue: asyncio.Queue, student_id: str, doubt_id: str
+    agent: str,
+    system: str,
+    prompt: str,
+    queue: asyncio.Queue,
+    student_id: str,
+    doubt_id: str,
+    images: Sequence[ImageInput] = (),
 ) -> None:
     """Pump text from the model into the queue so the consumer can send keepalives."""
     try:
         async for chunk in gateway.stream_text(
-            agent, system, prompt, user_id=student_id, session_id=doubt_id
+            agent, system, prompt, user_id=student_id, session_id=doubt_id, images=images
         ):
             await queue.put(("text", chunk))
         await queue.put(("end", None))
@@ -492,20 +558,27 @@ async def stream_solution(
     student_id: str,
     agent: str = "doubt_solver",
     sources: Sequence[dict] = (),
+    images: Sequence[ImageInput] = (),
+    prelude: Sequence[dict] = (),
 ) -> AsyncIterator[str]:
     """Server-sent events: doubt, status, action*, then done or error.
 
     Actions are validated one by one as Claude writes them, so the board starts
-    drawing long before the explanation is finished.
+    drawing long before the explanation is finished. `prelude` actions (the student's
+    photo) come first and are saved with the board.
     """
     yield _sse("doubt", doubt.model_dump(mode="json"))
     yield _sse("status", {"state": "thinking"})
 
     parser = ActionStreamParser(settings.whiteboard_max_actions)
-    actions: list[dict] = []
+    actions: list[dict] = list(prelude)
+    for action in prelude:
+        yield _sse("action", action)
     error: str | None = STOPPED  # until the stream ends normally
     queue: asyncio.Queue = asyncio.Queue()
-    producer = asyncio.create_task(_produce(agent, system, prompt, queue, student_id, doubt.id))
+    producer = asyncio.create_task(
+        _produce(agent, system, prompt, queue, student_id, doubt.id, images)
+    )
 
     try:
         while True:
@@ -526,10 +599,12 @@ async def stream_solution(
                     action = prepare_cite(action, sources)  # only pages we offered
                     if action is None:
                         continue
+                elif action["type"] == "image":
+                    continue  # only the server places the student's photo
                 actions.append(action)
                 yield _sse("action", public_action(action))
             if kind == "end" or parser.full:
-                error = None if actions else EMPTY
+                error = None if len(actions) > len(prelude) else EMPTY
                 break
     finally:
         producer.cancel()
