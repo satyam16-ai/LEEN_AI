@@ -19,6 +19,7 @@ export { SecuritySettingsPage } from './settings/SecuritySettingsPage';
 export { SettingsLayout } from './settings/SettingsLayout';
 export { StudentClassesPage } from './student/StudentClassesPage';
 export { StudentDoubtsPage } from './student/StudentDoubtsPage';
+export { StudentSyllabusPage } from './student/StudentSyllabusPage';
 export { StudentOnboardingPage } from './student/StudentOnboardingPage';
 export { StudentParentAccessPage } from './student/StudentParentAccessPage';
 export { TeacherClassDetailPage } from './teacher/TeacherClassDetailPage';

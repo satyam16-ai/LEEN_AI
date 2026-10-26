@@ -23,7 +23,7 @@ export const NAVIGATION = {
     { label: 'My classes', to: '/student/classes', icon: School },
     { label: 'Parent access', to: '/student/parent-access', icon: KeyRound },
     { label: 'Ask a doubt', to: '/student/doubts', icon: MessageCircleQuestion },
-    { label: 'Syllabus', icon: BookOpenText, phase: 6 },
+    { label: 'Syllabus', to: '/student/syllabus', icon: BookOpenText },
     { label: "Today's class", icon: CalendarCheck, phase: 7 },
     { label: 'Homework & tests', icon: ClipboardCheck, phase: 9 },
     { label: 'Progress', icon: BarChart3, phase: 10 },
