@@ -117,7 +117,7 @@ app.include_router(v2_router, prefix="/api/v2")  # future
 
 ## Database Architecture
 
-**Technology:** PostgreSQL 16 + SQLAlchemy 2.1 (psycopg 3)
+**Technology:** PostgreSQL 16 with pgvector + SQLAlchemy 2.1 (psycopg 3)
 
 ### Current Schema
 
@@ -133,8 +133,14 @@ app.include_router(v2_router, prefix="/api/v2")  # future
 | `board_sessions`        | One board the AI teaches on (today: a doubt). Title, subject, status `streaming` → `complete`/`failed`, protocol version, cache key |
 | `board_events`          | Append-only log per board. A doubt's events are its turns: `{question, mode, actions, status, error, cached}` as JSONB |
 | `llm_calls`             | One row per model call: agent, model, status, duration, input/output/cached tokens, cost |
+| `syllabus_subjects`     | One topic tree per student and profile subject: status `empty` → `reading` → `draft` → `confirmed` (or `failed`), the stored upload |
+| `syllabus_chapters`, `syllabus_topics` | The tree, in order; topics have `done`. Ids stay the same across edits |
+| `documents`             | A student's book page (photo or PDF ≤ 20 pages) under a subject and optionally a topic: status `queued` → `reading` → `ready`/`failed` |
+| `document_chunks`       | Passages of a page (≤ 2,000 characters, one page each) with a 384-number embedding (`vector(384)`, HNSW cosine index) |
 
 `users.avatar_filename` points at a re-encoded 256×256 WebP under `MEDIA_ROOT/avatars/`, served at `/media/avatars/<file>` (FastAPI static files behind Nginx).
+
+Student uploads (syllabus photos, book pages, doubt photos) live under `PRIVATE_ROOT` (`backend/private/`), which is **never** served as static files. They leave only through endpoints that check the owner.
 
 ### Migration Strategy
 
@@ -155,9 +161,9 @@ app.include_router(v2_router, prefix="/api/v2")  # future
 | `nginx`    | nginx:alpine       | 8081      | Single entry point (SPA + `/api`)        |
 | `web`      | Custom (Vite)      | —         | Frontend dev server (behind Nginx)       |
 | `api`      | Custom (FastAPI)   | —         | Backend (behind Nginx); runs migrations  |
-| `worker`   | Custom (FastAPI)   | —         | Celery worker on the `default` queue (emails) with embedded beat (daily token cleanup, 03:00 UTC) |
+| `worker`   | Custom (FastAPI)   | —         | Celery worker on the `default` queue (emails, reading syllabus photos and book pages) with embedded beat (daily token cleanup, 03:00 UTC) |
 | `mailpit`  | axllent/mailpit    | 8025      | Dev SMTP server + inbox UI               |
-| `postgres` | postgres:16-alpine | 5432      | Database                                 |
+| `postgres` | pgvector/pgvector:pg16 | 5432  | Database with the `vector` extension     |
 | `redis`    | redis:7-alpine     | 6379      | Cache, rate limits, Celery broker        |
 
 
@@ -376,6 +382,91 @@ Because the model's output becomes plain data, a prompt-injected question can't 
 | "Now you try" | Examiner | 187 | 3.2 s |
 | Check after two wrong answers | Examiner | 288 | 4.7 s |
 | Checking two number answers | none | 0 | instant |
+
+### Syllabus and pages (Phase 6)
+
+**Two more agents.**
+- The **Syllabus Reader** (`syllabus_reader`) reads a contents page into chapters and topics.
+- The **Librarian** (`librarian`) reads a book page that local OCR can't.
+
+Both run in the Celery worker through `gateway.complete()`, which joins a stream and logs it like any call. Images reach Claude through the bridge as stream-json image blocks (`images` in the request; at most 3, ≤ 5 MB each).
+
+**Syllabus** (`/api/v1/student/syllabus`, one tree per profile subject):
+
+| Endpoint | What it does |
+| --- | --- |
+| `GET /student/syllabus` | Every profile subject with its status and topic counts |
+| `GET /student/syllabus/{subject}` | The tree |
+| `POST /student/syllabus/{subject}/upload` | Up to 3 photos or 1 PDF of the contents page. Queues the Syllabus Reader (`202`); `409` while one is being read (a read stuck for 10 minutes no longer blocks) |
+| `PUT /student/syllabus/{subject}` | Save the edited tree, with `confirm` to confirm it. Rows keep their ids; new rows have none; a topic keeps its id only in its own chapter |
+
+How a contents page is read:
+- **A text PDF** goes in as text. **Photos and scanned PDFs** (first 3 pages) go in as images.
+- **The reply** is one JSON object. The server keeps clean titles only: numbering and dot leaders stripped, ≤ 120 characters, no blanks or duplicates, ≤ 40 chapters × 40 topics.
+- **A failure** of any kind ends as `failed`, with "Couldn't read that page. Try a clearer photo or type it yourself." The student can also type the tree.
+
+**Book pages** (`/api/v1/student/documents`). No whole books (Satyam, 20 Oct 2026): the student adds the pages of the topic they are studying.
+
+| Endpoint | What it does |
+| --- | --- |
+| `POST /student/documents` | One photo or a PDF (≤ 20 pages), `subject` and optional `topic_id` (it must be in that subject's tree). Queues the Librarian (`201`) |
+| `GET /student/documents?subject=&topic_id=` | The student's pages with their status. A page waiting over 30 minutes shows as failed |
+| `DELETE /student/documents/{id}` | Removes the page, its file and its chunks |
+| `GET /student/documents/{id}/file` | The file, owner only (`Cache-Control: private`) |
+
+How a page is read (`services/library/ingest.py`):
+1. **Text.** A PDF page with a text layer is used as is. Other pages go to **Tesseract** (English + Hindi, local, zero tokens). Only when its mean word confidence is under 60 does the Librarian read the page by vision. If the Librarian fails, rough OCR text is kept when there is any.
+2. **Chunks** of ≤ 2,000 characters with ~200 overlap, never across pages.
+3. **Embeddings** from `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (fastembed/ONNX, 384 numbers, about 220 MB). The weights are cached in the `model-cache` volume and loaded once per process. Tests use a hashed bag-of-words stand-in.
+4. **Storage** in `document_chunks`.
+
+**Cited answers.**
+- A doubt, a follow-up, a reply mid-explanation and "explain another way" first search the student's own ready pages (`services/library/retrieval.py`):
+  - cosine similarity ≥ 0.35;
+  - top 3 pages (one source per page);
+  - ≤ 1,500 characters in all;
+  - `hnsw.iterative_scan` keeps the index honest under the per-student filter.
+- The prompt gets numbered `<sources>`, guarded so they can't close the tag, and a short CITATIONS section.
+- The model writes `{"type":"cite","source":N}`. The server swaps N for `{doc, page, title}` and drops any number it didn't offer.
+- With no page above the threshold, nothing changes: no sources, no citations, and the board is cached as before.
+- **A doubt with sources or a photo is never cached, nor served from the cache**, so one student's pages and photos never reach another student.
+
+Measured cut-off (real model, the inertia page):
+
+| Question | Similarity |
+| --- | ---: |
+| "Is mass related to inertia?" | 0.76 |
+| "What is inertia?" | 0.75 |
+| "Inertia kya hota hai?" | 0.71 |
+| "Why do passengers fall forward when a bus brakes?" | 0.47 |
+| "जड़त्व क्या है?" | 0.36 |
+| "Explain the water cycle" | 0.17 |
+| "What is photosynthesis?" | 0.11 |
+
+**Photo doubts.**
+- `POST /student/doubts/photo` takes multipart: `photo`, optional `question` and `subject`, and the same 15/hour limit.
+- The photo is re-encoded (JPEG, ≤ 2000 px, no metadata) and stored privately. The Doubt Solver gets it on the first turn only.
+- The server, never the model, puts `image {src: "photo", url}` at the top of the board.
+- `GET /student/doubts/{id}/photo` serves it to the owner.
+- The browser shrinks photos before sending, and fetches private files with the session (`utils/blobUrl.js`), so `<img>` and the canvas never need a public URL.
+
+**On the board.**
+- The photo is a block in the column; writing carries on below it, or on a "(contd.)" page.
+- A `cite` is a "📖 title · p.N" chip under the line it backs. The player reports chip boxes (`snapshot.cites`), and `CiteLayer` puts real buttons over them. A tap opens the page in `PageViewer` (an image, or a PDF at that page).
+
+**Limits.**
+- Uploads: ≤ 8 MB per file (Nginx 10 MB).
+- `syllabus:{id}` 10/hour, `upload:{id}` 60/hour.
+
+**Live tokens** (26 Oct 2026, real bridge):
+
+| Job | Agent | Output tokens | Time |
+| --- | --- | ---: | ---: |
+| Contents-page photo → 5 chapters, 19 topics, all correct | Syllabus Reader | 310 | 6 s end to end |
+| Printed book page | none (Tesseract) | 0 | about 2 s |
+| Blurry page (OCR confidence 0) | Librarian | 154 | 3.3 s |
+| "What is inertia?" with the student's page (two citations) | Doubt Solver | 888 | 9.5 s |
+| Photo doubt: 3x + 7 = 2x + 15 → x = 8 | Doubt Solver | 565 | 5.4 s |
 
 ### Streaming
 

@@ -284,6 +284,16 @@
     </tbody>
   </table>
   <p class="small muted">These replace "the student answers on the canvas" and "raise hand to interrupt" above.</p>
+
+  <h2>Topic pages, not books (20 October 2026)</h2>
+  <table>
+    <thead><tr><th>Area</th><th>Decision</th></tr></thead>
+    <tbody>
+      <tr><td>Book uploads</td><td><strong>No whole-book upload.</strong> When today's topic is Force, the student adds just the Force pages (a photo, or a PDF of up to 20 pages) under that topic. The syllabus is still one contents-page photo per subject</td></tr>
+      <tr><td>Reading pages</td><td><strong>Local OCR</strong> (Tesseract, English + Hindi, zero tokens). The Librarian reads a page by vision only when OCR's confidence is low (handwriting, blur)</td></tr>
+      <tr><td>Image input</td><td>Images go through the Claude Code bridge as stream-json image blocks: the first option of the spike worked, so <strong>no API key</strong> is needed</td></tr>
+    </tbody>
+  </table>
 </section>
 
 <!-- ============================== 4. SNAPSHOT ============================== -->
@@ -300,7 +310,7 @@
       <tr><td><strong>Whiteboard tutor</strong></td><td>Per-subject prompt in <code>app/services/whiteboard/prompt.py</code>. Output validated line by line by <code>ActionStreamParser</code> against the Board Protocol v2 schemas (<code>app/schemas/board/</code>). Streamed over SSE from <code>POST /student/doubts</code>; follow-ups and "explain another way" from <code>POST /student/doubts/{id}/turns</code> (6 turns per board). Repeated doubts served from a cache. History and replay. Narration via edge-tts (Neerja/Prabhat), cached in Redis for 7 days</td></tr>
       <tr><td><strong>Frontend</strong></td><td>Feature folders <code>features/&lt;name&gt;/</code>. React Query <code>['auth','me']</code> as auth state. Axios with single-flight token refresh. <code>utils/sse.js</code> stream parser. Canvas engine in <code>features/canvas/</code>: BoardPlayer, visual compilers (mathjs, d3-scale, d3-shape, dagre), pages and camera, strokes, mathText, scene, motion, sprites, narrator; a dev gallery at <code>/dev/canvas</code></td></tr>
       <tr><td><strong>Tests</strong></td><td>pytest against a real <code>leen_ai_test</code> database; the AI is mocked by replacing the gateway's <code>stream_text</code>. Vitest + Testing Library on the frontend. Bridge tests run on their own</td></tr>
-      <tr><td><strong>Not yet built</strong></td><td>Student input on the board, RAG, embeddings, pgvector, agents beyond the board teacher, quizzes, plans, mastery tracking, image input</td></tr>
+      <tr><td><strong>Not yet built</strong> (at the time)</td><td>Student input on the board, RAG, embeddings, pgvector, agents beyond the board teacher, quizzes, plans, mastery tracking, image input. Phases 5 and 6 have since built the first five and image input</td></tr>
     </tbody>
   </table>
 </section>
@@ -538,7 +548,7 @@
       <tr><td><code>chart</code></td><td><code>kind</code> bar | pie | line, <code>labels</code>, <code>values</code>, <code>title</code>, <code>unit</code></td><td>Scales, bars, slices, axes</td></tr>
       <tr><td><code>flow</code></td><td><code>nodes</code>, <code>edges</code> [[i, j]] (none = chain), <code>kind</code> chart | mind, <code>dir</code></td><td>Layout (dagre) or a radial mind map</td></tr>
       <tr><td><code>diagram</code></td><td><code>kind</code>: circuit (<code>parts</code>, <code>layout</code>), lens / mirror (<code>shape</code>, <code>f</code>, <code>u</code>, <code>h</code>), fbd (<code>forces</code>), atom (<code>z</code>, <code>symbol</code>), cell (<code>cell</code>, <code>labels</code>), apparatus (<code>items</code>)</td><td>The image by the lens or mirror formula, Bohr shells, symbol and label placement</td></tr>
-      <tr><td colspan="3" class="muted">Still to come: <code>ask</code>, <code>mark</code> and <code>verdict</code> (Phase 5, talking to the board); <code>image</code> and <code>cite</code> (Phase 6, photos and books).</td></tr>
+      <tr><td colspan="3" class="muted">Built since: <code>ask</code>, <code>mark</code> and <code>verdict</code> (Phase 5, talking to the board); <code>image</code> (the student's photo, placed by the server) and <code>cite</code> (a tappable page chip; the server fills in the page) in Phase 6.</td></tr>
     </tbody>
   </table>
   <p>Everything draws stroke by stroke, like the existing pencil. <strong>Adding a primitive</strong> means adding exactly three things: a pydantic model (backend), a renderer in the frontend registry (<code>type → render(ctx, action, clock)</code>), and a short section in the prompt's command reference.</p>
@@ -607,7 +617,7 @@
     <li>The provider is chosen by <code>LLM_PROVIDER</code>: <code>claude_bridge</code> (default) or <code>anthropic_api</code> (for deployment).</li>
     <li>Model and effort are set per agent (Layer 3): board agents run fast (Sonnet, low effort); short writing jobs (Planner, Coach, Progress Analyst, Parent Reporter) use Haiku; reading photos and judging written answers use more effort.</li>
     <li>Every call is logged in <code>llm_calls</code>: agent, duration, input, output and cached tokens, cost reported by the bridge, status.</li>
-    <li><strong>Image input</strong> through the bridge is tested first thing in Phase 6 (the syllabus photo needs it), trying in order: (1) <code>claude -p --input-format stream-json</code> with image blocks; (2) the bridge saves the image in the run's empty folder and enables <em>only</em> Claude Code's Read tool for that run; (3) the Anthropic API for vision calls only, if Satyam agrees to an API key.</li>
+    <li><strong>Image input</strong> through the bridge (Phase 6): <code>claude -p --input-format stream-json</code> with image blocks, tools still off. It was the first option tried and it worked, so no API key is needed. Up to 3 images per call; <code>gateway.complete()</code> serves background jobs.</li>
   </ul>
 
   <h2>Token efficiency</h2>
@@ -663,8 +673,8 @@
       <tr><td class="n">3</td><td><strong>Canvas engine v1: AI whiteboard doubts</strong></td><td class="n">7.4</td><td class="n"><span class="pill done">Done</span></td><td>Claude Code bridge, live pencil, 2D animation, neural narration, history and replay</td></tr>
       <tr><td class="n">4</td><td><strong>Canvas engine v2: richer visuals</strong></td><td class="n">7.5, 7.13</td><td class="n"><span class="pill done">Done</span></td><td>LLM gateway with token logging; Board Protocol v2 computed by a math engine, so the AI sends short commands; renderer registry; scenes, camera, auto-layout; plots, geometry, tables, diagram templates, flowcharts, charts, number line, chemical equations; board sessions and events (doubts migrated); follow-up questions on the same board; "explain another way"</td></tr>
       <tr><td class="n">5</td><td><strong>Talk to the board</strong></td><td class="n">7.4, 7.6, 7.9</td><td class="n"><span class="pill done">Done</span></td><td><em>Agents: Doubt Solver, Examiner.</em> The student talks to the board by voice or a text box at any time, and the AI works it in without stopping; ask / mark / verdict; choice, number and expression answers checked in code; written answers copied onto the board and marked by the AI; "Now you try"</td></tr>
-      <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill next">Next</span></td><td><em>Agents: Syllabus Reader, Librarian.</em> Image-input spike; one-time syllabus/contents upload per subject → editable topic tree; books and notes ingestion, OCR, local embeddings, pgvector; cited retrieval in doubts; doubts by photo</td></tr>
-      <tr><td class="n">7</td><td><strong>Student model &amp; daily planner</strong></td><td class="n">7.7, 7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Planner, Coach.</em> Daily minutes, study days, exam and date; topic mastery and learner profile; student card in every prompt; Planner with subject rotation and spaced revision; Today page; topic practice that moves mastery</td></tr>
+      <tr><td class="n">6</td><td><strong>Syllabus &amp; knowledge base (RAG)</strong></td><td class="n">7.1, 7.2</td><td class="n"><span class="pill done">Done</span></td><td><em>Agents: Syllabus Reader, Librarian.</em> Images through the bridge; one contents-page photo per subject → editable topic tree; the student's own pages per topic, read by local OCR with a vision fallback, local embeddings in pgvector; doubts cite the right page; doubts by photo</td></tr>
+      <tr><td class="n">7</td><td><strong>Student model &amp; daily planner</strong></td><td class="n">7.7, 7.10, 7.14</td><td class="n"><span class="pill next">Next</span></td><td><em>Agents: Planner, Coach.</em> Daily minutes, study days, exam and date; topic mastery and learner profile; student card in every prompt; Planner with subject rotation and spaced revision; Today page; topic practice that moves mastery</td></tr>
       <tr><td class="n">8</td><td><strong>Daily tuition class</strong> (core loop)</td><td class="n">7.3, 7.8</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Lesson Designer, Board Teacher, Homework Agent.</em> Lesson Designer; class orchestrator (warm-up → teach + checkpoints → practice → wrap-up); talk at any time; reteach a different way; pause and resume; prefetch; homework set; class player; Coach summaries; replay</td></tr>
       <tr><td class="n">9</td><td><strong>Homework &amp; tests</strong></td><td class="n">7.8, 7.9</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Homework Agent, Test Maker.</em> Homework grading with red-pen review; weekly and chapter tests, timed and auto-graded, mistakes explained on the canvas</td></tr>
       <tr><td class="n">10</td><td><strong>Progress &amp; analytics</strong></td><td class="n">7.10, 7.14</td><td class="n"><span class="pill planned">Planned</span></td><td><em>Agents: Progress Analyst.</em> Mastery map, time spent, streaks, weak areas, insights; admin platform and AI-usage stats</td></tr>
@@ -793,8 +803,9 @@
   </div>
 
   <div class="phase">
-    <h3><span class="num">Phase 6</span>Syllabus &amp; knowledge base (RAG) <span class="pill next">Next</span></h3>
+    <h3><span class="num">Phase 6</span>Syllabus &amp; knowledge base (RAG) <span class="pill done">Done</span></h3>
     <p class="goal">The AI knows each student's syllabus and can teach from their own books.</p>
+    <div class="callout accent"><p><strong>Result.</strong> Live on the bridge, a phone-style photo of an NCERT Class 9 Science contents page became the correct tree (5 chapters, 19 topics) in 6 s for 310 output tokens. A printed book page was read by local OCR at <strong>zero tokens</strong>; a blurry one fell back to the Librarian (154 tokens). "What is inertia?" then cited the student's own page twice (888 tokens), while another student asking the same thing got no citation and no shared board. A photo of "3x + 7 = 2x + 15" was solved on the board (565 tokens). Book uploads are page photos per topic, not whole books (20 Oct 2026).</p></div>
     <div class="cols">
       <div>
         <h4>Backend</h4>
@@ -802,15 +813,16 @@
           <li>Agents: the <strong>Syllabus Reader</strong> and the <strong>Librarian</strong>.</li>
           <li>Syllabus upload (photo or PDF) → Celery → Syllabus Reader (vision) → draft tree → student confirms.</li>
           <li><code>syllabus_*</code> tables, one tree per student and subject.</li>
-          <li>Books and notes: <code>documents</code> upload with size limits; Celery extracts PDF text, reads scanned pages by vision, splits into ~500-token chunks with page references, embeds with a small local multilingual model (chosen at build time), stores in pgvector with an HNSW index.</li>
-          <li><code>retrieve(student, query, subject/topic)</code> searches only the student's own documents. Doubts use it, with <code>cite</code>.</li>
+          <li>Book pages (not whole books): a photo or a PDF of up to 20 pages under a subject and topic, ≤ 8 MB, stored privately. Celery takes the PDF text layer, or local OCR (Tesseract), or the Librarian's vision when OCR's confidence is low; splits into chunks of ≤ 2,000 characters that never cross pages; embeds with <code>paraphrase-multilingual-MiniLM-L12-v2</code> (fastembed, 384-d); stores in pgvector with an HNSW index.</li>
+          <li><code>retrieve(student, query, subject)</code> searches only the student's own ready pages (similarity ≥ 0.35, top 3). Doubts use it, with <code>cite</code>; a doubt with sources or a photo is never cached.</li>
         </ul>
       </div>
       <div>
         <h4>Frontend</h4>
         <ul>
           <li>Syllabus page: upload, review the tree (edit, reorder, mark done), confirm.</li>
-          <li>Documents list with ingestion status.</li>
+          <li>Pages under each topic, with reading status.</li>
+          <li>Photo doubts: a camera button in the doubt box; the photo is drawn on the board.</li>
           <li><code>cite</code> chip that opens the page.</li>
         </ul>
         <h4>Done when</h4>
@@ -824,7 +836,7 @@
   </div>
 
   <div class="phase">
-    <h3><span class="num">Phase 7</span>Student model &amp; daily planner</h3>
+    <h3><span class="num">Phase 7</span>Student model &amp; daily planner <span class="pill next">Next</span></h3>
     <p class="goal">The AI knows what the student has mastered and plans each day's class.</p>
     <div class="cols">
       <div>
@@ -1027,7 +1039,7 @@
       <tr><td>Syllabus and books</td><td><code>POST /student/syllabus/uploads</code> · <code>GET</code> and <code>PUT /student/syllabus/{subject}</code> · <code>POST /student/documents</code></td></tr>
       <tr><td>Today</td><td><code>GET /student/today</code> (makes the plan if missing) · <code>POST /student/today/switch</code></td></tr>
       <tr><td>Lesson (daily class)</td><td><code>POST /student/lessons</code> (start or resume) · <code>POST /student/lessons/{id}/advance</code> (SSE) · <code>GET /student/lessons/{id}</code> (replay) · <code>POST /student/lessons/{id}/pause</code>. Named lessons because <code>/student/classes</code> is already the classroom API</td></tr>
-      <tr><td>Doubts</td><td>Existing <code>/student/doubts</code> · <code>POST /student/doubts/{id}/turns</code> (follow-up, reply mid-explanation, another way, check, "Now you try") · <code>POST /student/doubts/{id}/answers</code> · photo doubts in Phase 6</td></tr>
+      <tr><td>Doubts</td><td>Existing <code>/student/doubts</code> · <code>POST /student/doubts/{id}/turns</code> (follow-up, reply mid-explanation, another way, check, "Now you try") · <code>POST /student/doubts/{id}/answers</code> · <code>POST /student/doubts/photo</code> and <code>GET /student/doubts/{id}/photo</code> (Phase 6)</td></tr>
       <tr><td>Homework and tests</td><td><code>GET /student/assignments</code> · <code>POST /student/assignments/{id}/submit</code> · review endpoints</td></tr>
       <tr><td>Progress</td><td><code>GET /student/progress</code> · <code>GET /parent/children/{id}/progress</code></td></tr>
     </tbody>
@@ -1040,13 +1052,13 @@
   <table>
     <thead><tr><th class="n">#</th><th style="width:22%">Risk</th><th>Why it matters</th><th style="width:36%">Plan</th></tr></thead>
     <tbody>
-      <tr><td class="n">1</td><td><strong>Image input through the bridge</strong></td><td>Reading syllabus photos, photo doubts and marking homework photos all need the model to see images. The bridge is text-only today</td><td>A spike opens Phase 6 with a three-step fallback: stream-json image blocks → Read tool limited to the run's folder → Anthropic API for vision only (only with Satyam's agreement)</td></tr>
+      <tr><td class="n">1</td><td><strong>Image input through the bridge</strong></td><td>Reading syllabus photos, photo doubts and marking homework photos all need the model to see images. The bridge is text-only today</td><td><strong>Resolved in Phase 6:</strong> stream-json image blocks through the bridge work (the first of three planned options), so no API key is needed</td></tr>
       <tr><td class="n">2</td><td><strong>Latency</strong></td><td>A step takes 5–20 seconds of model time; a class must not feel stalled</td><td>Plans prepared ahead (or on first open, with a progress state); drawing starts on the first streamed action; the next scene is prefetched during checkpoints</td></tr>
       <tr><td class="n">3</td><td><strong>Bridge capacity</strong></td><td>At most 2 runs at once</td><td>Fine for a demo with 1–2 students; raise <code style="white-space:nowrap">--max-concurrent</code> when needed; the API provider is the path for real users</td></tr>
       <tr><td class="n">4</td><td><strong>Board clutter</strong></td><td>AI-placed content can overlap</td><td>Auto-layout cursor, columns, scenes and camera focus</td></tr>
       <tr><td class="n">5</td><td><strong>Wrong answer keys</strong></td><td>A wrong key marks a right answer wrong and destroys trust</td><td>Number keys computed in code from the AI's <code>calc</code>, numeric tolerance; the student can say "I think that's wrong" and the AI re-checks</td></tr>
       <tr><td class="n">6</td><td><strong>Cost per class</strong></td><td>About 15–30 model calls per hour-long class</td><td>Math-engine visuals, subject-split prompts, caching, model routing and grading in code (chapter 6); tokens per agent visible in <code>llm_calls</code></td></tr>
-      <tr><td class="n">7</td><td><strong>Embedding model size</strong></td><td>A local model adds a few hundred MB to the images</td><td>Loaded once per process; ingestion runs only in Celery</td></tr>
+      <tr><td class="n">7</td><td><strong>Embedding model size</strong></td><td>A local model adds a few hundred MB to the images</td><td>fastembed (ONNX, no torch); the 220 MB of weights download once into a <code>model-cache</code> volume. Loaded once per process: the worker for pages, the API only when a student with pages asks a doubt</td></tr>
       <tr><td class="n">8</td><td><strong>Speech recognition</strong></td><td>Browser speech recognition works only in Chrome and Edge, and sends audio to the browser maker's service</td><td>The text box always works; a local speech model can replace it in Phase 12</td></tr>
     </tbody>
   </table>
@@ -1091,8 +1103,8 @@
   </ul>
   <h2>Open items</h2>
   <ul>
-    <li>Result of the image-input spike (start of Phase 6).</li>
-    <li>Which local embedding model (Phase 6): small, multilingual, 384-dimensional.</li>
+    <li><s>Result of the image-input spike</s>: stream-json image blocks work (Phase 6).</li>
+    <li><s>Which local embedding model</s>: <code>paraphrase-multilingual-MiniLM-L12-v2</code> via fastembed, 384-dimensional (Phase 6).</li>
     <li>Chart library for analytics (Phase 10).</li>
     <li>Licensed TTS vendor for production (Phase 13).</li>
   </ul>

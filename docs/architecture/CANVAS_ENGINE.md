@@ -60,10 +60,10 @@ Visuals are drawn stroke by stroke, like the pencil. Any visual can take `at: [x
 | `flow` | `nodes` (2–10), `edges` [[i, j]] (none = a chain), `kind`: chart \| mind, `dir`: TB \| LR | Layout (dagre), or a radial mind map |
 | `diagram` | `kind`: circuit (`parts`, `layout`), lens or mirror (`shape`, `f`, `u`, `h`), fbd (`body`, `forces` [{dir, label, size}]), atom (`z`, `symbol`), cell (`cell`, `labels`), apparatus (`items`); plus `title` | Image position by the lens or mirror formula, Bohr shells, symbol and label placement |
 
-Planned for later phases:
-- `ask`, `mark` and `verdict` in Phase 5;
-- `image` in Phase 6, with photo doubts;
-- `cite` in Phase 6.
+Built since:
+- `ask`, `mark` and `verdict` (Phase 5): the board asks, marks answers and records verdicts;
+- `image` (Phase 6): the student's photo on a photo doubt. Only the server sends it; one written by the model is dropped;
+- `cite` (Phase 6): `{"type":"cite","source":N}` names one of the numbered `<sources>` (the student's own pages). The server fills in the document, page and title, and the player draws a tappable "📖 title · p.N" chip.
 
 **Adding a primitive** means adding three things:
 1. a pydantic model on the backend;
@@ -154,26 +154,23 @@ planned → warmup → teach(scene i) ⇄ checkpoint → practice(question j) �
 ## Layer 5: Syllabus and knowledge base (RAG)
 
 - **Syllabus:** an upload goes to the Syllabus Reader, and the student confirms the result. The topic tree is the backbone for plans, mastery and tests.
-- **Books and notes**, processed in Celery:
-  1. Text is extracted from PDFs, and scanned pages are read through the gateway's vision call.
-  2. The text is chunked by page and heading.
-  3. Chunks are embedded with a free local multilingual model.
-  4. They are stored in pgvector: the Postgres image becomes `pgvector/pgvector:pg16`, with a `CREATE EXTENSION vector` migration.
+- **Book pages, not whole books** (20 Oct 2026). The student adds the pages of the topic they are studying (a photo, or a PDF of up to 20 pages). Celery processes them:
+  1. Text comes from the PDF's text layer, or from local OCR (Tesseract, English + Hindi, zero tokens). The Librarian reads a page by vision only when OCR's confidence is low.
+  2. The text is split into chunks of ≤ 2,000 characters, never across pages.
+  3. Chunks are embedded with a free local multilingual model (`paraphrase-multilingual-MiniLM-L12-v2` via fastembed, 384 numbers).
+  4. They are stored in pgvector (Postgres image `pgvector/pgvector:pg16`, HNSW cosine index).
 - **Retrieval:** per topic, it feeds the Lesson Designer and Board Teacher; per doubt, the Doubt Solver. Boards cite pages with `cite`. Without books, the AI teaches from its own knowledge, kept to the syllabus topic, board and class.
 - This is the RAG pipeline promised in the project synopsis. pgvector fills the vector-store role the synopsis names as Qdrant.
 
 ## Layer 6: LLM gateway
 
 - `app/services/llm/` is the single way to call a model:
-  - `stream_text(agent, system, prompt, images=[])`
-  - `complete_json(agent, system, prompt, schema, images=[])`
+  - `stream_text(agent, system, prompt, images=())`
+  - `complete(agent, system, prompt, images=())` (the whole reply, for background jobs; the caller validates it)
 - `LLM_PROVIDER` selects `claude_bridge` (default) or `anthropic_api` (for deployment).
 - Model, effort and timeout are set per agent.
 - Every call is logged in `llm_calls`: agent, duration, input/output/cached tokens and `cost_usd` (from the CLI's result event, forwarded by the bridge), and status.
-- **Image input through the bridge** is the first task of Phase 6 (the syllabus photo needs it). The options, in order:
-  1. `claude -p --input-format stream-json` with image content blocks.
-  2. The bridge writes the image into the run's empty temp directory and enables only Claude Code's `Read` tool for that run.
-  3. The `anthropic_api` provider for vision calls only. This needs agreement to use an API key.
+- **Image input through the bridge** (Phase 6): `claude -p --input-format stream-json` with image content blocks, tools still disabled. It was the first option tried, and it worked (a 360×120 test image cost about 250 input tokens). The bridge accepts up to 3 images per call. `gateway.complete()` joins a stream for background jobs.
 
 ## Token efficiency
 
