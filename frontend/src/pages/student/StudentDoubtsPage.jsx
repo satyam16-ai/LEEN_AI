@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '@/components/dashboard';
 import { Alert, Button } from '@/components/ui';
 import { Canvas, MathText, useBoardPlayer } from '@/features/canvas';
+import { PageViewer } from '@/features/library';
 import { useProfile } from '@/features/profile';
 import {
   boardStatus,
@@ -36,6 +37,8 @@ export function StudentDoubtsPage() {
 
   // Turns already on a saved board before following up on it in this visit.
   const [baseTurns, setBaseTurns] = useState(0);
+  // The book page a citation on the board points at, while it is open.
+  const [citedPage, setCitedPage] = useState(null);
 
   const doubtSession = useDoubtSession(player, {
     onDoubt: (doubt) => {
@@ -162,6 +165,7 @@ export function StudentDoubtsPage() {
             label={question}
             status={boardStatus(live ? session.phase : 'saved', board.status)}
             canReplay={!busy && (board.status === 'finished' || board.status === 'paused')}
+            onOpenCite={setCitedPage}
           >
             <DoubtSuggestions onPick={(text) => handleAsk({ question: text, subject: null })} />
           </Canvas>
@@ -194,6 +198,7 @@ export function StudentDoubtsPage() {
           <DoubtHistory activeId={doubtId} onDeleted={onDeleted} />
         </aside>
       </div>
+      <PageViewer source={citedPage} onClose={() => setCitedPage(null)} />
     </>
   );
 }

@@ -19,6 +19,7 @@ import { cn } from '@/utils/cn';
 import { SPEEDS } from '../constants';
 import { BOARD_THEMES } from '../engine/board';
 import { cameraTransform } from '../engine/camera';
+import { CiteLayer } from './CiteLayer';
 import { MathText } from './MathText';
 import { NarrationMenu } from './NarrationMenu';
 import { PageStrip } from './PageStrip';
@@ -94,9 +95,10 @@ function useFullscreen(ref) {
 
 /**
  * The whiteboard: three stacked canvases (ink, animated scene, pencil overlay) driven by a
- * BoardPlayer, with live captions and playback controls underneath.
+ * BoardPlayer, with live captions and playback controls underneath. `onOpenCite` makes the
+ * board's page citations clickable.
  */
-export function Canvas({ player, board, status, label, canReplay, children }) {
+export function Canvas({ player, board, status, label, canReplay, onOpenCite, children }) {
   const frameRef = useRef(null);
   const surfaceRef = useRef(null);
   const inkRef = useRef(null);
@@ -119,7 +121,7 @@ export function Canvas({ player, board, status, label, canReplay, children }) {
 
   useEffect(() => player.setTheme(resolvedTheme), [player, resolvedTheme]);
 
-  const { status: playerStatus, captions, speed, pages, pageTitle, camera } = board;
+  const { status: playerStatus, captions, speed, pages, pageTitle, camera, cites } = board;
   const zoom = cameraTransform(camera);
   const playing = playerStatus === 'playing' || playerStatus === 'waiting';
   const hasBoard = playerStatus !== 'idle';
@@ -169,6 +171,7 @@ export function Canvas({ player, board, status, label, canReplay, children }) {
               className="pointer-events-none absolute inset-0 size-full"
               aria-hidden="true"
             />
+            {onOpenCite && <CiteLayer cites={cites} onOpen={onOpenCite} />}
           </div>
           {!hasBoard && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-4 text-center sm:gap-2 sm:p-6">

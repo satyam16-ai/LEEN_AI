@@ -13,6 +13,7 @@ import {
 } from './board';
 import { expandAction, isCompiled, needsMath } from './compile';
 import { placeVisual, writeRoom } from './compile/layout';
+import { loadBoardImage } from './images';
 import { isMathReady, loadMath } from './math/expr';
 import { layoutMathText } from './mathText';
 import { stepEnd } from './steps';
@@ -47,6 +48,10 @@ const LABEL_SPEED = 0.6; // labels inside visuals are written faster than the ma
 const DASH = [14, 10];
 const MARK_GAP = 20;
 const CONTD = ' (contd.)';
+const IMAGE_MAX_H = 300;
+const IMAGE_MS = 450;
+const CHIP_PAD = 10;
+const CHIP_GAP = 14;
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 // Overshoots a little, so placed pictures "pop" onto the board.
@@ -132,6 +137,8 @@ export class BoardPlayer {
     this.interactive = false;
     // Where the latest turn's streamed actions start (local ones are added after).
     this.turnOffset = 0;
+    // Photos by URL: { status: 'loading' | 'ready' | 'failed', img }. Kept across replays.
+    this.images = new Map();
     this._resetPlayback();
     this.snapshot = this._buildSnapshot();
   }
@@ -383,6 +390,8 @@ export class BoardPlayer {
     this.camera = null;
     // The question the board is waiting on (live boards only).
     this.openAsk = null;
+    // Citation chips on the current page, with their boxes, for the clickable layer.
+    this.cites = [];
   }
 
   _restart() {
@@ -418,6 +427,7 @@ export class BoardPlayer {
       pageTitle: this.pageTitle,
       camera: this.camera,
       ask: this.openAsk,
+      cites: this.cites,
     };
   }
 
@@ -433,7 +443,8 @@ export class BoardPlayer {
       prev.pages === next.pages &&
       prev.pageTitle === next.pageTitle &&
       prev.camera === next.camera &&
-      prev.ask === next.ask
+      prev.ask === next.ask &&
+      prev.cites === next.cites
     ) {
       return;
     }
@@ -487,6 +498,7 @@ export class BoardPlayer {
         }
         if (this.next >= this.actions.length) return;
         if (this._waitForMath(this.actions[this.next])) return;
+        if (this._waitForImage(this.actions[this.next])) return;
         const index = this.next;
         this.next += 1;
         const plan = this._resolve(this.actions[index], index);
@@ -585,6 +597,18 @@ export class BoardPlayer {
     return true;
   }
 
+  /** A photo is fetched before it is placed, so the board knows its size. */
+  _waitForImage(action) {
+    if (action?.type !== 'image' || !action.url) return false;
+    if (this.images.has(action.url)) return this.images.get(action.url).status === 'loading';
+    this.images.set(action.url, { status: 'loading', img: null });
+    loadBoardImage(action.url)
+      .then((img) => this.images.set(action.url, { status: 'ready', img }))
+      .catch(() => this.images.set(action.url, { status: 'failed', img: null }))
+      .finally(() => this._wake());
+    return true;
+  }
+
   _resolve(action, index) {
     const rng = mulberry32(index + 1);
     if (action && isCompiled(action.type)) {
@@ -607,6 +631,10 @@ export class BoardPlayer {
         return this._markPlan(action, rng);
       case 'verdict':
         return null;
+      case 'image':
+        return this._imagePlan(action, index);
+      case 'cite':
+        return this._citePlan(action, index);
       case 'pause':
         return { kind: 'pause', duration: action.ms ?? 800 };
       case 'write':
@@ -707,6 +735,7 @@ export class BoardPlayer {
   /** Everything a fresh board forgets: write positions, columns, the stage and objects. */
   _resetBoard() {
     this.items.clear();
+    if (this.cites.length) this.cites = [];
     this.flow = null;
     this.column = 'left';
     this.columnFlow = {};
@@ -751,8 +780,8 @@ export class BoardPlayer {
    * When the column is full, start a "(contd.)" page and come back to action `index` on it.
    * Returns the page's plan, or null when there is room.
    */
-  _pageBreak(action, index) {
-    if (!this._columnFull(action)) return null;
+  _pageBreak(action, index, full = this._columnFull(action)) {
+    if (!full) return null;
     this.next = index; // resolve the action again on the new page
     const title = this.pageTitle ? this.pageTitle.replace(CONTD, '') + CONTD : 'Continued';
     return this._startPage(title, index);
@@ -791,6 +820,76 @@ export class BoardPlayer {
   _askView(action) {
     const { id, kind, options, unit, hint } = action;
     return { id, kind, options, unit, hint };
+  }
+
+  /** The student's photo as a block in the column; the writing carries on below it. */
+  _imagePlan(action, index) {
+    const img = this.images.get(action.url)?.img ?? null;
+    const column = this.flow?.column ?? COLUMNS[this.column];
+    const room = writeRoom(column, this.column);
+    const ratio = img?.width && img?.height ? img.width / img.height : 4 / 3;
+    let h = Math.min(IMAGE_MAX_H, room / ratio);
+    let w = h * ratio;
+    const top = this.flow ? this.flow.y + FONT_SIZES.md * 0.5 : MARGIN + 10;
+    const page = this._pageBreak({}, index, Boolean(this.flow) && top + h > BOARD_HEIGHT - EDGE);
+    if (page) return page;
+    if (top + h > BOARD_HEIGHT - EDGE) {
+      h = BOARD_HEIGHT - EDGE - top;
+      w = h * ratio;
+    }
+    this.flow = { column, y: top + h, size: FONT_SIZES.md * 0.6 };
+    return { kind: 'image', img, x: column, y: top, w, h, duration: IMAGE_MS };
+  }
+
+  /** A "📖 title · p.N" chip under the last line; its box goes to the clickable layer. */
+  _citePlan(action, index) {
+    if (!action.doc) return null;
+    const text = `📖 ${action.title ?? 'Your book'} · p.${action.page ?? 1}`;
+    const column = this.flow?.column ?? COLUMNS[this.column];
+    const top = (this.flow ? this.flow.y : MARGIN) + CHIP_GAP;
+    const w = this._measure(text, LABEL_PX) + CHIP_PAD * 2;
+    const h = LABEL_PX + CHIP_PAD * 1.4;
+    const x = Math.max(EDGE, Math.min(column, BOARD_WIDTH - EDGE - w));
+    if (top + h > BOARD_HEIGHT - EDGE / 2) return null;
+    this.flow = { column, y: top + h, size: LABEL_PX };
+    const box = { key: `cite-${index}`, x, y: top, w, h };
+    return {
+      kind: 'chip',
+      text,
+      ...box,
+      cite: { ...box, doc: action.doc, page: action.page, title: action.title },
+      duration: POP_MS,
+    };
+  }
+
+  _drawImage(ctx, plan) {
+    if (plan.img) {
+      ctx.drawImage(plan.img, plan.x, plan.y, plan.w, plan.h);
+      return;
+    }
+    // The photo could not be loaded: a dashed outline where it would be.
+    const { x, y, w, h } = plan;
+    strokePath(ctx, [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]], this._color('ink'), {
+      dash: DASH,
+    });
+  }
+
+  _drawChip(ctx, plan) {
+    const { x, y, w, h } = plan;
+    ctx.save();
+    ctx.globalAlpha = 0.14;
+    ctx.fillStyle = this._color('blue');
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 10);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = this._color('blue');
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.font = handFont(LABEL_PX, FONT_WEIGHT);
+    ctx.fillStyle = this._color('blue');
+    ctx.fillText(plan.text, x + CHIP_PAD, y + h - CHIP_PAD * 0.9);
+    ctx.restore();
   }
 
   /** The student's answer written in the column, with a tick or cross after it. */
@@ -1062,6 +1161,12 @@ export class BoardPlayer {
     }
 
     if (!complete) return;
+    if (plan.kind === 'image') this._drawImage(ctx, plan);
+    if (plan.kind === 'chip') {
+      this._drawChip(ctx, plan);
+      this.cites = [...this.cites, plan.cite];
+      this._emit();
+    }
     if (plan.kind === 'object') {
       // Objects live on the scene layer (they may move), not in the ink.
       this.scene.add(plan.object);
@@ -1085,6 +1190,8 @@ export class BoardPlayer {
         );
       }
       if (plan.kind === 'erase') ctx.clearRect(plan.rect.x, plan.rect.y, plan.rect.w, plan.rect.h);
+      if (plan.kind === 'image') this._drawImage(ctx, plan);
+      if (plan.kind === 'chip') this._drawChip(ctx, plan);
     }
     // The action in progress: redraw just the parts already committed.
     const current = this.current;

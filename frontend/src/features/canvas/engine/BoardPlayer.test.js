@@ -1,4 +1,5 @@
 import { BoardPlayer } from './BoardPlayer';
+import { setImageLoader } from './images';
 import { attachFakeCanvas, drain } from './testCanvas';
 
 const caption = (text) => ({ type: 'caption', text });
@@ -229,5 +230,78 @@ describe('BoardPlayer: the bottom edge', () => {
     drain(player);
 
     expect(player.getSnapshot().pageTitle).toBe('Area (contd.)');
+  });
+});
+
+describe('BoardPlayer: photos and citations', () => {
+  const PHOTO = { type: 'image', src: 'photo', url: '/api/v1/student/doubts/d1/photo' };
+  const CITE = { type: 'cite', source: 1, doc: 'doc-1', page: 112, title: 'Force' };
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  afterEach(() => setImageLoader(null));
+
+  it('image reserves a block and moves the cursor below it', async () => {
+    const picture = { width: 400, height: 200 };
+    const loader = vi.fn(() => Promise.resolve(picture));
+    setImageLoader(loader);
+    const player = livePlayer([PHOTO, write('Next line', { id: 'next' })]);
+
+    drain(player);
+    await settle();
+    drain(player);
+
+    expect(loader).toHaveBeenCalledWith(PHOTO.url);
+    const photo = player.committed.find((plan) => plan.kind === 'image');
+    expect(photo.img).toBe(picture);
+    expect(photo.h).toBeLessThanOrEqual(300);
+    expect(photo.w / photo.h).toBeCloseTo(2);
+    expect(player.items.get('next').y).toBeGreaterThanOrEqual(photo.y + photo.h);
+  });
+
+  it('image starts a new page when the column is full', async () => {
+    setImageLoader(() => Promise.resolve({ width: 400, height: 300 }));
+    const player = livePlayer([write('Low line', { y: 840 }), PHOTO]);
+
+    drain(player);
+    await settle();
+    drain(player);
+
+    expect(player.getSnapshot().pages).toHaveLength(1);
+    expect(player.committed.some((plan) => plan.kind === 'image')).toBe(true);
+  });
+
+  it('a photo that fails to load leaves an outline and the board carries on', async () => {
+    setImageLoader(() => Promise.reject(new Error('offline')));
+    const player = livePlayer([PHOTO, write('After', { id: 'after' })]);
+
+    drain(player);
+    await settle();
+    drain(player);
+
+    const photo = player.committed.find((plan) => plan.kind === 'image');
+    expect(photo.img).toBeNull();
+    expect(player.items.get('after')).toBeDefined();
+    expect(player.getSnapshot().status).toBe('waiting');
+  });
+
+  it('cite adds a chip and a clickable box for this page', () => {
+    const player = livePlayer([write('Inertia resists change'), CITE]);
+    drain(player);
+
+    const [cite] = player.getSnapshot().cites;
+    expect(cite).toMatchObject({ doc: 'doc-1', page: 112, title: 'Force' });
+    expect(cite.w).toBeGreaterThan(0);
+    expect(cite.h).toBeGreaterThan(0);
+    expect(player.committed.some((plan) => plan.kind === 'chip')).toBe(true);
+
+    player.enqueue({ type: 'clear' });
+    drain(player);
+    expect(player.getSnapshot().cites).toEqual([]);
+  });
+
+  it('a cite without a document is ignored', () => {
+    const player = livePlayer([write('Line'), { type: 'cite', source: 1 }]);
+    drain(player);
+    expect(player.getSnapshot().cites).toEqual([]);
   });
 });
