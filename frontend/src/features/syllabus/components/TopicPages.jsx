@@ -82,14 +82,15 @@ export function TopicPages({ subject, topic = null, pages, label }) {
         onChange={handleFile}
       />
       <Button
-        variant="link"
+        variant="ghost"
         size="sm"
-        className="h-auto px-0"
+        className="h-7 gap-1.5 px-1.5 text-xs text-muted-foreground hover:text-primary"
         onClick={() => inputRef.current?.click()}
         loading={upload.isPending}
+        aria-label={`Add a page from your book for ${name}`}
       >
-        <ImagePlus className="size-4" aria-hidden="true" />
-        {label ?? 'Add a page from your book'}
+        <ImagePlus className="size-3.5" aria-hidden="true" />
+        {label ?? 'Add page'}
       </Button>
       <PageViewer source={open} onClose={() => setOpen(null)} />
     </div>

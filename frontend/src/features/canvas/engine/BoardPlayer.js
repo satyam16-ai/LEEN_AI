@@ -50,8 +50,10 @@ const MARK_GAP = 20;
 const CONTD = ' (contd.)';
 const IMAGE_MAX_H = 300;
 const IMAGE_MS = 450;
+// Citation chips are tapped on phones, so they are larger than the labels inside visuals.
+const CHIP_PX = 30;
 const CHIP_PAD = 10;
-const CHIP_GAP = 14;
+const CHIP_GAP = 22;
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 // Overshoots a little, so placed pictures "pop" onto the board.
@@ -847,11 +849,11 @@ export class BoardPlayer {
     const text = `📖 ${action.title ?? 'Your book'} · p.${action.page ?? 1}`;
     const column = this.flow?.column ?? COLUMNS[this.column];
     const top = (this.flow ? this.flow.y : MARGIN) + CHIP_GAP;
-    const w = this._measure(text, LABEL_PX) + CHIP_PAD * 2;
-    const h = LABEL_PX + CHIP_PAD * 1.4;
+    const w = this._measure(text, CHIP_PX) + CHIP_PAD * 2;
+    const h = CHIP_PX + CHIP_PAD * 1.4;
     const x = Math.max(EDGE, Math.min(column, BOARD_WIDTH - EDGE - w));
     if (top + h > BOARD_HEIGHT - EDGE / 2) return null;
-    this.flow = { column, y: top + h, size: LABEL_PX };
+    this.flow = { column, y: top + h, size: CHIP_PX };
     const box = { key: `cite-${index}`, x, y: top, w, h };
     return {
       kind: 'chip',
@@ -886,7 +888,7 @@ export class BoardPlayer {
     ctx.strokeStyle = this._color('blue');
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.font = handFont(LABEL_PX, FONT_WEIGHT);
+    ctx.font = handFont(CHIP_PX, FONT_WEIGHT);
     ctx.fillStyle = this._color('blue');
     ctx.fillText(plan.text, x + CHIP_PAD, y + h - CHIP_PAD * 0.9);
     ctx.restore();
