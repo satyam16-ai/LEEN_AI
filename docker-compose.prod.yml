@@ -45,6 +45,8 @@ services:
     container_name: leen-api
     volumes:
       - media-data:/app/media
+      - private-data:/app/private
+      - model-cache:/models
     env_file:
       - ./backend/.env
     environment: &backend-env
@@ -70,6 +72,11 @@ services:
       target: production
     container_name: leen-worker
     command: celery -A app.core.celery_app.celery_app worker -B -s /tmp/celerybeat-schedule -Q default --loglevel=info
+    # The worker reads uploads (OCR, embeddings) that the API stored.
+    volumes:
+      - media-data:/app/media
+      - private-data:/app/private
+      - model-cache:/models
     env_file:
       - ./backend/.env
     environment: *backend-env
@@ -82,9 +89,9 @@ services:
       - leen-network
     restart: always
 
-  # ---- PostgreSQL ----
+  # ---- PostgreSQL (+ pgvector for the knowledge base) ----
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: leen-postgres
     environment:
       POSTGRES_DB: leen_ai
@@ -125,3 +132,5 @@ volumes:
   redis-data:
   frontend-build:
   media-data:
+  private-data:
+  model-cache:

@@ -15,3 +15,7 @@ pillow>=11.0.0
 python-multipart>=0.0.20
 httpx>=0.28.0
 edge-tts>=7.0
+pgvector>=0.3.6
+pypdfium2>=4.30.0
+pytesseract>=0.3.13
+fastembed>=0.4.2

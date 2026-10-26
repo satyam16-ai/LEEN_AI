@@ -34,6 +34,7 @@ backend/htmlcov/
 backend/.coverage
 backend/coverage.xml
 backend/media/
+backend/private/
 
 # --------------- Environment Variables ---------------
 .env

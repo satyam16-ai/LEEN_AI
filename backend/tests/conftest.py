@@ -2,9 +2,10 @@ import os
 import re
 import tempfile
 
-# Point the app at a dedicated test database (and a throwaway media dir) before
+# Point the app at a dedicated test database (and throwaway file dirs) before
 # any app module is imported.
 os.environ["MEDIA_ROOT"] = tempfile.mkdtemp(prefix="leen-media-")
+os.environ["PRIVATE_ROOT"] = tempfile.mkdtemp(prefix="leen-private-")
 _BASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql://leen:leen_dev_password@localhost:5432/leen_ai"
 )
@@ -33,6 +34,8 @@ def _ensure_test_database() -> None:
         exists = conn.execute("SELECT 1 FROM pg_database WHERE datname = %s", (TEST_DB,)).fetchone()
         if exists is None:
             conn.execute(f'CREATE DATABASE "{TEST_DB}"')
+    with psycopg.connect(f"{_SERVER_URL}/{TEST_DB}", autocommit=True) as conn:
+        conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
 
 @pytest.fixture(scope="session", autouse=True)

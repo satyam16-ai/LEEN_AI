@@ -20,6 +20,10 @@ dependencies = [
     "pwdlib[argon2]>=0.2.1",
     "pillow>=11.0.0",
     "python-multipart>=0.0.20",
+    "pgvector>=0.3.6",
+    "pypdfium2>=4.30.0",
+    "pytesseract>=0.3.13",
+    "fastembed>=0.4.2",
 ]
 
 [project.optional-dependencies]
