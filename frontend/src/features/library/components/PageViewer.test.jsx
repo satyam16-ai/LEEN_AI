@@ -27,6 +27,23 @@ describe('PageViewer', () => {
 
     const frame = await screen.findByTitle('Motion, page 3');
     expect(frame).toHaveAttribute('src', 'blob:book#page=3');
+    // Phone browsers often can't show a PDF in a frame, so it can open on its own too.
+    const open = screen.getByRole('link', { name: /open the pdf/i });
+    expect(open).toHaveAttribute('href', 'blob:book#page=3');
+    expect(open).toHaveAttribute('target', '_blank');
+  });
+
+  it('never shows a freed file when the same page opens again', async () => {
+    fetchBlob.mockResolvedValue({ url: 'blob:first', type: 'image/jpeg' });
+    const source = { doc: 'doc-1', page: 1, title: 'Force' };
+    const { rerender } = render(<PageViewer source={source} onClose={() => {}} />);
+    await screen.findByRole('img', { name: 'Force, page 1' });
+
+    rerender(<PageViewer source={null} onClose={() => {}} />);
+    fetchBlob.mockReturnValue(new Promise(() => {}));
+    rerender(<PageViewer source={{ ...source }} onClose={() => {}} />);
+
+    expect(screen.queryByRole('img', { name: 'Force, page 1' })).not.toBeInTheDocument();
   });
 
   it('closes and frees the file', async () => {

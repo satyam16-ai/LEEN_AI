@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button, Card, CardContent, Checkbox, Input } from '@/components/ui';
+import { Alert, Button, Card, CardContent, Checkbox, Input } from '@/components/ui';
 
 import {
   addChapter,
@@ -16,6 +16,9 @@ import {
   toggleDone,
   toPayload,
 } from '../treeEditing';
+
+const MAX_TITLE = 120;
+const UNNAMED = 'Give every chapter a name before saving. A chapter without one would be lost.';
 
 function MoveButtons({ name, first, last, onMove }) {
   return (
@@ -50,7 +53,15 @@ export function TopicTreeEditor({ chapters, onSave, saving = false, renderTopic 
   const [tree, setTree] = useState(() =>
     chapters.length ? fromServer(chapters) : addChapter([])
   );
-  const save = (confirm) => onSave({ chapters: toPayload(tree), confirm });
+  const [problem, setProblem] = useState(null);
+  const save = (confirm) => {
+    // A blank chapter is dropped on save, and its topics with it: never do that silently.
+    const unnamed = tree.some(
+      (chapter) => !chapter.title.trim() && chapter.topics.some((topic) => topic.title.trim())
+    );
+    setProblem(unnamed ? UNNAMED : null);
+    if (!unnamed) onSave({ chapters: toPayload(tree), confirm });
+  };
 
   return (
     <div className="space-y-4">
@@ -64,6 +75,7 @@ export function TopicTreeEditor({ chapters, onSave, saving = false, renderTopic 
                   value={chapter.title}
                   onChange={(event) => setTree(renameChapter(tree, ci, event.target.value))}
                   placeholder="Chapter name"
+                  maxLength={MAX_TITLE}
                   aria-label={`Chapter ${ci + 1} title`}
                   className="font-semibold"
                 />
@@ -100,6 +112,7 @@ export function TopicTreeEditor({ chapters, onSave, saving = false, renderTopic 
                             setTree(renameTopic(tree, ci, ti, event.target.value))
                           }
                           placeholder="Topic"
+                          maxLength={MAX_TITLE}
                           aria-label={`Topic ${ti + 1} of chapter ${ci + 1}`}
                           className={topic.done ? 'text-muted-foreground line-through' : ''}
                         />
@@ -137,6 +150,7 @@ export function TopicTreeEditor({ chapters, onSave, saving = false, renderTopic 
         );
       })}
 
+      {problem && <Alert variant="destructive">{problem}</Alert>}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="outline" onClick={() => setTree(addChapter(tree))}>
           <Plus className="size-4" aria-hidden="true" />

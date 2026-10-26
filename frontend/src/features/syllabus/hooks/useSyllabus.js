@@ -24,6 +24,10 @@ export function useSyllabus(subject) {
     queryKey: SYLLABUS_KEYS.detail(subject),
     queryFn: () => syllabusService.get(subject),
     enabled: Boolean(subject),
+    // The editor resets whenever this data changes, so only the student's own saves and
+    // uploads (and polling while the AI reads) may change it, never a background refetch.
+    staleTime: Infinity,
+    refetchOnReconnect: false,
     refetchInterval: (query) =>
       query.state.data?.status === 'reading' ? READING_POLL_MS : false,
   });

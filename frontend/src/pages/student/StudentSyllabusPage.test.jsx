@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import { onlineManager } from '@tanstack/react-query';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { documentService } from '@/services/documentService';
@@ -75,5 +76,36 @@ describe('StudentSyllabusPage', () => {
     expect(chapter).toHaveValue('Polynomials');
     expect(screen.getByText('Confirmed')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Done: Zeroes' })).toBeChecked();
+  });
+});
+
+describe('StudentSyllabusPage: editing', () => {
+  beforeEach(() => {
+    syllabusService.list.mockResolvedValue(SUBJECTS);
+    syllabusService.get.mockResolvedValue({
+      subject: 'Maths',
+      status: 'confirmed',
+      error: null,
+      chapters: [{ id: 'c1', title: 'Polynomials', topics: [] }],
+    });
+    documentService.list.mockResolvedValue([]);
+  });
+
+  it('keeps unsaved edits when the phone reconnects', async () => {
+    const user = userEvent.setup();
+    renderRoutes(routes, { path: '/student/syllabus/Maths' });
+    const chapter = await screen.findByRole('textbox', { name: 'Chapter 1 title' });
+    await user.type(chapter, ' and zeroes');
+
+    await act(async () => {
+      onlineManager.setOnline(false);
+      onlineManager.setOnline(true);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(screen.getByRole('textbox', { name: 'Chapter 1 title' })).toHaveValue(
+      'Polynomials and zeroes'
+    );
+    expect(syllabusService.get).toHaveBeenCalledTimes(1);
   });
 });

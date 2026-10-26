@@ -66,3 +66,29 @@ describe('TopicTreeEditor', () => {
     expect(screen.getByRole('textbox', { name: 'Chapter 1 title' })).toHaveValue('');
   });
 });
+
+describe('TopicTreeEditor: guarding the tree', () => {
+  it('will not save a chapter with topics but no name', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(<TopicTreeEditor chapters={CHAPTERS} onSave={onSave} />);
+
+    await user.clear(screen.getByRole('textbox', { name: 'Chapter 1 title' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Give every chapter a name');
+  });
+
+  it('limits titles to 120 characters', () => {
+    render(<TopicTreeEditor chapters={CHAPTERS} onSave={() => {}} />);
+    expect(screen.getByRole('textbox', { name: 'Chapter 1 title' })).toHaveAttribute(
+      'maxLength',
+      '120'
+    );
+    expect(screen.getByRole('textbox', { name: 'Topic 1 of chapter 1' })).toHaveAttribute(
+      'maxLength',
+      '120'
+    );
+  });
+});
