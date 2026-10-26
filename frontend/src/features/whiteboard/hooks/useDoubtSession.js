@@ -21,6 +21,7 @@ const IDLE = {
   feedback: null,
 };
 const CUT_OFF = 'The connection closed before the explanation finished. Please try again.';
+const PHOTO_TITLE = 'Question from a photo';
 const MAX_MESSAGE = 500;
 const CORRECT = 'Correct! Well done.';
 const TRY_AGAIN = 'Not quite. Have another go.';
@@ -136,13 +137,25 @@ export function useDoubtSession(player, { onDoubt } = {}) {
   );
 
   const ask = useCallback(
-    ({ question, subject }) => {
+    ({ question, subject, photo = null }) => {
       player.begin();
       doubtIdRef.current = null;
       pendingRef.current = null;
-      setSession({ ...IDLE, phase: 'connecting', question, subject, turns: 1 });
+      setSession({
+        ...IDLE,
+        phase: 'connecting',
+        question: question || (photo ? PHOTO_TITLE : question),
+        subject,
+        // What was asked, so "Try again" can send it (photo included) once more.
+        retry: { question, subject, photo },
+        turns: 1,
+      });
+      const body = { question, subject: subject || null };
       return run(
-        (options) => doubtService.stream({ question, subject: subject || null }, options),
+        (options) =>
+          photo
+            ? doubtService.streamPhoto({ ...body, photo }, options)
+            : doubtService.stream(body, options),
         { onDoubtEvent: (data) => onDoubtRef.current?.(data) }
       );
     },

@@ -150,7 +150,9 @@ export function StudentDoubtsPage() {
                   variant="link"
                   className="ml-1 text-sm"
                   onClick={() =>
-                    handleAsk({ question: session.question, subject: session.subject })
+                    handleAsk(
+                      session.retry ?? { question: session.question, subject: session.subject }
+                    )
                   }
                 >
                   Try again

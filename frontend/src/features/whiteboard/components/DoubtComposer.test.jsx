@@ -81,3 +81,37 @@ describe('DoubtSuggestions', () => {
     expect(onPick).toHaveBeenCalledWith('Why is (x+y)^2 = x^2 + 2xy + y^2?');
   });
 });
+
+describe('DoubtComposer: photos', () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:photo');
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  const photo = () => new File(['jpeg'], 'question.jpg', { type: 'image/jpeg' });
+
+  it('asks with only a photo', async () => {
+    const user = userEvent.setup();
+    const { onAsk } = setup();
+    const file = photo();
+
+    await user.upload(screen.getByLabelText('Add a photo of the question'), file);
+    expect(screen.getByRole('img', { name: 'Your photo' })).toHaveAttribute('src', 'blob:photo');
+    await user.click(screen.getByRole('button', { name: /Explain/ }));
+
+    expect(onAsk).toHaveBeenCalledWith({ question: '', subject: null, photo: file });
+    expect(screen.queryByRole('img', { name: 'Your photo' })).not.toBeInTheDocument();
+  });
+
+  it('removing the photo brings back the question requirement', async () => {
+    const user = userEvent.setup();
+    const { onAsk } = setup();
+
+    await user.upload(screen.getByLabelText('Add a photo of the question'), photo());
+    await user.click(screen.getByRole('button', { name: 'Remove photo' }));
+    await user.click(screen.getByRole('button', { name: /Explain/ }));
+
+    expect(onAsk).not.toHaveBeenCalled();
+    expect(screen.getByText(/at least 3 characters/)).toBeInTheDocument();
+  });
+});

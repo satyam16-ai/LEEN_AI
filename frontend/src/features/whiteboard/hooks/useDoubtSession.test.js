@@ -9,7 +9,7 @@ import { doubtService } from '@/services/doubtService';
 import { useDoubtSession } from './useDoubtSession';
 
 vi.mock('@/services/doubtService', () => ({
-  doubtService: { stream: vi.fn(), streamTurn: vi.fn(), answer: vi.fn() },
+  doubtService: { stream: vi.fn(), streamPhoto: vi.fn(), streamTurn: vi.fn(), answer: vi.fn() },
 }));
 
 const QUESTION = { id: 'q1', kind: 'number', unit: 'cm' };
@@ -433,5 +433,35 @@ describe('useDoubtSession: deferred fixes', () => {
     await act(async () => result.current.answer('light slows down'));
 
     expect(result.current.session.feedback).toBeNull();
+  });
+});
+
+describe('useDoubtSession: photo doubts', () => {
+  it('sends a photo doubt through the photo route', async () => {
+    const photo = new File(['jpeg'], 'question.jpg', { type: 'image/jpeg' });
+    doubtService.streamPhoto.mockImplementation((body, { onEvent }) => {
+      onEvent('doubt', { id: 'd9', question: 'Question from a photo' });
+      onEvent('done', { id: 'd9' });
+      return Promise.resolve();
+    });
+    const { result } = renderHook(() => useDoubtSession(fakePlayer()), { wrapper });
+
+    await act(async () => {
+      await result.current.ask({ question: '', subject: 'Maths', photo });
+    });
+
+    expect(doubtService.streamPhoto).toHaveBeenCalledWith(
+      { photo, question: '', subject: 'Maths' },
+      expect.objectContaining({ onEvent: expect.any(Function) })
+    );
+    expect(doubtService.stream).not.toHaveBeenCalled();
+    expect(result.current.session.question).toBe('Question from a photo');
+  });
+
+  it('plain doubts still use the text route', async () => {
+    const player = fakePlayer();
+    await askedDoubt(player);
+    expect(doubtService.stream).toHaveBeenCalled();
+    expect(doubtService.streamPhoto).not.toHaveBeenCalled();
   });
 });
