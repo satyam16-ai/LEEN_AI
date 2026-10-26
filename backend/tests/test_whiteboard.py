@@ -887,3 +887,112 @@ def test_a_question_whose_solution_was_shown_cannot_be_answered(signed_in, monke
     assert late.status_code == 409
     saved = student.get(f"{DOUBTS}/{doubt_id}").json()["data"]
     assert not any(action["type"] == "answer" for action in saved["actions"])
+
+
+# -- citing the student's own pages (Phase 6) --------------------------------------------
+
+CITE_SCRIPT = (
+    '{"type":"caption","text":"Inertia means resisting change."}\n'
+    '{"type":"write","text":"Inertia","x":80,"y":110}\n'
+    '{"type":"cite","source":1}\n'
+    '{"type":"cite","source":7}\n'
+)
+INERTIA_PAGE = "Inertia: inertia resists changes in motion. Mass measures inertia."
+
+
+def science_student(signed_in, email="cite@example.com"):
+    client = signed_in(email, UserRole.STUDENT)
+    client.patch("/api/v1/profile", json={"grade": 9, "board": "cbse", "subjects": ["Science"]})
+    with SessionLocal() as db:
+        student = db.query(User).filter_by(email=email).one()
+    return client, student.id
+
+
+def test_doubt_cites_retrieved_page(signed_in, monkeypatch):
+    from tests.pages import add_ready_page
+
+    fake = counting_stream(CITE_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    client, student_id = science_student(signed_in)
+    document = add_ready_page(student_id, INERTIA_PAGE, title="Force", page=112)
+
+    events = read_events(
+        client.post(DOUBTS, json={"question": "What is inertia?", "subject": "Science"})
+    )
+
+    assert "<sources>\n[1] Force, page 112: Inertia" in fake.prompt
+    cites = [data for name, data in events if name == "action" and data["type"] == "cite"]
+    assert cites == [{"type": "cite", "source": 1, "doc": document, "page": 112, "title": "Force"}]
+    saved = client.get(f"{DOUBTS}/{events[0][1]['id']}").json()["data"]
+    assert [a for a in saved["actions"] if a["type"] == "cite"] == cites
+    with SessionLocal() as db:
+        turn = db.query(BoardEvent).filter_by(session_id=events[0][1]["id"]).one()
+        assert turn.payload["sources"] == [{"n": 1, "doc": document, "page": 112, "title": "Force"}]
+
+
+def test_cite_without_sources_is_dropped(signed_in, monkeypatch):
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(CITE_SCRIPT))
+    client, _ = science_student(signed_in)
+
+    events = read_events(
+        client.post(DOUBTS, json={"question": "What is inertia?", "subject": "Science"})
+    )
+
+    assert [d["type"] for n, d in events if n == "action"] == ["caption", "write"]
+
+
+def test_unrelated_pages_are_not_cited(signed_in, monkeypatch):
+    from tests.pages import add_ready_page
+
+    fake = counting_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    client, student_id = science_student(signed_in)
+    add_ready_page(student_id, "Photosynthesis converts sunlight into chemical energy.")
+
+    ask(client, "What is inertia?", "Science")
+
+    assert "<sources>" not in fake.prompt
+    ask(client, "What is inertia?", "Science")
+    assert fake.calls == 1  # no sources, so the board is cached as before
+
+
+def test_doubt_with_sources_skips_cache(signed_in, monkeypatch):
+    from tests.pages import add_ready_page
+
+    fake = counting_stream(CITE_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    first, first_id = science_student(signed_in, "first@example.com")
+    second, _ = science_student(signed_in, "second@example.com")
+    add_ready_page(first_id, INERTIA_PAGE, title="Force", page=112)
+
+    ask(first, "What is inertia?", "Science")
+    events = read_events(
+        second.post(DOUBTS, json={"question": "What is inertia?", "subject": "Science"})
+    )
+
+    assert fake.calls == 2
+    assert "<sources>" not in fake.prompt
+    assert not [d for n, d in events if n == "action" and d["type"] == "cite"]
+    with SessionLocal() as db:
+        first_session = db.query(BoardSession).order_by(BoardSession.created_at).first()
+        assert first_session.cache_key is None
+
+
+def test_follow_up_retrieves_sources(signed_in, monkeypatch):
+    from tests.pages import add_ready_page
+
+    fake = counting_stream(BOARD_SCRIPT)
+    monkeypatch.setattr(claude_bridge, "stream_text", fake)
+    client, student_id = science_student(signed_in)
+    doubt_id = ask(client, "What is a prime?", "Science")
+    add_ready_page(student_id, INERTIA_PAGE, title="Force", page=112)
+    monkeypatch.setattr(claude_bridge, "stream_text", counting_stream(CITE_SCRIPT))
+
+    events = read_events(
+        client.post(
+            f"{DOUBTS}/{doubt_id}/turns", json={"question": "What is inertia?", "mode": "follow_up"}
+        )
+    )
+
+    cites = [d for n, d in events if n == "action" and d["type"] == "cite"]
+    assert [(c["source"], c["page"]) for c in cites] == [(1, 112)]

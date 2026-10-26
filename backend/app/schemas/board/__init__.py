@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, TypeAdapter
 
 from app.schemas.board.common import BOARD_HEIGHT, BOARD_WIDTH, MAX_CAPTION, MAX_TEXT
 from app.schemas.board.questions import AskAction, MarkAction, VerdictAction
+from app.schemas.board.sources import CiteAction
 from app.schemas.board.v1 import (
     AnimateAction,
     CaptionAction,
@@ -61,7 +62,8 @@ BoardAction = Annotated[
     | DiagramAction
     | AskAction
     | MarkAction
-    | VerdictAction,
+    | VerdictAction
+    | CiteAction,
     Field(discriminator="type"),
 ]
 board_action = TypeAdapter(BoardAction)

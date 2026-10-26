@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import NamedTuple
 
 import anyio
@@ -29,6 +29,7 @@ from app.schemas.whiteboard import (
     TurnCreate,
     TurnOut,
 )
+from app.services.library.retrieval import Source, format_sources, retrieve
 from app.services.llm import claude_bridge, gateway
 from app.services.whiteboard.grading import check_answer, display_key, prepare_ask, public_action
 from app.services.whiteboard.parser import ActionStreamParser
@@ -193,6 +194,8 @@ class TurnStart(NamedTuple):
     prompt: str | None
     cached_actions: list[dict] | None = None
     agent: str = "doubt_solver"
+    # The student's pages offered to the model as numbered <sources>: {n, doc, page, title}.
+    sources: tuple[dict, ...] = ()
 
 
 def cache_key(question: str, subject: str | None, profile: StudentProfile | None) -> str:
@@ -208,15 +211,49 @@ def cache_key(question: str, subject: str | None, profile: StudentProfile | None
     return hashlib.sha256("|".join(parts).encode()).hexdigest()
 
 
+def _retrieve(db: Session, student_id: str, query: str, subject: str | None) -> list[Source]:
+    """The student's own pages for this question; a search failure never blocks a doubt."""
+    try:
+        return retrieve(db, student_id, query, subject=subject)
+    except Exception:  # noqa: BLE001 - e.g. the embedding model failed to load
+        logger.exception("Could not search the student's pages")
+        return []
+
+
+def _refs(sources: list[Source]) -> tuple[dict, ...]:
+    return tuple(
+        {"n": source.n, "doc": source.doc, "page": source.page, "title": source.title}
+        for source in sources
+    )
+
+
+def prepare_cite(action: dict, sources: Sequence[dict]) -> dict | None:
+    """Fill a cite from the turn's sources by number; None (dropped) for any other number."""
+    source = next((item for item in sources if item["n"] == action.get("source")), None)
+    if source is None:
+        return None
+    return {
+        "type": "cite",
+        "source": source["n"],
+        "doc": source["doc"],
+        "page": source["page"],
+        "title": source["title"],
+    }
+
+
 def start_doubt(db: Session, student: User, payload: DoubtCreate) -> TurnStart:
     """Record the doubt and its first turn, and build the prompts.
 
     An identical doubt from a student with the same profile is copied from the
-    earlier board instead (no model call). The board itself is streamed separately.
+    earlier board instead (no model call). A doubt that uses the student's own pages
+    is never cached, nor served from the cache. The board is streamed separately.
     """
     profile = profile_repository.get(db, student.id)
-    key = cache_key(payload.question, payload.subject, profile)
-    cached = board_repository.find_cached_turn(db, key) if settings.board_cache_enabled else None
+    sources = _retrieve(db, student.id, payload.question, payload.subject)
+    key = None if sources else cache_key(payload.question, payload.subject, profile)
+    cached = (
+        board_repository.find_cached_turn(db, key) if key and settings.board_cache_enabled else None
+    )
 
     session = board_repository.create_session(
         db,
@@ -227,6 +264,9 @@ def start_doubt(db: Session, student: User, payload: DoubtCreate) -> TurnStart:
         cache_key=key,
     )
     turn = _new_turn(payload.question, "ask")
+    refs = _refs(sources)
+    if refs:
+        turn["sources"] = list(refs)
     if cached is not None:
         actions = list(cached.payload["actions"])
         turn.update(actions=actions, status="complete", cached=True)
@@ -237,8 +277,10 @@ def start_doubt(db: Session, student: User, payload: DoubtCreate) -> TurnStart:
 
     if cached is not None:
         return TurnStart(_summary(session), event.id, None, None, actions)
-    system, prompt = build_prompt(payload.question, payload.subject, profile)
-    return TurnStart(_summary(session), event.id, system, prompt)
+    system, prompt = build_prompt(
+        payload.question, payload.subject, profile, sources=format_sources(sources) or None
+    )
+    return TurnStart(_summary(session), event.id, system, prompt, sources=refs)
 
 
 def _is_stale(turn) -> bool:
@@ -306,6 +348,13 @@ def start_turn(db: Session, student: User, doubt_id: str, payload: TurnCreate) -
 
     context = summarize_board(flatten_turns([turn.payload for turn in turns]))
     profile = profile_repository.get(db, student.id)
+    sources = []
+    if payload.mode in ("follow_up", "another_way"):
+        query = payload.question if payload.mode == "follow_up" else session.title
+        sources = _retrieve(db, student.id, query, session.subject)
+    refs = _refs(sources)
+    if refs:
+        turn_extra["sources"] = list(refs)
     event = board_repository.add_turn(db, session, _new_turn(asked, mode) | turn_extra)
     session.status = "streaming"
     session.error = None
@@ -321,9 +370,10 @@ def start_turn(db: Session, student: User, doubt_id: str, payload: TurnCreate) -
         left=left,
         message=message,
         check=check,
+        sources=format_sources(sources) or None,
     )
     agent = "examiner" if mode in EXAMINER_MODES else "doubt_solver"
-    return TurnStart(_summary(session), event.id, system, prompt, agent=agent)
+    return TurnStart(_summary(session), event.id, system, prompt, agent=agent, sources=refs)
 
 
 def submit_answer(db: Session, student: User, doubt_id: str, payload: AnswerCreate) -> AnswerOut:
@@ -441,6 +491,7 @@ async def stream_solution(
     prompt: str,
     student_id: str,
     agent: str = "doubt_solver",
+    sources: Sequence[dict] = (),
 ) -> AsyncIterator[str]:
     """Server-sent events: doubt, status, action*, then done or error.
 
@@ -471,6 +522,10 @@ async def stream_solution(
             for action in new:
                 if action["type"] == "ask":
                     action = prepare_ask(action)  # the key is saved, never sent
+                elif action["type"] == "cite":
+                    action = prepare_cite(action, sources)  # only pages we offered
+                    if action is None:
+                        continue
                 actions.append(action)
                 yield _sse("action", public_action(action))
             if kind == "end" or parser.full:

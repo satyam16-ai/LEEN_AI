@@ -169,3 +169,13 @@ def test_mark_and_verdict_validate():
     assert mark == {"type": "mark", "id": "s1", "kind": "cross", "note": "sign error"}
     verdict = parse({"type": "verdict", "ask": "q1", "correct": False})
     assert verdict == {"type": "verdict", "ask": "q1", "correct": False}
+
+
+def test_cite_schema_clamps_source():
+    assert dump_action(board_action.validate_python({"type": "cite", "source": 42})) == {
+        "type": "cite",
+        "source": 9,
+    }
+    assert board_action.validate_python({"type": "cite", "source": 0}).source == 1
+    with pytest.raises(ValidationError):
+        board_action.validate_python({"type": "cite"})
